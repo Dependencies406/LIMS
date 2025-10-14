@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "start": "cd server && node index.js"
   },
   "devDependencies": {
     "@types/node": "^24.6.0",
