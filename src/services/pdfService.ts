@@ -13,17 +13,28 @@ import { getCompanyInfo } from './companyInfoService';
 /**
  * Helper function to replace placeholders in header/footer content
  */
-const replacePlaceholders = (text: string, job: Job, companyInfo: any): string => {
+const replacePlaceholders = (text: string, job: Job, companyInfo: any, pageNum: number = 1, totalPages: number = 1): string => {
+  // Handle company logo placeholder
+  if (text.includes('{company_logo}')) {
+    if (companyInfo?.logoUrl) {
+      return `<img src="${companyInfo.logoUrl}" alt="Company Logo" style="max-height: 40px; max-width: 150px; object-fit: contain;" crossorigin="anonymous" />`;
+    }
+    return ''; // Return empty if no logo
+  }
+  
+  // Handle other placeholders
   return text
-    .replace(/\{company\.name\}/g, companyInfo?.name || '')
-    .replace(/\{company\.address\}/g, companyInfo?.address?.street || '')
-    .replace(/\{company\.phone\}/g, companyInfo?.phone || '')
-    .replace(/\{company\.email\}/g, companyInfo?.email || '')
-    .replace(/\{job\.id\}/g, job.jobId || '')
-    .replace(/\{job\.title\}/g, job.title || '')
-    .replace(/\{job\.customer\}/g, job.customerCode || '')
+    .replace(/\{company_name\}/g, companyInfo?.companyName || '')
+    .replace(/\{company_address\}/g, companyInfo?.address?.street || '')
+    .replace(/\{company_phone\}/g, companyInfo?.contactInfo?.phone || '')
+    .replace(/\{company_email\}/g, companyInfo?.contactInfo?.email || '')
+    .replace(/\{company_website\}/g, companyInfo?.contactInfo?.website || '')
+    .replace(/\{job_id\}/g, job.jobId || '')
+    .replace(/\{job_title\}/g, job.title || '')
+    .replace(/\{job_customer\}/g, job.customerCode || '')
     .replace(/\{date\}/g, new Date().toLocaleDateString())
-    .replace(/\{page\}/g, '1'); // Simple page numbering for now
+    .replace(/\{page_number\}/g, `Page ${pageNum} of ${totalPages}`)
+    .replace(/\{page\}/g, `${pageNum}`);
 };
 
 /**
@@ -256,12 +267,37 @@ export const generateJobPDF = async (
     container.innerHTML = generatePDFHTML(job, pdfSettings, companyInfo);
     document.body.appendChild(container);
 
-    // Convert to canvas
+    // Wait for images (logos) to load
+    const images = container.querySelectorAll('img');
+    if (images.length > 0) {
+      await Promise.all(
+        Array.from(images).map(img => {
+          if (img.complete) return Promise.resolve();
+          return new Promise((resolve, reject) => {
+            img.onload = resolve;
+            img.onerror = () => {
+              console.warn('Failed to load image:', img.src);
+              resolve(); // Continue even if image fails
+            };
+            // Timeout after 5 seconds
+            setTimeout(resolve, 5000);
+          });
+        })
+      );
+    }
+
+    // Small delay to ensure rendering is complete
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    // Convert to canvas with improved settings
     const canvas = await html2canvas(container, {
-      scale: 2,
+      scale: 2.5, // Higher quality
       useCORS: true,
+      allowTaint: false,
       logging: false,
-      backgroundColor: '#ffffff'
+      backgroundColor: '#ffffff',
+      imageTimeout: 5000,
+      removeContainer: false
     });
 
     // Remove temporary container
