@@ -1,0 +1,32 @@
+// Firebase Storage Security Rules
+// Add these rules to your Firebase Storage security rules
+
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Allow authenticated users to upload and manage company logos
+    match /company/logo/{fileName} {
+      allow read, write: if request.auth != null;
+    }
+    
+    // Allow authenticated users to upload and manage job attachments
+    match /jobs/{jobId}/attachments/{fileName} {
+      allow read, write: if request.auth != null;
+    }
+    
+    // Allow authenticated users to upload and manage customer files
+    match /customers/{customerId}/files/{fileName} {
+      allow read, write: if request.auth != null;
+    }
+    
+    // Allow authenticated users to upload and manage user avatars
+    match /users/{userId}/avatar/{fileName} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Default rule: deny all other access
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

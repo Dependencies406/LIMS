@@ -1,0 +1,871 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LIMS Deployment Guide</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+        
+        .content {
+            padding: 40px;
+        }
+        
+        .section {
+            margin-bottom: 40px;
+        }
+        
+        .section h2 {
+            font-size: 1.8em;
+            color: #667eea;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 3px solid #667eea;
+        }
+        
+        .section h3 {
+            font-size: 1.3em;
+            color: #764ba2;
+            margin-top: 25px;
+            margin-bottom: 15px;
+        }
+        
+        .code-block {
+            background: #2d2d2d;
+            color: #f8f8f2;
+            padding: 20px;
+            border-radius: 8px;
+            overflow-x: auto;
+            margin: 15px 0;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+        }
+        
+        .alert {
+            padding: 15px 20px;
+            border-radius: 6px;
+            margin: 20px 0;
+            border-left: 4px solid;
+        }
+        
+        .alert-info {
+            background: #d1ecf1;
+            border-color: #0c5460;
+            color: #0c5460;
+        }
+        
+        .alert-warning {
+            background: #fff3cd;
+            border-color: #856404;
+            color: #856404;
+        }
+        
+        .alert-success {
+            background: #d4edda;
+            border-color: #155724;
+            color: #155724;
+        }
+        
+        .steps {
+            counter-reset: step-counter;
+            list-style: none;
+        }
+        
+        .steps li {
+            counter-increment: step-counter;
+            margin-bottom: 30px;
+            padding-left: 60px;
+            position: relative;
+        }
+        
+        .steps li::before {
+            content: counter(step-counter);
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 1.2em;
+        }
+        
+        .option-card {
+            background: #f8f9fa;
+            border-left: 4px solid #667eea;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        
+        .option-card h3 {
+            color: #667eea;
+            margin-top: 0;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        th {
+            background: #667eea;
+            color: white;
+            font-weight: 600;
+        }
+        
+        ul {
+            margin-left: 20px;
+            margin-top: 10px;
+        }
+        
+        li {
+            margin-bottom: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚀 LIMS Deployment Guide</h1>
+            <p style="margin-top: 15px; font-size: 1.1em; opacity: 0.95;">
+                How to Deploy Your Laboratory Information Management System
+            </p>
+        </div>
+
+        <div class="content">
+            <!-- Option 1: Firebase Hosting -->
+            <div class="section">
+                <h2>🔥 Option 1: Firebase Hosting (Recommended)</h2>
+                
+                <div class="alert alert-success">
+                    <strong>✅ Best For:</strong> Your app (already using Firebase)<br>
+                    <strong>📊 Difficulty:</strong> Easy<br>
+                    <strong>💰 Cost:</strong> Free tier available<br>
+                    <strong>⚡ Speed:</strong> Global CDN, very fast
+                </div>
+
+                <ol class="steps">
+                    <li>
+                        <strong>Install Firebase CLI</strong>
+                        <div class="code-block">npm install -g firebase-tools</div>
+                    </li>
+
+                    <li>
+                        <strong>Login to Firebase</strong>
+                        <div class="code-block">firebase login</div>
+                        <p>This will open your browser to authenticate</p>
+                    </li>
+
+                    <li>
+                        <strong>Initialize Firebase Hosting</strong>
+                        <div class="code-block">firebase init hosting</div>
+                        <p>Answer the prompts:</p>
+                        <ul>
+                            <li>✅ Use existing project (select your LIMS project)</li>
+                            <li>✅ Public directory: <code>dist</code></li>
+                            <li>✅ Configure as single-page app: <code>Yes</code></li>
+                            <li>✅ Overwrite index.html: <code>No</code></li>
+                        </ul>
+                    </li>
+
+                    <li>
+                        <strong>Build Your App</strong>
+                        <div class="code-block">npm run build</div>
+                        <p>This creates an optimized production build in the <code>dist</code> folder</p>
+                    </li>
+
+                    <li>
+                        <strong>Deploy to Firebase</strong>
+                        <div class="code-block">firebase deploy --only hosting</div>
+                        <p>Your app will be live at: <code>https://your-project-id.web.app</code></p>
+                    </li>
+                </ol>
+
+                <div class="alert alert-info">
+                    <strong>📝 Note:</strong> The PDF server (Node.js) needs to be deployed separately! See Option 4 below.
+                </div>
+            </div>
+
+            <!-- Option 2: Vercel -->
+            <div class="section">
+                <h2>⚡ Option 2: Vercel</h2>
+                
+                <div class="alert alert-success">
+                    <strong>✅ Best For:</strong> Fast deployment with Git integration<br>
+                    <strong>📊 Difficulty:</strong> Very Easy<br>
+                    <strong>💰 Cost:</strong> Free tier available<br>
+                    <strong>⚡ Speed:</strong> Edge network, instant deploys
+                </div>
+
+                <ol class="steps">
+                    <li>
+                        <strong>Install Vercel CLI</strong>
+                        <div class="code-block">npm install -g vercel</div>
+                    </li>
+
+                    <li>
+                        <strong>Login to Vercel</strong>
+                        <div class="code-block">vercel login</div>
+                    </li>
+
+                    <li>
+                        <strong>Deploy</strong>
+                        <div class="code-block">vercel</div>
+                        <p>Follow the prompts. Vercel will automatically detect Vite and configure everything!</p>
+                    </li>
+
+                    <li>
+                        <strong>Production Deploy</strong>
+                        <div class="code-block">vercel --prod</div>
+                        <p>Your app will be live at: <code>https://your-app.vercel.app</code></p>
+                    </li>
+                </ol>
+
+                <div class="alert alert-warning">
+                    <strong>⚠️ Important:</strong> You'll need to set environment variables in Vercel dashboard!
+                </div>
+            </div>
+
+            <!-- Option 3: Netlify -->
+            <div class="section">
+                <h2>🌐 Option 3: Netlify</h2>
+                
+                <div class="alert alert-success">
+                    <strong>✅ Best For:</strong> Simple drag-and-drop deployment<br>
+                    <strong>📊 Difficulty:</strong> Very Easy<br>
+                    <strong>💰 Cost:</strong> Free tier available<br>
+                    <strong>⚡ Speed:</strong> Global CDN
+                </div>
+
+                <ol class="steps">
+                    <li>
+                        <strong>Build Your App</strong>
+                        <div class="code-block">npm run build</div>
+                    </li>
+
+                    <li>
+                        <strong>Go to Netlify</strong>
+                        <p>Visit <a href="https://netlify.com" target="_blank">https://netlify.com</a></p>
+                    </li>
+
+                    <li>
+                        <strong>Drag & Drop</strong>
+                        <p>Drag your <code>dist</code> folder to Netlify's deployment zone</p>
+                        <p><strong>OR</strong> use CLI:</p>
+                        <div class="code-block">npm install -g netlify-cli
+netlify deploy --prod</div>
+                    </li>
+                </ol>
+            </div>
+
+            <!-- Option 4: PDF Server Deployment -->
+            <div class="section">
+                <h2>🖨️ Option 4: Deploy PDF Server (Required!)</h2>
+                
+                <div class="alert alert-warning">
+                    <strong>⚠️ Critical:</strong> Your PDF generation server needs to be deployed separately from the frontend!
+                </div>
+
+                <h3>Recommended: Render.com (Free Tier)</h3>
+
+                <ol class="steps">
+                    <li>
+                        <strong>Create account at Render.com</strong>
+                        <p>Visit <a href="https://render.com" target="_blank">https://render.com</a></p>
+                    </li>
+
+                    <li>
+                        <strong>Create New Web Service</strong>
+                        <ul>
+                            <li>Connect your GitHub repository</li>
+                            <li>Root directory: <code>server</code></li>
+                            <li>Build command: <code>npm install</code></li>
+                            <li>Start command: <code>node index.js</code></li>
+                            <li>Environment: <code>Node</code></li>
+                        </ul>
+                    </li>
+
+                    <li>
+                        <strong>Update Frontend PDF_SERVER_URL</strong>
+                        <p>In <code>src/services/pdfService.ts</code>, change:</p>
+                        <div class="code-block">const PDF_SERVER_URL = 'https://your-pdf-server.onrender.com';</div>
+                        <p>Replace with your Render.com URL</p>
+                    </li>
+
+                    <li>
+                        <strong>Rebuild and Redeploy Frontend</strong>
+                        <div class="code-block">npm run build
+firebase deploy --only hosting</div>
+                    </li>
+                </ol>
+
+                <h3>Alternative: Railway.app</h3>
+                <ul>
+                    <li>Similar to Render.com</li>
+                    <li>Free tier available</li>
+                    <li>Automatic deployments from Git</li>
+                </ul>
+
+                <h3>Alternative: Heroku</h3>
+                <ul>
+                    <li>Classic platform</li>
+                    <li>No free tier anymore (paid only)</li>
+                    <li>Very reliable</li>
+                </ul>
+            </div>
+
+            <!-- Environment Variables -->
+            <div class="section">
+                <h2>🔐 Environment Variables Setup</h2>
+                
+                <div class="alert alert-warning">
+                    <strong>⚠️ Important:</strong> Never commit your <code>.env</code> file! Use platform-specific environment variable settings.
+                </div>
+
+                <h3>For Firebase Hosting:</h3>
+                <p>Environment variables are built into the app at build time:</p>
+                <div class="code-block"># Your .env file (already have this)
+VITE_FIREBASE_API_KEY=your-api-key
+VITE_FIREBASE_AUTH_DOMAIN=your-app.firebaseapp.com
+VITE_FIREBASE_PROJECT_ID=your-project-id
+# ... etc</div>
+
+                <h3>For Vercel:</h3>
+                <ol>
+                    <li>Go to your project dashboard</li>
+                    <li>Settings → Environment Variables</li>
+                    <li>Add each <code>VITE_*</code> variable from your <code>.env</code></li>
+                    <li>Redeploy</li>
+                </ol>
+
+                <h3>For Netlify:</h3>
+                <ol>
+                    <li>Site settings → Environment variables</li>
+                    <li>Add each variable</li>
+                    <li>Trigger new deploy</li>
+                </ol>
+            </div>
+
+            <!-- Build Configuration -->
+            <div class="section">
+                <h2>⚙️ Build Configuration</h2>
+                
+                <h3>Current package.json scripts:</h3>
+                <div class="code-block">{
+  "scripts": {
+    "dev": "vite",              // Development server
+    "build": "tsc && vite build", // Production build
+    "preview": "vite preview"    // Preview production build locally
+  }
+}</div>
+
+                <h3>Build Output:</h3>
+                <ul>
+                    <li><strong>Output Directory:</strong> <code>dist/</code></li>
+                    <li><strong>Entry Point:</strong> <code>index.html</code></li>
+                    <li><strong>Assets:</strong> Optimized JS, CSS, and images</li>
+                    <li><strong>Build Time:</strong> ~30-60 seconds</li>
+                </ul>
+            </div>
+
+            <!-- Complete Deployment Workflow -->
+            <div class="section">
+                <h2>📋 Complete Deployment Workflow</h2>
+                
+                <h3>Step-by-Step Full Deployment:</h3>
+
+                <div class="option-card">
+                    <h3>1️⃣ Deploy Frontend (Firebase Hosting)</h3>
+                    <div class="code-block"># Install Firebase CLI (one-time)
+npm install -g firebase-tools
+
+# Login to Firebase (one-time)
+firebase login
+
+# Initialize hosting (one-time)
+firebase init hosting
+# Choose: 
+# - Use existing project
+# - Public directory: dist
+# - Single-page app: Yes
+# - Overwrite index.html: No
+
+# Build the app
+npm run build
+
+# Deploy to Firebase
+firebase deploy --only hosting
+
+# Your app will be live at:
+# https://your-project-id.web.app</div>
+                </div>
+
+                <div class="option-card">
+                    <h3>2️⃣ Deploy PDF Server (Render.com)</h3>
+                    <div class="code-block"># Option A: Connect via Render.com Dashboard
+# 1. Go to https://render.com
+# 2. Click "New +" → "Web Service"
+# 3. Connect your GitHub repo
+# 4. Configure:
+#    - Name: lims-pdf-server
+#    - Root Directory: server
+#    - Build Command: npm install
+#    - Start Command: node index.js
+#    - Instance Type: Free
+
+# Option B: Use render.yaml (in your repo root)
+# Create render.yaml:
+
+services:
+  - type: web
+    name: lims-pdf-server
+    env: node
+    rootDir: server
+    buildCommand: npm install
+    startCommand: node index.js
+    plan: free
+    healthCheckPath: /health</div>
+                </div>
+
+                <div class="option-card">
+                    <h3>3️⃣ Update Frontend to Use Production PDF Server</h3>
+                    <p>Edit <code>src/services/pdfService.ts</code>:</p>
+                    <div class="code-block">// Change from:
+const PDF_SERVER_URL = 'http://localhost:3001';
+
+// To:
+const PDF_SERVER_URL = import.meta.env.VITE_PDF_SERVER_URL || 'https://your-pdf-server.onrender.com';</div>
+                    
+                    <p>Add to your <code>.env</code>:</p>
+                    <div class="code-block">VITE_PDF_SERVER_URL=https://your-pdf-server.onrender.com</div>
+                    
+                    <p>Then rebuild and redeploy:</p>
+                    <div class="code-block">npm run build
+firebase deploy --only hosting</div>
+                </div>
+            </div>
+
+            <!-- Comparison Table -->
+            <div class="section">
+                <h2>📊 Hosting Platform Comparison</h2>
+                
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Platform</th>
+                            <th>Free Tier</th>
+                            <th>Deployment</th>
+                            <th>Best For</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Firebase Hosting</strong></td>
+                            <td>✅ 10GB storage, 360MB/day</td>
+                            <td>CLI or Console</td>
+                            <td>Your app (already using Firebase)</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Vercel</strong></td>
+                            <td>✅ Unlimited bandwidth</td>
+                            <td>Git push or CLI</td>
+                            <td>Fast iteration, Git workflow</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Netlify</strong></td>
+                            <td>✅ 100GB bandwidth/month</td>
+                            <td>Drag-drop or Git</td>
+                            <td>Simplest deployment</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Render.com</strong></td>
+                            <td>✅ Free web services</td>
+                            <td>Git push</td>
+                            <td>PDF server (Node.js backend)</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Custom Domain -->
+            <div class="section">
+                <h2>🌐 Custom Domain Setup (Optional)</h2>
+                
+                <h3>For Firebase Hosting:</h3>
+                <ol class="steps">
+                    <li>
+                        <strong>Go to Firebase Console</strong>
+                        <p>Hosting → Add custom domain</p>
+                    </li>
+                    <li>
+                        <strong>Add Your Domain</strong>
+                        <p>Enter your domain (e.g., <code>lims.yourcompany.com</code>)</p>
+                    </li>
+                    <li>
+                        <strong>Verify Domain</strong>
+                        <p>Add TXT record to your DNS provider</p>
+                    </li>
+                    <li>
+                        <strong>Configure DNS</strong>
+                        <p>Add A records pointing to Firebase's IP addresses</p>
+                    </li>
+                    <li>
+                        <strong>Wait for SSL</strong>
+                        <p>Firebase automatically provisions SSL certificate (can take up to 24 hours)</p>
+                    </li>
+                </ol>
+            </div>
+
+            <!-- Quick Commands Reference -->
+            <div class="section">
+                <h2>⚡ Quick Commands Reference</h2>
+                
+                <h3>Development:</h3>
+                <div class="code-block"># Start development servers
+START_HERE.bat
+
+# Or manually:
+npm run dev          # Frontend
+cd server && node index.js  # PDF server</div>
+
+                <h3>Production Build:</h3>
+                <div class="code-block"># Build optimized frontend
+npm run build
+
+# Preview build locally
+npm run preview</div>
+
+                <h3>Deployment:</h3>
+                <div class="code-block"># Firebase Hosting
+npm run build
+firebase deploy --only hosting
+
+# Vercel
+vercel --prod
+
+# Netlify
+netlify deploy --prod</div>
+            </div>
+
+            <!-- Troubleshooting -->
+            <div class="section">
+                <h2>🔧 Troubleshooting</h2>
+                
+                <h3>Common Issues:</h3>
+
+                <div class="option-card">
+                    <h3>❌ Build Fails</h3>
+                    <ul>
+                        <li>Check TypeScript errors: <code>npm run build</code></li>
+                        <li>Verify all dependencies installed: <code>npm install</code></li>
+                        <li>Check for linting errors</li>
+                    </ul>
+                </div>
+
+                <div class="option-card">
+                    <h3>❌ Environment Variables Not Working</h3>
+                    <ul>
+                        <li>Make sure variables start with <code>VITE_</code></li>
+                        <li>Rebuild after changing .env: <code>npm run build</code></li>
+                        <li>Check platform-specific env var settings</li>
+                    </ul>
+                </div>
+
+                <div class="option-card">
+                    <h3>❌ PDF Generation Fails</h3>
+                    <ul>
+                        <li>Verify PDF server is deployed and running</li>
+                        <li>Check PDF_SERVER_URL points to production server</li>
+                        <li>Ensure PDF server has /health endpoint working</li>
+                        <li>Check CORS settings on PDF server</li>
+                    </ul>
+                </div>
+
+                <div class="option-card">
+                    <h3>❌ Firebase Auth Not Working</h3>
+                    <ul>
+                        <li>Add your domain to Firebase Console → Authentication → Authorized domains</li>
+                        <li>Update Firebase project settings</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Production Checklist -->
+            <div class="section">
+                <h2>✅ Pre-Deployment Checklist</h2>
+                
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Task</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>✅ Test all features locally</td>
+                            <td>□</td>
+                        </tr>
+                        <tr>
+                            <td>✅ Build succeeds without errors</td>
+                            <td>□</td>
+                        </tr>
+                        <tr>
+                            <td>✅ Environment variables configured</td>
+                            <td>□</td>
+                        </tr>
+                        <tr>
+                            <td>✅ Firebase security rules deployed</td>
+                            <td>□</td>
+                        </tr>
+                        <tr>
+                            <td>✅ PDF server deployed and tested</td>
+                            <td>□</td>
+                        </tr>
+                        <tr>
+                            <td>✅ Update PDF_SERVER_URL to production</td>
+                            <td>□</td>
+                        </tr>
+                        <tr>
+                            <td>✅ Test PDF generation in production</td>
+                            <td>□</td>
+                        </tr>
+                        <tr>
+                            <td>✅ Test user creation/login</td>
+                            <td>□</td>
+                        </tr>
+                        <tr>
+                            <td>✅ Verify all CRUD operations work</td>
+                            <td>□</td>
+                        </tr>
+                        <tr>
+                            <td>✅ Custom domain configured (if needed)</td>
+                            <td>□</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Recommended Setup -->
+            <div class="section">
+                <h2>🎯 Recommended Production Setup</h2>
+                
+                <div class="alert alert-success">
+                    <strong>🏆 Best Complete Solution:</strong>
+                </div>
+
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Component</th>
+                            <th>Platform</th>
+                            <th>Reason</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Frontend</strong></td>
+                            <td>Firebase Hosting</td>
+                            <td>Already integrated, free SSL, global CDN</td>
+                        </tr>
+                        <tr>
+                            <td><strong>PDF Server</strong></td>
+                            <td>Render.com</td>
+                            <td>Free tier, Node.js support, auto-deploy</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Database</strong></td>
+                            <td>Firebase Firestore</td>
+                            <td>Already setup, real-time, scalable</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Authentication</strong></td>
+                            <td>Firebase Auth</td>
+                            <td>Already setup, secure, easy</td>
+                        </tr>
+                        <tr>
+                            <td><strong>File Storage</strong></td>
+                            <td>Firebase Storage</td>
+                            <td>Already setup, for logos/attachments</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <p style="margin-top: 20px;"><strong>Total Cost: FREE</strong> (within free tier limits)</p>
+            </div>
+
+            <!-- Quick Deploy Commands -->
+            <div class="section">
+                <h2>⚡ Quick Deploy Commands</h2>
+                
+                <h3>First Time Deployment:</h3>
+                <div class="code-block"># 1. Install Firebase CLI
+npm install -g firebase-tools
+
+# 2. Login
+firebase login
+
+# 3. Initialize
+firebase init hosting
+
+# 4. Build
+npm run build
+
+# 5. Deploy
+firebase deploy --only hosting</div>
+
+                <h3>Future Updates:</h3>
+                <div class="code-block"># Just build and deploy
+npm run build && firebase deploy --only hosting</div>
+
+                <h3>One-Line Deploy:</h3>
+                <div class="code-block">npm run build && firebase deploy --only hosting</div>
+            </div>
+
+            <!-- Post-Deployment -->
+            <div class="section">
+                <h2>🎉 After Deployment</h2>
+                
+                <h3>Your app will be accessible at:</h3>
+                <ul>
+                    <li>🔥 <strong>Firebase:</strong> <code>https://your-project-id.web.app</code></li>
+                    <li>⚡ <strong>Vercel:</strong> <code>https://your-app.vercel.app</code></li>
+                    <li>🌐 <strong>Netlify:</strong> <code>https://your-app.netlify.app</code></li>
+                </ul>
+
+                <h3>Next Steps:</h3>
+                <ol>
+                    <li>✅ Test all features in production</li>
+                    <li>✅ Create admin user account</li>
+                    <li>✅ Configure company information</li>
+                    <li>✅ Upload company logo</li>
+                    <li>✅ Set PDF settings</li>
+                    <li>✅ Train users on the system</li>
+                    <li>✅ Monitor usage and performance</li>
+                </ol>
+
+                <div class="alert alert-info">
+                    <strong>💡 Tip:</strong> Keep your development environment running locally for testing new features before deploying!
+                </div>
+            </div>
+
+            <!-- Continuous Deployment -->
+            <div class="section">
+                <h2>🔄 Continuous Deployment (Advanced)</h2>
+                
+                <h3>Automatic Deployment from Git</h3>
+                
+                <p>For automatic deployments when you push code:</p>
+
+                <div class="option-card">
+                    <h3>With Vercel (Easiest):</h3>
+                    <ol>
+                        <li>Connect your GitHub repository</li>
+                        <li>Every push to <code>main</code> branch auto-deploys</li>
+                        <li>Pull requests get preview deployments</li>
+                    </ol>
+                </div>
+
+                <div class="option-card">
+                    <h3>With Firebase + GitHub Actions:</h3>
+                    <p>Create <code>.github/workflows/deploy.yml</code>:</p>
+                    <div class="code-block">name: Deploy to Firebase
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-node@v2
+        with:
+          node-version: '18'
+      - run: npm install
+      - run: npm run build
+      - uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: '${{ secrets.GITHUB_TOKEN }}'
+          firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}'
+          channelId: live
+          projectId: your-project-id</div>
+                </div>
+            </div>
+
+            <!-- Summary -->
+            <div class="section">
+                <h2>🎯 Summary</h2>
+                
+                <div class="alert alert-success">
+                    <strong>Recommended Path for Your LIMS App:</strong>
+                    <ol style="margin-top: 15px;">
+                        <li><strong>Frontend:</strong> Firebase Hosting (you're already using Firebase)</li>
+                        <li><strong>PDF Server:</strong> Render.com free tier</li>
+                        <li><strong>Database:</strong> Firebase Firestore (already configured)</li>
+                        <li><strong>Total Cost:</strong> FREE (within limits)</li>
+                        <li><strong>Time to Deploy:</strong> ~15-30 minutes</li>
+                    </ol>
+                </div>
+
+                <h3>Start with Firebase Hosting:</h3>
+                <div class="code-block">npm install -g firebase-tools
+firebase login
+firebase init hosting
+npm run build
+firebase deploy --only hosting</div>
+
+                <p style="margin-top: 20px;">That's it! Your LIMS app will be live and accessible worldwide! 🌍</p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+
