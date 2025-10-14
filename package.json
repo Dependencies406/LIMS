@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "start": "cd server && node index.js"
+    "start": "node start-server.js"
   },
   "devDependencies": {
     "@types/node": "^24.6.0",
