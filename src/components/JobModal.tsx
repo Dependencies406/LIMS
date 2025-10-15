@@ -1297,6 +1297,21 @@ export const JobModal: React.FC<JobModalProps> = ({ job, customers, onClose, onS
                 </h4>
                 
                 <div className="space-y-4">
+                  {/* Work Authorization Statement */}
+                  <div>
+                    <label className="text-sm font-medium text-gray-700 mb-3 block">
+                      Work Authorization Statement
+                    </label>
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                      <p className="text-sm text-gray-700 leading-relaxed">
+                        "I confirm that the information provided is correct and authorize the laboratory to proceed with the requested services according to the laboratory's terms and conditions. I understand that any deviations from the request must be communicated and approved before proceeding."
+                      </p>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-2">
+                      By signing below, you acknowledge and agree to the above authorization statement.
+                    </p>
+                  </div>
+
                   {/* Customer Signature */}
                   <div>
                     <label className="text-sm font-medium text-gray-700 mb-3 block">
