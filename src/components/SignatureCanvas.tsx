@@ -23,6 +23,7 @@ export const SignatureCanvas: React.FC<SignatureCanvasProps> = ({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [hasSignature, setHasSignature] = useState(false);
+  const [isLocked, setIsLocked] = useState(true); // Start locked by default
   const lastPointRef = useRef<{ x: number; y: number } | null>(null);
 
   // Helper function to convert Firestore Timestamp to Date
@@ -111,7 +112,7 @@ export const SignatureCanvas: React.FC<SignatureCanvasProps> = ({
   }, []);
 
   const startDrawing = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (disabled) return;
+    if (disabled || isLocked) return;
     
     e.preventDefault();
     setIsDrawing(true);
@@ -127,10 +128,10 @@ export const SignatureCanvas: React.FC<SignatureCanvasProps> = ({
     
     ctx.beginPath();
     ctx.moveTo(coords.x, coords.y);
-  }, [disabled, getCanvasCoordinates]);
+  }, [disabled, isLocked, getCanvasCoordinates]);
 
   const draw = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!isDrawing || disabled || !lastPointRef.current) return;
+    if (!isDrawing || disabled || isLocked || !lastPointRef.current) return;
 
     e.preventDefault();
     
@@ -150,7 +151,7 @@ export const SignatureCanvas: React.FC<SignatureCanvasProps> = ({
     ctx.stroke();
 
     lastPointRef.current = currentCoords;
-  }, [isDrawing, disabled, getCanvasCoordinates]);
+  }, [isDrawing, disabled, isLocked, getCanvasCoordinates]);
 
   const stopDrawing = useCallback(() => {
     if (!isDrawing) return;
@@ -232,7 +233,7 @@ export const SignatureCanvas: React.FC<SignatureCanvasProps> = ({
   // Touch event handlers with improved precision
   const handleTouchStart = useCallback((e: React.TouchEvent<HTMLCanvasElement>) => {
     e.preventDefault();
-    if (disabled) return;
+    if (disabled || isLocked) return;
     
     const touch = e.touches[0];
     const mouseEvent = new MouseEvent('mousedown', {
@@ -240,11 +241,11 @@ export const SignatureCanvas: React.FC<SignatureCanvasProps> = ({
       clientY: touch.clientY,
     });
     startDrawing(mouseEvent as any);
-  }, [disabled, startDrawing]);
+  }, [disabled, isLocked, startDrawing]);
 
   const handleTouchMove = useCallback((e: React.TouchEvent<HTMLCanvasElement>) => {
     e.preventDefault();
-    if (disabled) return;
+    if (disabled || isLocked) return;
     
     const touch = e.touches[0];
     const mouseEvent = new MouseEvent('mousemove', {
@@ -252,7 +253,7 @@ export const SignatureCanvas: React.FC<SignatureCanvasProps> = ({
       clientY: touch.clientY,
     });
     draw(mouseEvent as any);
-  }, [disabled, draw]);
+  }, [disabled, isLocked, draw]);
 
   const handleTouchEnd = useCallback((e: React.TouchEvent<HTMLCanvasElement>) => {
     e.preventDefault();
@@ -287,25 +288,78 @@ export const SignatureCanvas: React.FC<SignatureCanvasProps> = ({
         )}
       </div>
       
-      <div className="border border-gray-300 rounded-lg p-2 bg-white">
-        <canvas
-          ref={canvasRef}
-          className={`w-full h-32 cursor-crosshair border border-gray-200 rounded ${disabled ? 'cursor-not-allowed opacity-50' : ''}`}
-          onMouseDown={startDrawing}
-          onMouseMove={draw}
-          onMouseUp={stopDrawing}
-          onMouseLeave={stopDrawing}
-          onTouchStart={handleTouchStart}
-          onTouchMove={handleTouchMove}
-          onTouchEnd={handleTouchEnd}
-          style={{ 
-            touchAction: 'none',
-            userSelect: 'none',
-            WebkitUserSelect: 'none',
-            MozUserSelect: 'none',
-            msUserSelect: 'none'
-          }}
-        />
+      <div className="space-y-2">
+        {/* Lock/Unlock Button */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <button
+              type="button"
+              onClick={() => setIsLocked(!isLocked)}
+              disabled={disabled}
+              className={`flex items-center space-x-2 px-3 py-1.5 text-sm rounded-lg border transition-all duration-200 ${
+                isLocked 
+                  ? 'bg-red-50 border-red-300 text-red-700 hover:bg-red-100' 
+                  : 'bg-green-50 border-green-300 text-green-700 hover:bg-green-100'
+              } ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+            >
+              {isLocked ? (
+                <>
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                  </svg>
+                  <span>Unlock to Sign</span>
+                </>
+              ) : (
+                <>
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z" />
+                  </svg>
+                  <span>Lock Signature</span>
+                </>
+              )}
+            </button>
+          </div>
+          <div className="text-xs text-gray-500">
+            {isLocked ? '🔒 Signature pad is locked' : '🔓 Signature pad is unlocked'}
+          </div>
+        </div>
+
+        {/* Canvas Container */}
+        <div className="relative border border-gray-300 rounded-lg p-2 bg-white">
+          <canvas
+            ref={canvasRef}
+            className={`w-full h-32 border border-gray-200 rounded ${
+              disabled || isLocked 
+                ? 'cursor-not-allowed opacity-50' 
+                : 'cursor-crosshair'
+            }`}
+            onMouseDown={startDrawing}
+            onMouseMove={draw}
+            onMouseUp={stopDrawing}
+            onMouseLeave={stopDrawing}
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+            style={{ 
+              touchAction: 'none',
+              userSelect: 'none',
+              WebkitUserSelect: 'none',
+              MozUserSelect: 'none',
+              msUserSelect: 'none'
+            }}
+          />
+          {isLocked && (
+            <div className="absolute inset-2 flex items-center justify-center bg-gray-100 bg-opacity-75 rounded border-gray-200">
+              <div className="text-center">
+                <svg className="w-8 h-8 text-gray-400 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                </svg>
+                <p className="text-sm text-gray-500 font-medium">Signature pad is locked</p>
+                <p className="text-xs text-gray-400">Click "Unlock to Sign" to enable signing</p>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
       
       {hasSignature && value && (
