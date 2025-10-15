@@ -70,7 +70,7 @@ export const UserCardView: React.FC<UserCardViewProps> = ({ users, onEdit }) => 
 
               <div className="flex items-center justify-between text-xs text-gray-500">
                 <span>Last Login:</span>
-                <span>{user.lastLogin ? new Date(user.lastLogin).toLocaleDateString() : 'Never'}</span>
+                <span>{user.lastLogin ? new Date(user.lastLogin).toLocaleDateString('en-GB') : 'Never'}</span>
               </div>
             </div>
           </div>

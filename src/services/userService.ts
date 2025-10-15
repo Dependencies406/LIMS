@@ -200,9 +200,6 @@ export const userService = {
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
         lastLogin: null,
-        // Future extensibility
-        trainingLogs: [],
-        documents: [],
       };
 
       await setDoc(doc(db, 'users', uid), userData);
@@ -525,8 +522,6 @@ export const userService = {
           isActive: true,
           createdAt: now,
           updatedAt: now,
-          trainingLogs: [],
-          documents: [],
         };
 
         await setDoc(userRef, {
@@ -553,8 +548,6 @@ export const userService = {
           createdAt: data.createdAt?.toDate() || now,
           updatedAt: now,
           isActive: data.isActive !== false,
-          trainingLogs: data.trainingLogs || [],
-          documents: data.documents || [],
         };
 
         // Update document with missing fields
@@ -567,8 +560,6 @@ export const userService = {
           role: updatedUser.role,
           isActive: updatedUser.isActive,
           updatedAt: updatedUser.updatedAt,
-          trainingLogs: updatedUser.trainingLogs,
-          documents: updatedUser.documents,
         });
 
         return updatedUser;

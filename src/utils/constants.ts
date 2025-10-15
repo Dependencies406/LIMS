@@ -6,7 +6,7 @@ export const JOB_STATUS_OPTIONS = [
   'Halt'
 ] as const;
 
-// Equipment Table Columns
+// Item Details Table Columns
 export const EQUIPMENT_COLUMNS = [
   { key: 'no', label: 'No.', defaultVisible: true },
   { key: 'name', label: 'Name', defaultVisible: true },
@@ -49,7 +49,9 @@ export const DEFAULT_PDF_SETTINGS = {
     title: 16,
     heading: 12,
     body: 10,
-    small: 8
+    small: 8,
+    header: 10,
+    footer: 9
   },
   margin: {
     top: 40,
@@ -81,10 +83,35 @@ export const DEFAULT_PDF_SETTINGS = {
     machineLocation: true,
     remark: true
   },
+  serviceInformationVisibility: {
+    serviceRequested: true,
+    reportingFormat: true,
+    statementOfConformity: true,
+    statementOfConformityRequirements: true
+  },
+  workAuthorizationVisibility: {
+    workAuthorizationStatement: true,
+    customerSignature: true,
+    itemsConditionOnReceipt: true,
+    laboratoryCapabilityAssessment: true,
+    staffSignature: true
+  },
+  workAuthorizationStatement: 'I confirm that the information provided is correct and authorize the laboratory to proceed with the requested services according to the laboratory\'s terms and conditions. I understand that any deviations from the request must be communicated and approved before proceeding.',
+  sectionHeaders: {
+    jobInformation: 'Job Information',
+    serviceInformation: 'Service Information',
+    workAuthorization: 'Work Authorization',
+    equipment: 'Item Details',
+    comments: 'Comments'
+  },
   showLogo: true, // Keep for backward compatibility
   showHeader: true,
   showFooter: true,
   showTableBorders: true,
+  logoSize: {
+    maxHeight: 40,  // in pixels
+    maxWidth: 150   // in pixels
+  },
   headerContent: {
     left: '{company_logo}',
     center: 'Service Request',

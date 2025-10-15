@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { usePdfSettings } from '../contexts/PdfSettingsContext';
 import { useToast } from '../hooks/useToast';
 import { PdfPreviewViewer } from './PdfPreviewViewer';
@@ -22,6 +22,22 @@ export const JobPdfSettingsModal: React.FC<JobPdfSettingsModalProps> = ({
   const { success } = useToast();
   const [settings, setSettings] = useState<PdfSettings>(pdfSettings);
   const [selectedJobId, setSelectedJobId] = useState<string>('');
+  const [showApplyDropdown, setShowApplyDropdown] = useState(false);
+
+  // Close apply dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (showApplyDropdown) {
+        const target = event.target as HTMLElement;
+        if (!target.closest('.apply-dropdown-container')) {
+          setShowApplyDropdown(false);
+        }
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showApplyDropdown]);
 
   // Update local state when modal opens
   React.useEffect(() => {
@@ -38,6 +54,7 @@ export const JobPdfSettingsModal: React.FC<JobPdfSettingsModalProps> = ({
   const selectedJob = jobs?.find(job => job.id === selectedJobId) || null;
 
   const handleSave = () => {
+    setShowApplyDropdown(false);
     updatePdfSettings(settings);
     if (onSave) {
       onSave();
@@ -45,6 +62,16 @@ export const JobPdfSettingsModal: React.FC<JobPdfSettingsModalProps> = ({
       success('PDF settings saved successfully!');
       onClose();
     }
+  };
+
+  const handleApplyToAll = () => {
+    setShowApplyDropdown(false);
+    updatePdfSettings(settings);
+    success('PDF settings applied to all jobs!');
+    // Always close modal after applying to all jobs
+    setTimeout(() => {
+      onClose();
+    }, 1000); // Give time for success message to show
   };
 
   const handleReset = () => {
@@ -91,6 +118,45 @@ export const JobPdfSettingsModal: React.FC<JobPdfSettingsModalProps> = ({
     });
   };
 
+  const areAllServiceInfoFieldsSelected = () => {
+    return settings.serviceInformationVisibility && 
+           Object.values(settings.serviceInformationVisibility).every(value => value === true);
+  };
+
+  const handleSelectAllServiceInfoFields = (checked: boolean) => {
+    const newServiceInformationVisibility = {
+      serviceRequested: checked,
+      reportingFormat: checked,
+      statementOfConformity: checked,
+      statementOfConformityRequirements: checked
+    };
+
+    setSettings({
+      ...settings,
+      serviceInformationVisibility: newServiceInformationVisibility
+    });
+  };
+
+  const areAllWorkAuthFieldsSelected = () => {
+    return settings.workAuthorizationVisibility && 
+           Object.values(settings.workAuthorizationVisibility).every(value => value === true);
+  };
+
+  const handleSelectAllWorkAuthFields = (checked: boolean) => {
+    const newWorkAuthorizationVisibility = {
+      workAuthorizationStatement: checked,
+      customerSignature: checked,
+      itemsConditionOnReceipt: checked,
+      laboratoryCapabilityAssessment: checked,
+      staffSignature: checked
+    };
+
+    setSettings({
+      ...settings,
+      workAuthorizationVisibility: newWorkAuthorizationVisibility
+    });
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -124,17 +190,49 @@ export const JobPdfSettingsModal: React.FC<JobPdfSettingsModalProps> = ({
               </svg>
             </button>
 
-            {/* Save Button */}
-            <button
-              type="button"
-              onClick={handleSave}
-              className="flex items-center justify-center w-10 h-10 rounded-lg border border-primary-500 bg-primary-600 hover:bg-primary-700 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-              title="Save Settings"
-            >
-              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
-            </button>
+            {/* Apply Button with Dropdown */}
+            <div className="relative apply-dropdown-container">
+              <button
+                type="button"
+                onClick={() => setShowApplyDropdown(!showApplyDropdown)}
+                className="px-4 py-2 rounded-lg border border-primary-500 bg-primary-600 hover:bg-primary-700 text-white transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 flex items-center space-x-2"
+                title="Apply Settings"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+                <span className="text-sm font-medium">Apply</span>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+
+              {/* Dropdown Menu */}
+              {showApplyDropdown && (
+                <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50">
+                  <button
+                    type="button"
+                    onClick={handleSave}
+                    className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 transition-colors flex items-center space-x-2"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    <span>Apply to Current Job</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleApplyToAll}
+                    className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 transition-colors flex items-center space-x-2"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span>Apply to All Jobs</span>
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
@@ -353,6 +451,95 @@ export const JobPdfSettingsModal: React.FC<JobPdfSettingsModalProps> = ({
                         })}
                         className="input text-sm"
                         placeholder="e.g., 8"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Header Font Size */}
+                  <div className="flex items-center justify-between py-1">
+                    <div className="flex-1">
+                      <span className="text-sm text-gray-700">Header Font Size</span>
+                    </div>
+                    <div className="w-48">
+                      <input
+                        type="number"
+                        min="1"
+                        value={settings.fontSize.header}
+                        onChange={(e) => setSettings({
+                          ...settings,
+                          fontSize: { ...settings.fontSize, header: parseInt(e.target.value) || 10 }
+                        })}
+                        className="input text-sm"
+                        placeholder="e.g., 10"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Footer Font Size */}
+                  <div className="flex items-center justify-between py-1">
+                    <div className="flex-1">
+                      <span className="text-sm text-gray-700">Footer Font Size</span>
+                    </div>
+                    <div className="w-48">
+                      <input
+                        type="number"
+                        min="1"
+                        value={settings.fontSize.footer}
+                        onChange={(e) => setSettings({
+                          ...settings,
+                          fontSize: { ...settings.fontSize, footer: parseInt(e.target.value) || 9 }
+                        })}
+                        className="input text-sm"
+                        placeholder="e.g., 9"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Logo Size */}
+                <div className="space-y-3 pt-2">
+                  <h4 className="text-md font-medium text-gray-800 border-t pt-3">Company Logo Size (px)</h4>
+                  
+                  {/* Logo Max Height */}
+                  <div className="flex items-center justify-between py-1">
+                    <div className="flex-1">
+                      <span className="text-sm text-gray-700">Max Height</span>
+                      <p className="text-xs text-gray-500">Maximum logo height in pixels</p>
+                    </div>
+                    <div className="w-48">
+                      <input
+                        type="number"
+                        min="10"
+                        max="200"
+                        value={settings.logoSize.maxHeight}
+                        onChange={(e) => setSettings({
+                          ...settings,
+                          logoSize: { ...settings.logoSize, maxHeight: parseInt(e.target.value) || 40 }
+                        })}
+                        className="input text-sm"
+                        placeholder="e.g., 40"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Logo Max Width */}
+                  <div className="flex items-center justify-between py-1">
+                    <div className="flex-1">
+                      <span className="text-sm text-gray-700">Max Width</span>
+                      <p className="text-xs text-gray-500">Maximum logo width in pixels</p>
+                    </div>
+                    <div className="w-48">
+                      <input
+                        type="number"
+                        min="10"
+                        max="400"
+                        value={settings.logoSize.maxWidth}
+                        onChange={(e) => setSettings({
+                          ...settings,
+                          logoSize: { ...settings.logoSize, maxWidth: parseInt(e.target.value) || 150 }
+                        })}
+                        className="input text-sm"
+                        placeholder="e.g., 150"
                       />
                     </div>
                   </div>
@@ -678,6 +865,134 @@ export const JobPdfSettingsModal: React.FC<JobPdfSettingsModalProps> = ({
                 </div>
               </div>
 
+              {/* Section Headers */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+                  <span className="w-6 h-6 bg-indigo-100 rounded-lg flex items-center justify-center mr-3">
+                    <span className="text-indigo-600 text-sm">📝</span>
+                  </span>
+                  Section Headers
+                </h3>
+                <p className="text-sm text-gray-600">Customize the names of sections that appear in the PDF</p>
+                
+                <div className="space-y-3">
+                  {/* Job Information Header */}
+                  <div className="flex items-center justify-between py-2">
+                    <div className="flex-1">
+                      <label className="text-sm font-medium text-gray-700">Job Information Section</label>
+                      <p className="text-xs text-gray-500">Header text for job details section</p>
+                    </div>
+                    <div className="w-64">
+                      <input
+                        type="text"
+                        value={settings.sectionHeaders?.jobInformation || 'Job Information'}
+                        onChange={(e) => setSettings({
+                          ...settings,
+                          sectionHeaders: {
+                            ...settings.sectionHeaders,
+                            jobInformation: e.target.value
+                          }
+                        })}
+                        className="input text-sm"
+                        placeholder="e.g., Job Information"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Service Information Header */}
+                  <div className="flex items-center justify-between py-2">
+                    <div className="flex-1">
+                      <label className="text-sm font-medium text-gray-700">Service Information Section</label>
+                      <p className="text-xs text-gray-500">Header text for service details section</p>
+                    </div>
+                    <div className="w-64">
+                      <input
+                        type="text"
+                        value={settings.sectionHeaders?.serviceInformation || 'Service Information'}
+                        onChange={(e) => setSettings({
+                          ...settings,
+                          sectionHeaders: {
+                            ...settings.sectionHeaders,
+                            serviceInformation: e.target.value
+                          }
+                        })}
+                        className="input text-sm"
+                        placeholder="e.g., Service Information"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Work Authorization Header */}
+                  <div className="flex items-center justify-between py-2">
+                    <div className="flex-1">
+                      <label className="text-sm font-medium text-gray-700">Work Authorization Section</label>
+                      <p className="text-xs text-gray-500">Header text for work authorization section</p>
+                    </div>
+                    <div className="w-64">
+                      <input
+                        type="text"
+                        value={settings.sectionHeaders?.workAuthorization || 'Work Authorization'}
+                        onChange={(e) => setSettings({
+                          ...settings,
+                          sectionHeaders: {
+                            ...settings.sectionHeaders,
+                            workAuthorization: e.target.value
+                          }
+                        })}
+                        className="input text-sm"
+                        placeholder="e.g., Work Authorization"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Equipment Header */}
+                  <div className="flex items-center justify-between py-2">
+                    <div className="flex-1">
+                      <label className="text-sm font-medium text-gray-700">Item Details Section</label>
+                      <p className="text-xs text-gray-500">Header text for equipment table section</p>
+                    </div>
+                    <div className="w-64">
+                      <input
+                        type="text"
+                        value={settings.sectionHeaders?.equipment || 'Equipment'}
+                        onChange={(e) => setSettings({
+                          ...settings,
+                          sectionHeaders: {
+                            ...settings.sectionHeaders,
+                            equipment: e.target.value
+                          }
+                        })}
+                        className="input text-sm"
+                        placeholder="e.g., Item Details"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Comments Header */}
+                  <div className="flex items-center justify-between py-2">
+                    <div className="flex-1">
+                      <label className="text-sm font-medium text-gray-700">Comments Section</label>
+                      <p className="text-xs text-gray-500">Header text for comments section</p>
+                    </div>
+                    <div className="w-64">
+                      <input
+                        type="text"
+                        value={settings.sectionHeaders?.comments || 'Comments'}
+                        onChange={(e) => setSettings({
+                          ...settings,
+                          sectionHeaders: {
+                            ...settings.sectionHeaders,
+                            comments: e.target.value
+                          }
+                        })}
+                        className="input text-sm"
+                        placeholder="e.g., Comments"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               {/* Job Table Columns */}
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
@@ -734,6 +1049,56 @@ export const JobPdfSettingsModal: React.FC<JobPdfSettingsModalProps> = ({
                 </div>
               </div>
 
+              {/* Service Information Visibility */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+                    <span className="w-6 h-6 bg-purple-100 rounded-lg flex items-center justify-center mr-3">
+                      <span className="text-purple-600 text-sm">⚙️</span>
+                    </span>
+                    Service Information
+                  </h3>
+                  <label className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      checked={areAllServiceInfoFieldsSelected()}
+                      onChange={(e) => handleSelectAllServiceInfoFields(e.target.checked)}
+                      className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                    />
+                    <span className="text-sm font-medium text-gray-700">Select All</span>
+                  </label>
+                </div>
+                
+                <div className="grid grid-cols-1 gap-3">
+                  {[
+                    { key: 'serviceRequested', label: 'Service Requested' },
+                    { key: 'reportingFormat', label: 'Reporting Format' },
+                    { key: 'statementOfConformity', label: 'Statement of Conformity' },
+                    { key: 'statementOfConformityRequirements', label: 'Conformity Requirements' }
+                  ].map((field) => (
+                    <div key={field.key} className="bg-white rounded-lg border border-gray-200 p-3">
+                      <div className="flex items-center justify-between">
+                        <label className="flex items-center space-x-3 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={settings.serviceInformationVisibility?.[field.key as keyof typeof settings.serviceInformationVisibility] || false}
+                            onChange={(e) => setSettings({
+                              ...settings,
+                              serviceInformationVisibility: {
+                                ...settings.serviceInformationVisibility,
+                                [field.key]: e.target.checked
+                              }
+                            })}
+                            className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                          />
+                          <span className="text-sm font-medium text-gray-700">{field.label}</span>
+                        </label>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
               {/* Equipment Table Columns */}
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
@@ -741,7 +1106,7 @@ export const JobPdfSettingsModal: React.FC<JobPdfSettingsModalProps> = ({
                     <span className="w-6 h-6 bg-orange-100 rounded-lg flex items-center justify-center mr-3">
                       <span className="text-orange-600 text-sm">🔧</span>
                     </span>
-                    Equipment Table Columns
+                    Item Details Table Columns
                   </h3>
                   <label className="flex items-center space-x-2">
                     <input
@@ -783,6 +1148,93 @@ export const JobPdfSettingsModal: React.FC<JobPdfSettingsModalProps> = ({
                   ))}
                 </div>
               </div>
+
+              {/* Work Authorization Visibility */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+                    <span className="w-6 h-6 bg-orange-100 rounded-lg flex items-center justify-center mr-3">
+                      <span className="text-orange-600 text-sm">📋</span>
+                    </span>
+                    Work Authorization
+                  </h3>
+                  <label className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      checked={areAllWorkAuthFieldsSelected()}
+                      onChange={(e) => handleSelectAllWorkAuthFields(e.target.checked)}
+                      className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                    />
+                    <span className="text-sm font-medium text-gray-700">Select All</span>
+                  </label>
+                </div>
+                <p className="text-sm text-gray-600">
+                  Choose which work authorization fields to display in the PDF
+                </p>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {[
+                    { key: 'workAuthorizationStatement', label: 'Work Authorization Statement' },
+                    { key: 'customerSignature', label: 'Customer Signature' },
+                    { key: 'itemsConditionOnReceipt', label: 'Items Condition on Receipt' },
+                    { key: 'laboratoryCapabilityAssessment', label: 'Laboratory Capability Assessment' },
+                    { key: 'staffSignature', label: 'Staff Signature' }
+                  ].map((field) => (
+                    <div key={field.key} className="flex items-center justify-between py-2 border-b border-gray-100">
+                      <div className="flex-1">
+                        <span className="text-sm text-gray-700">{field.label}</span>
+                      </div>
+                      <div className="w-16">
+                        <label className="flex items-center justify-end">
+                          <input
+                            type="checkbox"
+                            checked={settings.workAuthorizationVisibility[field.key as keyof typeof settings.workAuthorizationVisibility]}
+                            onChange={(e) => setSettings({
+                              ...settings,
+                              workAuthorizationVisibility: {
+                                ...settings.workAuthorizationVisibility,
+                                [field.key]: e.target.checked
+                              }
+                            })}
+                            className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                          />
+                          <span className="text-sm font-medium text-gray-700 ml-2">{field.label}</span>
+                        </label>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Work Authorization Statement */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+                  <span className="w-6 h-6 bg-blue-100 rounded-lg flex items-center justify-center mr-3">
+                    <span className="text-blue-600 text-sm">📝</span>
+                  </span>
+                  Work Authorization Statement
+                </h3>
+                <p className="text-sm text-gray-600">
+                  Customize the work authorization statement text that appears in the PDF
+                </p>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Authorization Statement Text
+                  </label>
+                  <textarea
+                    value={settings.workAuthorizationStatement}
+                    onChange={(e) => setSettings({
+                      ...settings,
+                      workAuthorizationStatement: e.target.value
+                    })}
+                    className="input w-full h-32 resize-none"
+                    placeholder="Enter the work authorization statement text..."
+                  />
+                </div>
+              </div>
+
+
             </div>
 
             {/* PDF Preview Panel */}

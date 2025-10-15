@@ -38,7 +38,7 @@ export const JobListView: React.FC<JobListViewProps> = ({ jobs, onEdit, getStatu
               Status
             </th>
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Equipment
+              Item Details
             </th>
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
               Created
@@ -68,7 +68,7 @@ export const JobListView: React.FC<JobListViewProps> = ({ jobs, onEdit, getStatu
                 {job.equipment.length} items
               </td>
               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                {new Date(job.createdAt).toLocaleDateString()}
+                {new Date(job.createdAt).toLocaleDateString('en-GB')}
               </td>
             </tr>
           ))}

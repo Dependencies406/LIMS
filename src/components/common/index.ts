@@ -6,11 +6,6 @@
 export { Button } from './Button';
 export type { ButtonProps, ButtonVariant, ButtonSize } from './Button';
 
-export { Input, Textarea, Select } from './Input';
-export type { InputProps, TextareaProps, SelectProps } from './Input';
-
-export { FormField } from './FormField';
-export type { FormFieldProps } from './FormField';
 
 export { Modal, ModalFooter } from './Modal';
 export type { ModalProps, ModalFooterProps } from './Modal';

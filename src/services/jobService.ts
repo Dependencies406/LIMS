@@ -23,8 +23,7 @@ export interface JobInput {
   assignedStaff?: string;
   equipment: Job['equipment'];
   startDate?: string;
-  endDate?: string;
-  dueDate?: string;
+  scheduleDate?: string;
   comments?: string;
 }
 

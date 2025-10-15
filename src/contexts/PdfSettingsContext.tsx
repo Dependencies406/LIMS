@@ -47,6 +47,10 @@ export const PdfSettingsProvider: React.FC<PdfSettingsProviderProps> = ({ childr
             margin: { ...DEFAULT_PDF_SETTINGS.margin, ...(parsed.margin || {}) },
             jobTableColumns: { ...DEFAULT_PDF_SETTINGS.jobTableColumns, ...(parsed.jobTableColumns || {}) },
             equipmentTableColumns: { ...DEFAULT_PDF_SETTINGS.equipmentTableColumns, ...(parsed.equipmentTableColumns || {}) },
+            serviceInformationVisibility: { ...DEFAULT_PDF_SETTINGS.serviceInformationVisibility, ...(parsed.serviceInformationVisibility || {}) },
+            workAuthorizationVisibility: { ...DEFAULT_PDF_SETTINGS.workAuthorizationVisibility, ...(parsed.workAuthorizationVisibility || {}) },
+            workAuthorizationStatement: parsed.workAuthorizationStatement || DEFAULT_PDF_SETTINGS.workAuthorizationStatement,
+            sectionHeaders: { ...DEFAULT_PDF_SETTINGS.sectionHeaders, ...(parsed.sectionHeaders || {}) },
             showLogo: parsed.showLogo ?? DEFAULT_PDF_SETTINGS.showLogo,
             showHeader: parsed.showHeader ?? DEFAULT_PDF_SETTINGS.showHeader,
             showFooter: parsed.showFooter ?? DEFAULT_PDF_SETTINGS.showFooter,
@@ -66,9 +70,14 @@ export const PdfSettingsProvider: React.FC<PdfSettingsProviderProps> = ({ childr
             margin: { ...DEFAULT_PDF_SETTINGS.margin, ...(parsed.margin || {}) },
             jobTableColumns: { ...DEFAULT_PDF_SETTINGS.jobTableColumns, ...(parsed.jobTableColumns || {}) },
             equipmentTableColumns: { ...DEFAULT_PDF_SETTINGS.equipmentTableColumns, ...(parsed.equipmentTableColumns || {}) },
+            serviceInformationVisibility: { ...DEFAULT_PDF_SETTINGS.serviceInformationVisibility, ...(parsed.serviceInformationVisibility || {}) },
+            workAuthorizationVisibility: { ...DEFAULT_PDF_SETTINGS.workAuthorizationVisibility, ...(parsed.workAuthorizationVisibility || {}) },
+            workAuthorizationStatement: parsed.workAuthorizationStatement || DEFAULT_PDF_SETTINGS.workAuthorizationStatement,
+            sectionHeaders: { ...DEFAULT_PDF_SETTINGS.sectionHeaders, ...(parsed.sectionHeaders || {}) },
             fieldVisibility: { ...DEFAULT_PDF_SETTINGS.fieldVisibility, ...(parsed.fieldVisibility || {}) },
             headerContent: { ...DEFAULT_PDF_SETTINGS.headerContent, ...(parsed.headerContent || {}) },
-            footerContent: { ...DEFAULT_PDF_SETTINGS.footerContent, ...(parsed.footerContent || {}) }
+            footerContent: { ...DEFAULT_PDF_SETTINGS.footerContent, ...(parsed.footerContent || {}) },
+            logoSize: { ...DEFAULT_PDF_SETTINGS.logoSize, ...(parsed.logoSize || {}) }
           };
           
           setPdfSettings(mergedSettings);
@@ -102,9 +111,13 @@ export const PdfSettingsProvider: React.FC<PdfSettingsProviderProps> = ({ childr
       margin: newSettings.margin ? { ...prev.margin, ...newSettings.margin } : prev.margin,
       jobTableColumns: newSettings.jobTableColumns ? { ...prev.jobTableColumns, ...newSettings.jobTableColumns } : prev.jobTableColumns,
       equipmentTableColumns: newSettings.equipmentTableColumns ? { ...prev.equipmentTableColumns, ...newSettings.equipmentTableColumns } : prev.equipmentTableColumns,
+      serviceInformationVisibility: newSettings.serviceInformationVisibility ? { ...prev.serviceInformationVisibility, ...newSettings.serviceInformationVisibility } : prev.serviceInformationVisibility,
+      workAuthorizationVisibility: newSettings.workAuthorizationVisibility ? { ...prev.workAuthorizationVisibility, ...newSettings.workAuthorizationVisibility } : prev.workAuthorizationVisibility,
+      sectionHeaders: newSettings.sectionHeaders ? { ...prev.sectionHeaders, ...newSettings.sectionHeaders } : prev.sectionHeaders,
       fieldVisibility: newSettings.fieldVisibility ? { ...prev.fieldVisibility, ...newSettings.fieldVisibility } : prev.fieldVisibility,
       headerContent: newSettings.headerContent ? { ...prev.headerContent, ...newSettings.headerContent } : prev.headerContent,
-      footerContent: newSettings.footerContent ? { ...prev.footerContent, ...newSettings.footerContent } : prev.footerContent
+      footerContent: newSettings.footerContent ? { ...prev.footerContent, ...newSettings.footerContent } : prev.footerContent,
+      logoSize: newSettings.logoSize ? { ...prev.logoSize, ...newSettings.logoSize } : prev.logoSize
     }));
   };
 

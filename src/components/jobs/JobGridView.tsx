@@ -47,14 +47,14 @@ export const JobGridView: React.FC<JobGridViewProps> = ({ jobs, onEdit, getStatu
               {job.scheduleDate && (
                 <div className="flex items-center justify-between">
                   <span className="font-medium">Due:</span>
-                  <span>{new Date(job.scheduleDate).toLocaleDateString()}</span>
+                  <span>{new Date(job.scheduleDate).toLocaleDateString('en-GB')}</span>
                 </div>
               )}
             </div>
             
             <div className="pt-2 border-t border-gray-200">
               <span className="text-xs text-gray-500">
-                {new Date(job.createdAt).toLocaleDateString()}
+                {new Date(job.createdAt).toLocaleDateString('en-GB')}
               </span>
             </div>
           </div>

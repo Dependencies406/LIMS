@@ -29,10 +29,12 @@ All documentation is available in the **`docs/`** folder:
 - 📋 **Job Management** - Create, edit, track calibration jobs
 - 👥 **Customer Management** - Maintain customer database
 - 👤 **User Management** - Admin can create/manage user accounts
-- 📄 **PDF Generation** - Customizable job reports with headers/footers
+- 📄 **PDF Generation** - Customizable job reports with headers/footers (with company logos)
 - ⚙️ **Settings** - Configure job IDs, company info, PDF templates
 - 🔐 **Role-Based Access** - Admin and Staff user roles
 - 📊 **View Modes** - List, Card, and Grid views for jobs/customers
+
+> **⚠️ For PDF logos:** You need to configure Firebase Storage CORS. See [SETUP_FIREBASE_STORAGE_CORS.md](SETUP_FIREBASE_STORAGE_CORS.md) for a 5-minute setup guide.
 
 ## 🛠️ Tech Stack
 
@@ -54,6 +56,25 @@ All documentation is available in the **`docs/`** folder:
 2. Fill in your Firebase credentials
 3. Run `npm install`
 4. Start with `npm run dev`
+
+## 🩹 Troubleshooting
+
+### PDF Logo Not Showing / CORS Errors
+
+If you see "Failed to load image" or "Failed to fetch" errors when generating PDFs with logos:
+
+**Solution:** Configure Firebase Storage CORS (takes ~5 minutes)
+- **Quick Guide:** [SETUP_FIREBASE_STORAGE_CORS.md](SETUP_FIREBASE_STORAGE_CORS.md)
+- **Detailed Guide:** [docs/FIREBASE_STORAGE_CORS_SETUP.md](docs/FIREBASE_STORAGE_CORS_SETUP.md)
+
+The error message in the console will guide you to the fix.
+
+### Other Issues
+
+Check the [docs/](docs/) folder for specific troubleshooting guides:
+- Firebase setup issues: `docs/FIREBASE_RULES_SETUP.md`
+- User management: `docs/USER_MANAGEMENT_GUIDE.md`
+- PDF configuration: `docs/PDF_FIXES_COMPLETE.html`
 
 ## 📝 License
 

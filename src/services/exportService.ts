@@ -82,7 +82,7 @@ export const exportJobsToCSV = (jobs: Job[]): void => {
     startDate: job.startDate || '',
     scheduleDate: job.scheduleDate || '',
     comments: job.comments || '',
-    createdAt: new Date(job.createdAt).toLocaleDateString(),
+    createdAt: new Date(job.createdAt).toLocaleDateString('en-GB'),
     createdBy: job.createdBy,
   }));
   
@@ -112,7 +112,7 @@ export const exportCustomersToCSV = (customers: Customer[]): void => {
     email: customer.email || '',
     phone: customer.phone || '',
     address: customer.address || '',
-    createdAt: new Date(customer.createdAt).toLocaleDateString(),
+    createdAt: new Date(customer.createdAt).toLocaleDateString('en-GB'),
   }));
   
   const csv = convertToCSV(data, headers);

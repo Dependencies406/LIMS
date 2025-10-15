@@ -198,7 +198,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
                   </a>
                   <p className="text-xs text-gray-500">
                     {formatFileSize(file.size)} •{' '}
-                    {new Date(file.uploadedAt).toLocaleDateString()}
+                    {new Date(file.uploadedAt).toLocaleDateString('en-GB')}
                   </p>
                 </div>
               </div>

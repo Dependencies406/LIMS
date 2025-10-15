@@ -43,7 +43,7 @@ export const JobCardView: React.FC<JobCardViewProps> = ({ jobs, onEdit, getStatu
                 </span>
                 {job.scheduleDate && (
                   <span>
-                    <span className="font-medium">Due:</span> {new Date(job.scheduleDate).toLocaleDateString()}
+                    <span className="font-medium">Due:</span> {new Date(job.scheduleDate).toLocaleDateString('en-GB')}
                   </span>
                 )}
                 {job.assignedStaff && (
@@ -54,7 +54,7 @@ export const JobCardView: React.FC<JobCardViewProps> = ({ jobs, onEdit, getStatu
               </div>
             </div>
             <div className="text-sm text-gray-500 ml-4">
-              {new Date(job.createdAt).toLocaleDateString()}
+              {new Date(job.createdAt).toLocaleDateString('en-GB')}
             </div>
           </div>
         </Card>

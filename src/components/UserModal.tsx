@@ -15,7 +15,7 @@ export const UserModal: React.FC<UserModalProps> = ({ user, onClose, onSuccess }
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [activeTab, setActiveTab] = useState<'basic' | 'training' | 'documents'>('basic');
+  const [activeTab, setActiveTab] = useState<'basic'>('basic');
 
   const [form, setForm] = useState({
     email: '',
@@ -163,32 +163,6 @@ export const UserModal: React.FC<UserModalProps> = ({ user, onClose, onSuccess }
                 }`}
               >
                 Basic Information
-              </button>
-              <button
-                onClick={() => setActiveTab('training')}
-                className={`pb-3 px-2 font-medium transition-colors ${
-                  activeTab === 'training'
-                    ? 'border-b-2 border-primary-600 text-primary-600'
-                    : 'text-gray-600 hover:text-gray-900'
-                } opacity-50 cursor-not-allowed`}
-                disabled
-                title="Coming soon"
-              >
-                Training Logs
-                <span className="ml-2 text-xs bg-gray-200 px-2 py-0.5 rounded">Soon</span>
-              </button>
-              <button
-                onClick={() => setActiveTab('documents')}
-                className={`pb-3 px-2 font-medium transition-colors ${
-                  activeTab === 'documents'
-                    ? 'border-b-2 border-primary-600 text-primary-600'
-                    : 'text-gray-600 hover:text-gray-900'
-                } opacity-50 cursor-not-allowed`}
-                disabled
-                title="Coming soon"
-              >
-                Documents
-                <span className="ml-2 text-xs bg-gray-200 px-2 py-0.5 rounded">Soon</span>
               </button>
             </div>
           )}
@@ -394,47 +368,22 @@ export const UserModal: React.FC<UserModalProps> = ({ user, onClose, onSuccess }
                     <div>
                       <span className="text-gray-600">Created:</span>
                       <p className="text-gray-800 mt-1">
-                        {user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'N/A'}
+                        {user.createdAt ? new Date(user.createdAt).toLocaleDateString('en-GB') : 'N/A'}
                       </p>
                     </div>
                     <div>
                       <span className="text-gray-600">Last Updated:</span>
                       <p className="text-gray-800 mt-1">
-                        {user.updatedAt ? new Date(user.updatedAt).toLocaleDateString() : 'N/A'}
+                        {user.updatedAt ? new Date(user.updatedAt).toLocaleDateString('en-GB') : 'N/A'}
                       </p>
                     </div>
                   </div>
                 </div>
               )}
 
-              {/* Future Features Placeholder */}
-              {user && (
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <h4 className="font-medium text-blue-900 mb-2">🔮 Future Features</h4>
-                  <ul className="text-sm text-blue-800 space-y-1">
-                    <li>• Training logs and certifications</li>
-                    <li>• Document storage (ID, certificates, etc.)</li>
-                    <li>• Performance tracking</li>
-                    <li>• Access history and audit logs</li>
-                  </ul>
-                </div>
-              )}
             </>
           )}
 
-          {/* Training Tab - Placeholder for future */}
-          {activeTab === 'training' && (
-            <div className="text-center py-12">
-              <p className="text-gray-500">Training logs feature coming soon...</p>
-            </div>
-          )}
-
-          {/* Documents Tab - Placeholder for future */}
-          {activeTab === 'documents' && (
-            <div className="text-center py-12">
-              <p className="text-gray-500">Document management feature coming soon...</p>
-            </div>
-          )}
 
           {/* Actions */}
           <div className="flex justify-between items-center pt-4 border-t border-gray-200">

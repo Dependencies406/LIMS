@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import type { Job, Customer, Equipment } from '../types';
-import { db, doc, setDoc, updateDoc, deleteDoc, getDoc, serverTimestamp } from '../services/firebase';
+import type { Job, Customer, Equipment, WorkAuthorization } from '../types';
+import { db, doc, setDoc, updateDoc, getDoc, serverTimestamp } from '../services/firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { usePdfSettings } from '../contexts/PdfSettingsContext';
 import { useUsers } from '../hooks/useUsers';
 import { generateAndDownloadJobPDF } from '../services/pdfService';
 import { PdfPreviewModal } from './PdfPreviewModal';
 import { getNextJobId, incrementJobIdSequence } from '../services/jobIdService';
+import { SignatureCanvas } from './SignatureCanvas';
 
 interface JobModalProps {
   job: Job | null;
@@ -48,11 +49,26 @@ export const JobModal: React.FC<JobModalProps> = ({ job, customers, onClose, onS
     title: '',
     status: 'Pending' as Job['status'],
     customerCode: '',
+    customerName: '',
+    customerAddress: '',
     customerContact: '',
+    customerPhone: '',
+    customerEmail: '',
     assignedStaff: '',
     startDate: '',
     scheduleDate: '', // Renamed from dueDate
-    comments: ''
+    comments: '',
+    // Service Information
+    serviceRequested: 'Calibration',
+    reportingFormat: 'Standard' as 'Standard' | 'Simplified Report' | 'Electronic File' | 'Other',
+    reportingFormatOther: '',
+    statementOfConformity: 'Not required' as 'Required' | 'Not required',
+    statementOfConformityRequirements: '',
+    // Work Authorization
+    itemsConditionOnReceipt: 'Acceptable' as 'Acceptable' | 'Damaged or altered' | 'Improper storage/transportation conditions' | 'Insufficient quantity' | 'Other issues',
+    itemsConditionSpecification: '',
+    laboratoryCapabilityAssessment: 'Full capability' as 'Full capability' | 'Partial capability' | 'Lacks capability',
+    capabilitySpecification: ''
   });
 
   const [equipment, setEquipment] = useState<Equipment[]>([{
@@ -67,6 +83,10 @@ export const JobModal: React.FC<JobModalProps> = ({ job, customers, onClose, onS
     remark: ''
   }]);
 
+  // Work Authorization signatures
+  const [customerSignature, setCustomerSignature] = useState<WorkAuthorization['customerSignature']>();
+  const [staffSignature, setStaffSignature] = useState<WorkAuthorization['staffSignature']>();
+
   // Update currentJob when job prop changes
   useEffect(() => {
     setCurrentJob(job);
@@ -79,11 +99,26 @@ export const JobModal: React.FC<JobModalProps> = ({ job, customers, onClose, onS
         title: currentJob.title,
         status: currentJob.status,
         customerCode: currentJob.customerCode,
+        customerName: currentJob.customerName || '',
+        customerAddress: currentJob.customerAddress || '',
         customerContact: currentJob.customerContact || '',
+        customerPhone: currentJob.customerPhone || '',
+        customerEmail: currentJob.customerEmail || '',
         assignedStaff: currentJob.assignedStaff || '',
         startDate: currentJob.startDate || '',
         scheduleDate: currentJob.scheduleDate || '', // Renamed from dueDate
-        comments: currentJob.comments || ''
+        comments: currentJob.comments || '',
+        // Service Information
+        serviceRequested: currentJob.serviceInformation?.serviceRequested || 'Calibration',
+        reportingFormat: currentJob.serviceInformation?.reportingFormat || 'Standard',
+        reportingFormatOther: currentJob.serviceInformation?.reportingFormatOther || '',
+        statementOfConformity: currentJob.serviceInformation?.statementOfConformity || 'Not required',
+        statementOfConformityRequirements: currentJob.serviceInformation?.statementOfConformityRequirements || '',
+        // Work Authorization
+        itemsConditionOnReceipt: currentJob.workAuthorization?.itemsConditionOnReceipt || 'Acceptable',
+        itemsConditionSpecification: currentJob.workAuthorization?.itemsConditionSpecification || '',
+        laboratoryCapabilityAssessment: currentJob.workAuthorization?.laboratoryCapabilityAssessment || 'Full capability',
+        capabilitySpecification: currentJob.workAuthorization?.capabilitySpecification || ''
       });
       setEquipment(currentJob.equipment.length > 0 ? currentJob.equipment : [{
         name: '',
@@ -96,6 +131,10 @@ export const JobModal: React.FC<JobModalProps> = ({ job, customers, onClose, onS
         machineLocation: '',
         remark: ''
       }]);
+      
+      // Load work authorization signatures
+      setCustomerSignature(currentJob.workAuthorization?.customerSignature);
+      setStaffSignature(currentJob.workAuthorization?.staffSignature);
     } else {
       // Reset form for new job creation
       setForm({
@@ -103,11 +142,26 @@ export const JobModal: React.FC<JobModalProps> = ({ job, customers, onClose, onS
         title: '',
         status: 'Pending' as Job['status'],
         customerCode: '',
+        customerName: '',
+        customerAddress: '',
         customerContact: '',
+        customerPhone: '',
+        customerEmail: '',
         assignedStaff: '',
         startDate: '',
         scheduleDate: '',
-        comments: ''
+        comments: '',
+        // Service Information - reset to defaults
+        serviceRequested: 'Calibration',
+        reportingFormat: 'Standard',
+        reportingFormatOther: '',
+        statementOfConformity: 'Not required',
+        statementOfConformityRequirements: '',
+        // Work Authorization - reset to defaults
+        itemsConditionOnReceipt: 'Acceptable',
+        itemsConditionSpecification: '',
+        laboratoryCapabilityAssessment: 'Full capability',
+        capabilitySpecification: ''
       });
       
       // Reset equipment to single empty row
@@ -122,6 +176,10 @@ export const JobModal: React.FC<JobModalProps> = ({ job, customers, onClose, onS
         machineLocation: '',
         remark: ''
       }]);
+      
+      // Reset signatures
+      setCustomerSignature(undefined);
+      setStaffSignature(undefined);
       
       // Get next Job ID for preview (without incrementing sequence)
       const getJobId = async () => {
@@ -140,6 +198,70 @@ export const JobModal: React.FC<JobModalProps> = ({ job, customers, onClose, onS
       getJobId();
     }
   }, [currentJob]);
+
+  // Auto-update customer signer name when contact name changes
+  useEffect(() => {
+    if (form.customerContact && customerSignature) {
+      setCustomerSignature({
+        ...customerSignature,
+        signerName: form.customerContact
+      });
+    }
+  }, [form.customerContact]);
+
+  // Auto-update staff signer name when assigned staff changes
+  useEffect(() => {
+    if (form.assignedStaff && staffSignature) {
+      setStaffSignature({
+        ...staffSignature,
+        signerName: form.assignedStaff
+      });
+    }
+  }, [form.assignedStaff]);
+
+  // Create job object for PDF preview
+  const getJobForPreview = (): Job => {
+    const serviceInformation = {
+      serviceRequested: form.serviceRequested,
+      reportingFormat: form.reportingFormat,
+      ...(form.reportingFormat === 'Other' && form.reportingFormatOther ? { reportingFormatOther: form.reportingFormatOther } : {}),
+      statementOfConformity: form.statementOfConformity,
+      ...(form.statementOfConformity === 'Required' && form.statementOfConformityRequirements ? { statementOfConformityRequirements: form.statementOfConformityRequirements } : {})
+    };
+
+    const workAuthorization = {
+      workAuthorizationStatement: 'I confirm that the information provided is correct and authorize the laboratory to proceed with the requested services according to the laboratory\'s terms and conditions. I understand that any deviations from the request must be communicated and approved before proceeding.',
+      itemsConditionOnReceipt: form.itemsConditionOnReceipt,
+      ...(form.itemsConditionOnReceipt !== 'Acceptable' && form.itemsConditionOnReceipt !== 'Insufficient quantity' && form.itemsConditionSpecification ? { itemsConditionSpecification: form.itemsConditionSpecification } : {}),
+      laboratoryCapabilityAssessment: form.laboratoryCapabilityAssessment,
+      ...(form.laboratoryCapabilityAssessment !== 'Full capability' && form.capabilitySpecification ? { capabilitySpecification: form.capabilitySpecification } : {}),
+      ...(customerSignature ? { customerSignature } : {}),
+      ...(staffSignature ? { staffSignature } : {})
+    };
+
+    return {
+      id: currentJob?.id || '',
+      jobId: form.jobId,
+      title: form.title,
+      status: form.status,
+      customerCode: form.customerCode,
+      customerName: form.customerName,
+      customerAddress: form.customerAddress,
+      customerContact: form.customerContact,
+      customerPhone: form.customerPhone,
+      customerEmail: form.customerEmail,
+      assignedStaff: form.assignedStaff,
+      startDate: form.startDate,
+      scheduleDate: form.scheduleDate,
+      comments: form.comments,
+      equipment: equipment.filter(eq => eq.name || eq.model),
+      serviceInformation,
+      workAuthorization,
+      createdAt: currentJob?.createdAt || new Date(),
+      updatedAt: new Date(),
+      createdBy: currentUser?.uid || ''
+    };
+  };
 
   // Function to refresh job data from Firestore
   const refreshJobData = async (jobId: string) => {
@@ -161,6 +283,35 @@ export const JobModal: React.FC<JobModalProps> = ({ job, customers, onClose, onS
 
   const handleChange = (field: string, value: string) => {
     setForm(prev => ({ ...prev, [field]: value }));
+  };
+
+  // Auto-fill customer information when customer is selected
+  const handleCustomerChange = (customerCode: string) => {
+    setForm(prev => ({ ...prev, customerCode }));
+    
+    if (customerCode) {
+      const selectedCustomer = customers.find(c => c.customerCode === customerCode);
+      if (selectedCustomer) {
+        setForm(prev => ({
+          ...prev,
+          customerCode,
+          customerName: selectedCustomer.name,
+          customerAddress: selectedCustomer.address,
+          customerPhone: selectedCustomer.phone || '',
+          customerEmail: selectedCustomer.email || ''
+        }));
+      }
+    } else {
+      // Clear customer fields if no customer selected
+      setForm(prev => ({
+        ...prev,
+        customerCode: '',
+        customerName: '',
+        customerAddress: '',
+        customerPhone: '',
+        customerEmail: ''
+      }));
+    }
   };
 
   const handleEquipmentChange = (index: number, field: keyof Equipment, value: string) => {
@@ -205,8 +356,8 @@ export const JobModal: React.FC<JobModalProps> = ({ job, customers, onClose, onS
     setError('');
 
     // Validation
-    if (!form.jobId || !form.title || !form.customerCode) {
-      setError('Please fill in all required fields');
+    if (!form.jobId || !form.title || !form.customerCode || !form.customerContact) {
+      setError('Please fill in all required fields (Job ID, Title, Customer, Contact Person)');
       return;
     }
 
@@ -220,9 +371,35 @@ export const JobModal: React.FC<JobModalProps> = ({ job, customers, onClose, onS
     setLoading(true);
 
     try {
+      // Separate service information and work authorization from form data
+      const { 
+        serviceRequested, reportingFormat, reportingFormatOther, statementOfConformity, statementOfConformityRequirements,
+        itemsConditionOnReceipt, itemsConditionSpecification, laboratoryCapabilityAssessment, capabilitySpecification,
+        ...restForm 
+      } = form;
+      
+      const serviceInformation = {
+        serviceRequested,
+        reportingFormat,
+        ...(reportingFormat === 'Other' && reportingFormatOther ? { reportingFormatOther } : {}),
+        statementOfConformity,
+        ...(statementOfConformity === 'Required' && statementOfConformityRequirements ? { statementOfConformityRequirements } : {})
+      };
+
+      const workAuthorization = {
+        itemsConditionOnReceipt,
+        ...(itemsConditionOnReceipt !== 'Acceptable' && itemsConditionSpecification ? { itemsConditionSpecification } : {}),
+        laboratoryCapabilityAssessment,
+        ...(laboratoryCapabilityAssessment !== 'Full capability' && capabilitySpecification ? { capabilitySpecification } : {}),
+        ...(customerSignature ? { customerSignature } : {}),
+        ...(staffSignature ? { staffSignature } : {})
+      };
+
       const jobData = {
-        ...form,
+        ...restForm,
         equipment: equipment.filter(eq => eq.name || eq.model), // Filter empty equipment
+        serviceInformation,
+        workAuthorization,
         updatedAt: serverTimestamp(),
         ...(job ? {} : { 
           createdAt: serverTimestamp(), 
@@ -275,29 +452,6 @@ export const JobModal: React.FC<JobModalProps> = ({ job, customers, onClose, onS
     }
   };
 
-  const handleDelete = async () => {
-    if (!currentJob) return;
-    
-    setLoading(true);
-    setShowDeleteConfirm(false);
-    
-    try {
-      await deleteDoc(doc(db, 'jobs', currentJob.id));
-      
-      // Show success message
-      setSuccessMessage('Job deleted successfully!');
-      setShowSuccess(true);
-      
-      // Close modal after showing success for 1 second
-      setTimeout(() => {
-        onSuccess();
-      }, 1000);
-    } catch (err) {
-      console.error('Error deleting job:', err);
-      setError('Failed to delete job. Please try again.');
-      setLoading(false);
-    }
-  };
 
   return (
     <div className="modal" onClick={onClose}>
@@ -563,81 +717,100 @@ export const JobModal: React.FC<JobModalProps> = ({ job, customers, onClose, onS
               Job Information
             </h3>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-3">
               {/* Job ID */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Job ID <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={form.jobId}
-                  onChange={(e) => handleChange('jobId', e.target.value)}
-                  className="input"
-                  required
-                  disabled={!!currentJob}
-                />
+              <div className="flex items-center justify-between py-2">
+                <div className="flex-1">
+                  <label className="text-sm font-medium text-gray-700">
+                    Job ID <span className="text-red-500">*</span>
+                  </label>
+                  <p className="text-xs text-gray-500">Unique identifier for this job</p>
+                </div>
+                <div className="w-96">
+                  <input
+                    type="text"
+                    value={form.jobId}
+                    onChange={(e) => handleChange('jobId', e.target.value)}
+                    className="input text-sm"
+                    required
+                    disabled={!!currentJob}
+                  />
+                </div>
               </div>
 
               {/* Title */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Title <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={form.title}
-                  onChange={(e) => handleChange('title', e.target.value)}
-                  className="input"
-                  required
-                />
+              <div className="flex items-center justify-between py-2">
+                <div className="flex-1">
+                  <label className="text-sm font-medium text-gray-700">
+                    Title <span className="text-red-500">*</span>
+                  </label>
+                  <p className="text-xs text-gray-500">Brief description of the job</p>
+                </div>
+                <div className="w-96">
+                  <input
+                    type="text"
+                    value={form.title}
+                    onChange={(e) => handleChange('title', e.target.value)}
+                    className="input text-sm"
+                    required
+                  />
+                </div>
               </div>
 
               {/* Start Date */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Start Date
-                </label>
-                <input
-                  type="date"
-                  value={form.startDate}
-                  onChange={(e) => handleChange('startDate', e.target.value)}
-                  className="input"
-                />
+              <div className="flex items-center justify-between py-2">
+                <div className="flex-1">
+                  <label className="text-sm font-medium text-gray-700">Start Date</label>
+                  <p className="text-xs text-gray-500">When the job begins</p>
+                </div>
+                <div className="w-96">
+                  <input
+                    type="date"
+                    value={form.startDate}
+                    onChange={(e) => handleChange('startDate', e.target.value)}
+                    className="input text-sm"
+                  />
+                </div>
               </div>
 
               {/* Schedule Date */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Schedule Date
-                </label>
-                <input
-                  type="date"
-                  value={form.scheduleDate}
-                  onChange={(e) => handleChange('scheduleDate', e.target.value)}
-                  className="input"
-                />
+              <div className="flex items-center justify-between py-2">
+                <div className="flex-1">
+                  <label className="text-sm font-medium text-gray-700">Schedule Date</label>
+                  <p className="text-xs text-gray-500">Target completion date</p>
+                </div>
+                <div className="w-96">
+                  <input
+                    type="date"
+                    value={form.scheduleDate}
+                    onChange={(e) => handleChange('scheduleDate', e.target.value)}
+                    className="input text-sm"
+                  />
+                </div>
               </div>
 
               {/* Assigned Staff */}
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Assigned Staff
-                </label>
-                <select
-                  value={form.assignedStaff}
-                  onChange={(e) => handleChange('assignedStaff', e.target.value)}
-                  className="input"
-                >
-                  <option value="">Select a staff member</option>
-                  {users
-                    .filter(user => user.isActive !== false)
-                    .map(user => (
-                      <option key={user.uid} value={`${user.firstName} ${user.lastName}`}>
-                        {user.firstName} {user.lastName} {user.position ? `(${user.position})` : ''}
-                      </option>
-                    ))}
-                </select>
+              <div className="flex items-center justify-between py-2">
+                <div className="flex-1">
+                  <label className="text-sm font-medium text-gray-700">Assigned Staff</label>
+                  <p className="text-xs text-gray-500">Staff member responsible for this job</p>
+                </div>
+                <div className="w-96">
+                  <select
+                    value={form.assignedStaff}
+                    onChange={(e) => handleChange('assignedStaff', e.target.value)}
+                    className="input text-sm"
+                  >
+                    <option value="">Select a staff member</option>
+                    {users
+                      .filter(user => user.isActive !== false)
+                      .map(user => (
+                        <option key={user.uid} value={`${user.firstName} ${user.lastName}`}>
+                          {user.firstName} {user.lastName} {user.position ? `(${user.position})` : ''}
+                        </option>
+                      ))}
+                  </select>
+                </div>
               </div>
             </div>
           </div>
@@ -651,54 +824,245 @@ export const JobModal: React.FC<JobModalProps> = ({ job, customers, onClose, onS
               Customer Information
             </h3>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Customer <span className="text-red-500">*</span>
-                </label>
-                <select
-                  value={form.customerCode}
-                  onChange={(e) => handleChange('customerCode', e.target.value)}
-                  className="input"
-                  required
-                >
-                  <option value="">Select a customer</option>
-                  {customers.map(customer => (
-                    <option key={customer.id} value={customer.customerCode}>
-                      {customer.customerCode} - {customer.name}
-                    </option>
-                  ))}
-                </select>
+            <div className="space-y-3">
+              {/* Customer */}
+              <div className="flex items-center justify-between py-2">
+                <div className="flex-1">
+                  <label className="text-sm font-medium text-gray-700">
+                    Customer <span className="text-red-500">*</span>
+                  </label>
+                  <p className="text-xs text-gray-500">Select customer from database</p>
+                </div>
+                <div className="w-96">
+                  <select
+                    value={form.customerCode}
+                    onChange={(e) => handleCustomerChange(e.target.value)}
+                    className="input text-sm"
+                    required
+                  >
+                    <option value="">Select a customer</option>
+                    {customers.map(customer => (
+                      <option key={customer.id} value={customer.customerCode}>
+                        {customer.customerCode} - {customer.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Customer Contact
-                </label>
-                <input
-                  type="text"
-                  value={form.customerContact}
-                  onChange={(e) => handleChange('customerContact', e.target.value)}
-                  className="input"
-                />
+              {/* Company/Organization Name - Auto-filled */}
+              <div className="flex items-center justify-between py-2">
+                <div className="flex-1">
+                  <label className="text-sm font-medium text-gray-700">Company/Organization Name</label>
+                  <p className="text-xs text-gray-500">Auto-filled from customer database</p>
+                </div>
+                <div className="w-96">
+                  <input
+                    type="text"
+                    value={form.customerName}
+                    onChange={(e) => handleChange('customerName', e.target.value)}
+                    className="input text-sm bg-gray-100"
+                    placeholder="Auto-filled from customer"
+                    readOnly
+                  />
+                </div>
+              </div>
+
+              {/* Address - Auto-filled */}
+              <div className="flex items-start justify-between py-2">
+                <div className="flex-1">
+                  <label className="text-sm font-medium text-gray-700">Address</label>
+                  <p className="text-xs text-gray-500">Auto-filled from customer database</p>
+                </div>
+                <div className="w-96">
+                  <textarea
+                    value={form.customerAddress}
+                    onChange={(e) => handleChange('customerAddress', e.target.value)}
+                    className="input text-sm bg-gray-100"
+                    rows={2}
+                    placeholder="Auto-filled from customer"
+                    readOnly
+                  />
+                </div>
+              </div>
+
+              {/* Contact Person - Required */}
+              <div className="flex items-center justify-between py-2">
+                <div className="flex-1">
+                  <label className="text-sm font-medium text-gray-700">
+                    Contact Person <span className="text-red-500">*</span>
+                  </label>
+                  <p className="text-xs text-gray-500">Name of contact person for this job</p>
+                </div>
+                <div className="w-96">
+                  <input
+                    type="text"
+                    value={form.customerContact}
+                    onChange={(e) => handleChange('customerContact', e.target.value)}
+                    className="input text-sm"
+                    placeholder="Enter contact person name"
+                    required
+                  />
+                </div>
+              </div>
+
+              {/* Phone Number */}
+              <div className="flex items-center justify-between py-2">
+                <div className="flex-1">
+                  <label className="text-sm font-medium text-gray-700">Phone Number</label>
+                  <p className="text-xs text-gray-500">Auto-filled, can be edited</p>
+                </div>
+                <div className="w-96">
+                  <input
+                    type="tel"
+                    value={form.customerPhone}
+                    onChange={(e) => handleChange('customerPhone', e.target.value)}
+                    className="input text-sm"
+                    placeholder="Phone number"
+                  />
+                </div>
+              </div>
+
+              {/* Email */}
+              <div className="flex items-center justify-between py-2">
+                <div className="flex-1">
+                  <label className="text-sm font-medium text-gray-700">Email</label>
+                  <p className="text-xs text-gray-500">Auto-filled, can be edited</p>
+                </div>
+                <div className="w-96">
+                  <input
+                    type="email"
+                    value={form.customerEmail}
+                    onChange={(e) => handleChange('customerEmail', e.target.value)}
+                    className="input text-sm"
+                    placeholder="Email address"
+                  />
+                </div>
               </div>
             </div>
           </div>
 
-          {/* Equipment Section */}
+          {/* Service Information Section */}
+          <div className="bg-gray-50 rounded-lg p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+              <span className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center mr-3">
+                <span className="text-purple-600 text-sm">⚙️</span>
+              </span>
+              Service Information
+              <span className="text-red-500 ml-1">*</span>
+            </h3>
+            <p className="text-sm text-gray-600 mb-4">Important information for both laboratory and customer</p>
+            
+            <div className="space-y-6">
+              {/* Service Requested */}
+              <div>
+                <label className="text-sm font-medium text-gray-700 mb-3 block">Service Requested</label>
+                <div className="flex items-center space-x-4">
+                  <label className="flex items-center space-x-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="serviceRequested"
+                      value="Calibration"
+                      checked={form.serviceRequested === 'Calibration'}
+                      onChange={(e) => handleChange('serviceRequested', e.target.value)}
+                      className="w-4 h-4 text-primary-600 border-gray-300 focus:ring-primary-500"
+                    />
+                    <span className="text-sm text-gray-700">Calibration</span>
+                  </label>
+                </div>
+              </div>
+
+              {/* Reporting Formats */}
+              <div>
+                <label className="text-sm font-medium text-gray-700 mb-3 block">Reporting Format</label>
+                <div className="space-y-2">
+                  {['Standard', 'Simplified Report', 'Electronic File', 'Other'].map((format) => (
+                    <label key={format} className="flex items-center space-x-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="reportingFormat"
+                        value={format}
+                        checked={form.reportingFormat === format}
+                        onChange={(e) => handleChange('reportingFormat', e.target.value)}
+                        className="w-4 h-4 text-primary-600 border-gray-300 focus:ring-primary-500"
+                      />
+                      <span className="text-sm text-gray-700">{format}</span>
+                    </label>
+                  ))}
+                </div>
+                
+                {/* Other format text input */}
+                {form.reportingFormat === 'Other' && (
+                  <div className="mt-3 ml-6">
+                    <input
+                      type="text"
+                      value={form.reportingFormatOther}
+                      onChange={(e) => handleChange('reportingFormatOther', e.target.value)}
+                      className="input text-sm w-full"
+                      placeholder="Please specify the reporting format"
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Statement of Conformity */}
+              <div>
+                <label className="text-sm font-medium text-gray-700 mb-3 block">Statement of Conformity</label>
+                <div className="space-y-2">
+                  <label className="flex items-center space-x-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="statementOfConformity"
+                      value="Required"
+                      checked={form.statementOfConformity === 'Required'}
+                      onChange={(e) => handleChange('statementOfConformity', e.target.value)}
+                      className="w-4 h-4 text-primary-600 border-gray-300 focus:ring-primary-500"
+                    />
+                    <span className="text-sm text-gray-700">Required</span>
+                  </label>
+                  <label className="flex items-center space-x-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="statementOfConformity"
+                      value="Not required"
+                      checked={form.statementOfConformity === 'Not required'}
+                      onChange={(e) => handleChange('statementOfConformity', e.target.value)}
+                      className="w-4 h-4 text-primary-600 border-gray-300 focus:ring-primary-500"
+                    />
+                    <span className="text-sm text-gray-700">Not required</span>
+                  </label>
+                </div>
+                
+                {/* Requirements text input */}
+                {form.statementOfConformity === 'Required' && (
+                  <div className="mt-3 ml-6">
+                    <label className="text-xs text-gray-600 mb-1 block">Please specify requirements/specifications:</label>
+                    <textarea
+                      value={form.statementOfConformityRequirements}
+                      onChange={(e) => handleChange('statementOfConformityRequirements', e.target.value)}
+                      className="input text-sm w-full h-20 resize-none"
+                      placeholder="Enter specific requirements or specifications for the statement of conformity"
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Item Details Section */}
           <div className="bg-gray-50 rounded-lg p-6">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-semibold text-gray-900 flex items-center">
                 <span className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center mr-3">
                   <span className="text-green-600 text-sm">🔧</span>
                 </span>
-                Equipment <span className="text-red-500">*</span>
+                Item Details <span className="text-red-500">*</span>
               </h3>
               <button
                 type="button"
                 onClick={addEquipment}
                 className="flex items-center justify-center w-10 h-10 rounded-lg border border-primary-500 bg-primary-600 hover:bg-primary-700 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                title="Add Equipment Row"
+                title="Add Item Row"
               >
                 <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
@@ -706,7 +1070,7 @@ export const JobModal: React.FC<JobModalProps> = ({ job, customers, onClose, onS
               </button>
             </div>
 
-            {/* Spreadsheet-style Equipment Table */}
+            {/* Spreadsheet-style Item Details Table */}
             <div className="border-2 border-gray-300 rounded-lg overflow-hidden bg-white shadow-sm">
               <div className="overflow-x-auto max-h-[600px] overflow-y-auto">
                 <table className="min-w-full border-collapse">
@@ -755,7 +1119,7 @@ export const JobModal: React.FC<JobModalProps> = ({ job, customers, onClose, onS
                         </td>
                         <td className="border-r-2 border-b border-gray-300 p-0">
                           <textarea
-                            placeholder="Equipment name"
+                            placeholder="Item name"
                             value={eq.name}
                             onChange={(e) => handleEquipmentChange(index, 'name', e.target.value)}
                             rows={1}
@@ -911,6 +1275,175 @@ export const JobModal: React.FC<JobModalProps> = ({ job, customers, onClose, onS
             </p>
           </div>
 
+          {/* Work Authorization Section */}
+          <div className="bg-gray-50 rounded-lg p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+              <span className="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center mr-3">
+                <span className="text-orange-600 text-sm">📋</span>
+              </span>
+              Work Authorization
+            </h3>
+            <p className="text-sm text-gray-600 mb-6">Customer authorization and laboratory review</p>
+
+            {/* Customer Authorization Sub-section */}
+            <div className="mb-8">
+              <h4 className="text-md font-semibold text-gray-800 mb-4 border-b border-gray-200 pb-2">
+                Customer Authorization
+              </h4>
+              
+              <div className="space-y-6">
+                {/* Customer Signature */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Customer Signature
+                  </label>
+                  <SignatureCanvas
+                    value={customerSignature}
+                    onChange={setCustomerSignature}
+                    placeholder="Customer signature"
+                    signerName={customerSignature?.signerName || form.customerContact}
+                    onSignerNameChange={(name) => {
+                      if (customerSignature) {
+                        setCustomerSignature({
+                          ...customerSignature,
+                          signerName: name
+                        });
+                      } else {
+                        // Create new signature with the name
+                        setCustomerSignature({
+                          signatureData: '',
+                          signerName: name,
+                          signedDate: new Date()
+                        });
+                      }
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Request Review (Laboratory Use Only) Sub-section */}
+            <div>
+              <h4 className="text-md font-semibold text-gray-800 mb-4 border-b border-gray-200 pb-2">
+                Request Review (Laboratory Use Only)
+              </h4>
+              
+              <div className="space-y-6">
+                {/* Items Condition on Receipt */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Items Condition on Receipt
+                  </label>
+                  <div className="space-y-2">
+                    {[
+                      'Acceptable',
+                      'Damaged or altered',
+                      'Improper storage/transportation conditions',
+                      'Insufficient quantity',
+                      'Other issues'
+                    ].map((condition) => (
+                      <label key={condition} className="flex items-center">
+                        <input
+                          type="radio"
+                          name="itemsConditionOnReceipt"
+                          value={condition}
+                          checked={form.itemsConditionOnReceipt === condition}
+                          onChange={(e) => handleChange('itemsConditionOnReceipt', e.target.value)}
+                          className="mr-2"
+                        />
+                        <span className="text-sm text-gray-700">{condition}</span>
+                      </label>
+                    ))}
+                  </div>
+                  
+                  {/* Specification text input for non-acceptable conditions */}
+                  {(form.itemsConditionOnReceipt !== 'Acceptable' && form.itemsConditionOnReceipt !== 'Insufficient quantity') && (
+                    <div className="mt-3">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Specify details
+                      </label>
+                      <textarea
+                        value={form.itemsConditionSpecification}
+                        onChange={(e) => handleChange('itemsConditionSpecification', e.target.value)}
+                        className="input text-sm w-full h-20 resize-none"
+                        placeholder={`Please specify the ${form.itemsConditionOnReceipt.toLowerCase()}`}
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {/* Laboratory Capability Assessment */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Laboratory Capability Assessment
+                  </label>
+                  <div className="space-y-2">
+                    {[
+                      'Full capability',
+                      'Partial capability',
+                      'Lacks capability'
+                    ].map((capability) => (
+                      <label key={capability} className="flex items-center">
+                        <input
+                          type="radio"
+                          name="laboratoryCapabilityAssessment"
+                          value={capability}
+                          checked={form.laboratoryCapabilityAssessment === capability}
+                          onChange={(e) => handleChange('laboratoryCapabilityAssessment', e.target.value)}
+                          className="mr-2"
+                        />
+                        <span className="text-sm text-gray-700">{capability}</span>
+                      </label>
+                    ))}
+                  </div>
+                  
+                  {/* Specification text input for non-full capability */}
+                  {form.laboratoryCapabilityAssessment !== 'Full capability' && (
+                    <div className="mt-3">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        {form.laboratoryCapabilityAssessment === 'Partial capability' ? 'Specify limitations' : 'Specify lacking capabilities'}
+                      </label>
+                      <textarea
+                        value={form.capabilitySpecification}
+                        onChange={(e) => handleChange('capabilitySpecification', e.target.value)}
+                        className="input text-sm w-full h-20 resize-none"
+                        placeholder={`Please specify the ${form.laboratoryCapabilityAssessment === 'Partial capability' ? 'limitations' : 'lacking capabilities'}`}
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {/* Staff Signature */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Staff Signature
+                  </label>
+                  <SignatureCanvas
+                    value={staffSignature}
+                    onChange={setStaffSignature}
+                    placeholder="Staff signature"
+                    signerName={staffSignature?.signerName || form.assignedStaff}
+                    onSignerNameChange={(name) => {
+                      if (staffSignature) {
+                        setStaffSignature({
+                          ...staffSignature,
+                          signerName: name
+                        });
+                      } else {
+                        // Create new signature with the name
+                        setStaffSignature({
+                          signatureData: '',
+                          signerName: name,
+                          signedDate: new Date()
+                        });
+                      }
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* Notes Section */}
           <div className="bg-gray-50 rounded-lg p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
@@ -919,59 +1452,35 @@ export const JobModal: React.FC<JobModalProps> = ({ job, customers, onClose, onS
               </span>
               Notes
             </h3>
-            <textarea
-              value={form.comments}
-              onChange={(e) => handleChange('comments', e.target.value)}
-              className="input"
-              rows={4}
-              placeholder="Add any additional notes or comments about this job..."
-            />
-          </div>
 
-        </form>
-      </div>
-
-      {/* PDF Preview Modal */}
-      {currentJob && (
-        <PdfPreviewModal
-          isOpen={showPdfPreview}
-          onClose={() => setShowPdfPreview(false)}
-          job={currentJob}
-          settings={pdfSettings}
-          onDownload={handleGeneratePDF}
-        />
-      )}
-
-      {/* Delete Confirmation Dialog */}
-      {showDeleteConfirm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setShowDeleteConfirm(false)}>
-          <div className="bg-white rounded-lg shadow-xl p-6 max-w-md mx-4" onClick={e => e.stopPropagation()}>
-            <h3 className="text-xl font-semibold text-gray-900 mb-4">Delete Job</h3>
-            <p className="text-gray-600 mb-6">
-              Are you sure you want to delete this job? This action cannot be undone.
-            </p>
-            <div className="flex justify-end space-x-3">
-              <button
-                type="button"
-                onClick={() => setShowDeleteConfirm(false)}
-                className="btn btn-secondary"
-                disabled={loading}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleDelete}
-                className="btn bg-red-600 text-white hover:bg-red-700"
-                disabled={loading}
-              >
-                Delete
-              </button>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Comments
+              </label>
+              <textarea
+                value={form.comments}
+                onChange={(e) => setForm({ ...form, comments: e.target.value })}
+                className="input w-full h-32 resize-none"
+                placeholder="Enter any additional comments or notes..."
+              />
             </div>
           </div>
-        </div>
+        </form>
+      </div>
+      
+      {/* PDF Preview Modal */}
+      {showPdfPreview && (
+        <PdfPreviewModal
+          isOpen={showPdfPreview}
+          job={getJobForPreview()}
+          settings={pdfSettings}
+          onClose={() => setShowPdfPreview(false)}
+          onDownload={() => {
+            const jobForDownload = getJobForPreview();
+            generateAndDownloadJobPDF(jobForDownload, pdfSettings);
+          }}
+        />
       )}
     </div>
   );
 };
-

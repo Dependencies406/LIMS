@@ -59,7 +59,7 @@ export const CustomerListView: React.FC<CustomerListViewProps> = ({ customers, o
               <td className="px-6 py-4 text-sm text-gray-600">{customer.email || '-'}</td>
               <td className="px-6 py-4 text-sm text-gray-600">{customer.phone || '-'}</td>
               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                {new Date(customer.createdAt).toLocaleDateString()}
+                {new Date(customer.createdAt).toLocaleDateString('en-GB')}
               </td>
             </tr>
           ))}
