@@ -273,14 +273,14 @@ export const generateJobPDF = async (
       await Promise.all(
         Array.from(images).map(img => {
           if (img.complete) return Promise.resolve();
-          return new Promise((resolve, reject) => {
-            img.onload = resolve;
+          return new Promise<void>((resolve) => {
+            img.onload = () => resolve();
             img.onerror = () => {
               console.warn('Failed to load image:', img.src);
               resolve(); // Continue even if image fails
             };
             // Timeout after 5 seconds
-            setTimeout(resolve, 5000);
+            setTimeout(() => resolve(), 5000);
           });
         })
       );

@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { Link, useLocation, Outlet } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../hooks/useToast';
-import { PdfServerStatus } from './PdfServerStatus';
 
 export const Layout: React.FC = () => {
   const { currentUser, logout, isAdmin } = useAuth();
@@ -177,9 +176,6 @@ export const Layout: React.FC = () => {
       <main className="flex-1 overflow-hidden flex flex-col">
         <Outlet />
       </main>
-      
-      {/* PDF Server Status Warning */}
-      <PdfServerStatus />
     </div>
   );
 };

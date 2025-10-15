@@ -6,30 +6,15 @@ A modern, full-featured Laboratory Information Management System built with Reac
 
 ### Start the Application
 
-Use the automated startup script (recommended):
+Simply run the development server:
 
-```bash
-START_HERE.bat
-```
-
-This will automatically start both:
-- Frontend (Vite dev server on port 5173)
-- PDF Server (Node.js on port 3001)
-
-### Manual Start
-
-If you prefer to start manually:
-
-**Terminal 1 - Frontend:**
 ```bash
 npm run dev
 ```
 
-**Terminal 2 - PDF Server:**
-```bash
-cd server
-node index.js
-```
+The application will start on `http://localhost:5173`
+
+> **Note:** PDF generation is now handled client-side, so no separate server is needed!
 
 ## 📚 Documentation
 
@@ -53,7 +38,7 @@ All documentation is available in the **`docs/`** folder:
 
 - **Frontend:** React 18 + TypeScript + Vite + Tailwind CSS
 - **Backend:** Firebase (Authentication, Firestore, Storage)
-- **PDF Generation:** Node.js + Puppeteer + Express
+- **PDF Generation:** Client-side (jsPDF + html2canvas)
 - **State Management:** React Context API + Custom Hooks
 
 ## 📖 Quick Links
@@ -68,8 +53,7 @@ All documentation is available in the **`docs/`** folder:
 1. Copy `.env.example` to `.env`
 2. Fill in your Firebase credentials
 3. Run `npm install`
-4. Run `cd server && npm install`
-5. Start with `START_HERE.bat`
+4. Start with `npm run dev`
 
 ## 📝 License
 
@@ -77,6 +61,6 @@ Internal use only - Laboratory Information Management System
 
 ---
 
-**Last Updated:** October 14, 2025  
-**Version:** 3.0 (Optimized)
+**Last Updated:** October 15, 2025  
+**Version:** 3.1 (Client-Side PDF Generation)
 
