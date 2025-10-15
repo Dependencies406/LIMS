@@ -1282,163 +1282,172 @@ export const JobModal: React.FC<JobModalProps> = ({ job, customers, onClose, onS
                 <span className="text-orange-600 text-sm">📋</span>
               </span>
               Work Authorization
+              <span className="text-red-500 ml-1">*</span>
             </h3>
             <p className="text-sm text-gray-600 mb-6">Customer authorization and laboratory review</p>
 
-            {/* Customer Authorization Sub-section */}
-            <div className="mb-8">
-              <h4 className="text-md font-semibold text-gray-800 mb-4 border-b border-gray-200 pb-2">
-                Customer Authorization
-              </h4>
-              
-              <div className="space-y-6">
-                {/* Customer Signature */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Customer Signature
-                  </label>
-                  <SignatureCanvas
-                    value={customerSignature}
-                    onChange={setCustomerSignature}
-                    placeholder="Customer signature"
-                    signerName={customerSignature?.signerName || form.customerContact}
-                    onSignerNameChange={(name) => {
-                      if (customerSignature) {
-                        setCustomerSignature({
-                          ...customerSignature,
-                          signerName: name
-                        });
-                      } else {
-                        // Create new signature with the name
-                        setCustomerSignature({
-                          signatureData: '',
-                          signerName: name,
-                          signedDate: new Date()
-                        });
-                      }
-                    }}
-                  />
+            <div className="space-y-8">
+              {/* Customer Authorization Sub-section */}
+              <div className="bg-white rounded-lg p-4 border border-gray-200">
+                <h4 className="text-md font-semibold text-gray-800 mb-4 flex items-center">
+                  <span className="w-6 h-6 bg-blue-100 rounded-lg flex items-center justify-center mr-2">
+                    <span className="text-blue-600 text-xs">👤</span>
+                  </span>
+                  Customer Authorization
+                </h4>
+                
+                <div className="space-y-4">
+                  {/* Customer Signature */}
+                  <div>
+                    <label className="text-sm font-medium text-gray-700 mb-3 block">
+                      Customer Signature
+                    </label>
+                    <SignatureCanvas
+                      value={customerSignature}
+                      onChange={setCustomerSignature}
+                      placeholder="Customer signature"
+                      signerName={customerSignature?.signerName || form.customerContact}
+                      onSignerNameChange={(name) => {
+                        if (customerSignature) {
+                          setCustomerSignature({
+                            ...customerSignature,
+                            signerName: name
+                          });
+                        } else {
+                          // Create new signature with the name
+                          setCustomerSignature({
+                            signatureData: '',
+                            signerName: name,
+                            signedDate: new Date()
+                          });
+                        }
+                      }}
+                    />
+                  </div>
                 </div>
               </div>
-            </div>
 
-            {/* Request Review (Laboratory Use Only) Sub-section */}
-            <div>
-              <h4 className="text-md font-semibold text-gray-800 mb-4 border-b border-gray-200 pb-2">
-                Request Review (Laboratory Use Only)
-              </h4>
-              
-              <div className="space-y-6">
-                {/* Items Condition on Receipt */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Items Condition on Receipt
-                  </label>
-                  <div className="space-y-2">
-                    {[
-                      'Acceptable',
-                      'Damaged or altered',
-                      'Improper storage/transportation conditions',
-                      'Insufficient quantity',
-                      'Other issues'
-                    ].map((condition) => (
-                      <label key={condition} className="flex items-center">
-                        <input
-                          type="radio"
-                          name="itemsConditionOnReceipt"
-                          value={condition}
-                          checked={form.itemsConditionOnReceipt === condition}
-                          onChange={(e) => handleChange('itemsConditionOnReceipt', e.target.value)}
-                          className="mr-2"
-                        />
-                        <span className="text-sm text-gray-700">{condition}</span>
-                      </label>
-                    ))}
-                  </div>
-                  
-                  {/* Specification text input for non-acceptable conditions */}
-                  {(form.itemsConditionOnReceipt !== 'Acceptable' && form.itemsConditionOnReceipt !== 'Insufficient quantity') && (
-                    <div className="mt-3">
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Specify details
-                      </label>
-                      <textarea
-                        value={form.itemsConditionSpecification}
-                        onChange={(e) => handleChange('itemsConditionSpecification', e.target.value)}
-                        className="input text-sm w-full h-20 resize-none"
-                        placeholder={`Please specify the ${form.itemsConditionOnReceipt.toLowerCase()}`}
-                      />
+              {/* Request Review (Laboratory Use Only) Sub-section */}
+              <div className="bg-white rounded-lg p-4 border border-gray-200">
+                <h4 className="text-md font-semibold text-gray-800 mb-4 flex items-center">
+                  <span className="w-6 h-6 bg-green-100 rounded-lg flex items-center justify-center mr-2">
+                    <span className="text-green-600 text-xs">🔬</span>
+                  </span>
+                  Request Review (Laboratory Use Only)
+                </h4>
+                
+                <div className="space-y-6">
+                  {/* Items Condition on Receipt */}
+                  <div>
+                    <label className="text-sm font-medium text-gray-700 mb-3 block">
+                      Items Condition on Receipt
+                    </label>
+                    <div className="space-y-2">
+                      {[
+                        'Acceptable',
+                        'Damaged or altered',
+                        'Improper storage/transportation conditions',
+                        'Insufficient quantity',
+                        'Other issues'
+                      ].map((condition) => (
+                        <label key={condition} className="flex items-center space-x-2 cursor-pointer">
+                          <input
+                            type="radio"
+                            name="itemsConditionOnReceipt"
+                            value={condition}
+                            checked={form.itemsConditionOnReceipt === condition}
+                            onChange={(e) => handleChange('itemsConditionOnReceipt', e.target.value)}
+                            className="w-4 h-4 text-primary-600 border-gray-300 focus:ring-primary-500"
+                          />
+                          <span className="text-sm text-gray-700">{condition}</span>
+                        </label>
+                      ))}
                     </div>
-                  )}
-                </div>
-
-                {/* Laboratory Capability Assessment */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Laboratory Capability Assessment
-                  </label>
-                  <div className="space-y-2">
-                    {[
-                      'Full capability',
-                      'Partial capability',
-                      'Lacks capability'
-                    ].map((capability) => (
-                      <label key={capability} className="flex items-center">
-                        <input
-                          type="radio"
-                          name="laboratoryCapabilityAssessment"
-                          value={capability}
-                          checked={form.laboratoryCapabilityAssessment === capability}
-                          onChange={(e) => handleChange('laboratoryCapabilityAssessment', e.target.value)}
-                          className="mr-2"
+                    
+                    {/* Specification text input for non-acceptable conditions */}
+                    {(form.itemsConditionOnReceipt !== 'Acceptable' && form.itemsConditionOnReceipt !== 'Insufficient quantity') && (
+                      <div className="mt-3">
+                        <label className="text-sm font-medium text-gray-700 mb-2 block">
+                          Specify details
+                        </label>
+                        <textarea
+                          value={form.itemsConditionSpecification}
+                          onChange={(e) => handleChange('itemsConditionSpecification', e.target.value)}
+                          className="input text-sm w-full h-20 resize-none"
+                          placeholder={`Please specify the ${form.itemsConditionOnReceipt.toLowerCase()}`}
                         />
-                        <span className="text-sm text-gray-700">{capability}</span>
-                      </label>
-                    ))}
+                      </div>
+                    )}
                   </div>
-                  
-                  {/* Specification text input for non-full capability */}
-                  {form.laboratoryCapabilityAssessment !== 'Full capability' && (
-                    <div className="mt-3">
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        {form.laboratoryCapabilityAssessment === 'Partial capability' ? 'Specify limitations' : 'Specify lacking capabilities'}
-                      </label>
-                      <textarea
-                        value={form.capabilitySpecification}
-                        onChange={(e) => handleChange('capabilitySpecification', e.target.value)}
-                        className="input text-sm w-full h-20 resize-none"
-                        placeholder={`Please specify the ${form.laboratoryCapabilityAssessment === 'Partial capability' ? 'limitations' : 'lacking capabilities'}`}
-                      />
-                    </div>
-                  )}
-                </div>
 
-                {/* Staff Signature */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Staff Signature
-                  </label>
-                  <SignatureCanvas
-                    value={staffSignature}
-                    onChange={setStaffSignature}
-                    placeholder="Staff signature"
-                    signerName={staffSignature?.signerName || form.assignedStaff}
-                    onSignerNameChange={(name) => {
-                      if (staffSignature) {
-                        setStaffSignature({
-                          ...staffSignature,
-                          signerName: name
-                        });
-                      } else {
-                        // Create new signature with the name
-                        setStaffSignature({
-                          signatureData: '',
-                          signerName: name,
-                          signedDate: new Date()
-                        });
-                      }
-                    }}
-                  />
+                  {/* Laboratory Capability Assessment */}
+                  <div>
+                    <label className="text-sm font-medium text-gray-700 mb-3 block">
+                      Laboratory Capability Assessment
+                    </label>
+                    <div className="space-y-2">
+                      {[
+                        'Full capability',
+                        'Partial capability',
+                        'Lacks capability'
+                      ].map((capability) => (
+                        <label key={capability} className="flex items-center space-x-2 cursor-pointer">
+                          <input
+                            type="radio"
+                            name="laboratoryCapabilityAssessment"
+                            value={capability}
+                            checked={form.laboratoryCapabilityAssessment === capability}
+                            onChange={(e) => handleChange('laboratoryCapabilityAssessment', e.target.value)}
+                            className="w-4 h-4 text-primary-600 border-gray-300 focus:ring-primary-500"
+                          />
+                          <span className="text-sm text-gray-700">{capability}</span>
+                        </label>
+                      ))}
+                    </div>
+                    
+                    {/* Specification text input for non-full capability */}
+                    {form.laboratoryCapabilityAssessment !== 'Full capability' && (
+                      <div className="mt-3">
+                        <label className="text-sm font-medium text-gray-700 mb-2 block">
+                          {form.laboratoryCapabilityAssessment === 'Partial capability' ? 'Specify limitations' : 'Specify lacking capabilities'}
+                        </label>
+                        <textarea
+                          value={form.capabilitySpecification}
+                          onChange={(e) => handleChange('capabilitySpecification', e.target.value)}
+                          className="input text-sm w-full h-20 resize-none"
+                          placeholder={`Please specify the ${form.laboratoryCapabilityAssessment === 'Partial capability' ? 'limitations' : 'lacking capabilities'}`}
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Staff Signature */}
+                  <div>
+                    <label className="text-sm font-medium text-gray-700 mb-3 block">
+                      Staff Signature
+                    </label>
+                    <SignatureCanvas
+                      value={staffSignature}
+                      onChange={setStaffSignature}
+                      placeholder="Staff signature"
+                      signerName={staffSignature?.signerName || form.assignedStaff}
+                      onSignerNameChange={(name) => {
+                        if (staffSignature) {
+                          setStaffSignature({
+                            ...staffSignature,
+                            signerName: name
+                          });
+                        } else {
+                          // Create new signature with the name
+                          setStaffSignature({
+                            signatureData: '',
+                            signerName: name,
+                            signedDate: new Date()
+                          });
+                        }
+                      }}
+                    />
+                  </div>
                 </div>
               </div>
             </div>
