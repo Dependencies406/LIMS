@@ -255,3 +255,6 @@ export interface CompanyInfo {
   updatedBy: string;
 }
 
+// Re-export template types
+export * from './template';
+
