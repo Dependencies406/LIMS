@@ -1,0 +1,9 @@
+# Firebase Setup Tool Requirements
+# Note: This tool uses only standard library modules (tkinter)
+# No external dependencies required for basic functionality
+
+# Optional: If you want to add actual Firebase connection testing
+# firebase-admin>=6.0.0
+
+# For building standalone executable (only needed on build machine)
+pyinstaller>=5.0.0

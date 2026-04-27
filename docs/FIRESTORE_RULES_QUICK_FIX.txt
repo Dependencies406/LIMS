@@ -1,0 +1,33 @@
+// QUICK FIX: Add these rules to your Firestore security rules
+// Copy this entire block and add it BEFORE the default deny rule
+
+// Documents collection - ISO/IEC 17025 Document Management
+match /documents/{documentId} {
+  // All authenticated users can read published documents
+  // Admins and staff can read all documents
+  // Draft/review documents are filtered on the client side
+  allow read: if request.auth != null;
+  
+  // Only authenticated users can write (admins/staff in practice)
+  allow write: if request.auth != null;
+}
+
+// Notifications collection
+match /notifications/{notificationId} {
+  // Users can read their own notifications
+  allow read: if request.auth != null && 
+    resource.data.userId == request.auth.uid;
+  
+  // Authenticated users can create notifications
+  allow create: if request.auth != null;
+  
+  // Users can update/delete their own notifications
+  allow update, delete: if request.auth != null && 
+    resource.data.userId == request.auth.uid;
+}
+
+// Add these rules BEFORE the default deny rule:
+// match /{document=**} {
+//   allow read, write: if false;
+// }
+

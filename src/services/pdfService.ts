@@ -10,6 +10,8 @@ import type { Job, PdfSettings } from '../types';
 import { DEFAULT_PDF_SETTINGS } from '../utils/constants';
 import { getCompanyInfo } from './companyInfoService';
 import { customerService } from './customerService';
+import { storage } from './firebase';
+import { getBytes, ref as storageRef } from 'firebase/storage';
 
 /**
  * Helper function to convert Firestore Timestamp to Date
@@ -75,6 +77,64 @@ const imageUrlToBase64 = async (url: string): Promise<string> => {
   });
 };
 
+const bytesToDataUrl = (bytes: Uint8Array, contentType: string): string => {
+  let binary = '';
+  for (let i = 0; i < bytes.length; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  const base64 = btoa(binary);
+  return `data:${contentType};base64,${base64}`;
+};
+
+/**
+ * If the URL is a Firebase Storage download URL, extract the object path.
+ * Example:
+ * https://firebasestorage.googleapis.com/v0/b/<bucket>/o/company%2Flogo%2Ffile.png?alt=media&token=...
+ * -> company/logo/file.png
+ */
+const tryExtractFirebaseStoragePath = (url: string): string | null => {
+  try {
+    const u = new URL(url);
+    const match = u.pathname.match(/\/o\/(.+)$/);
+    if (!match?.[1]) return null;
+    const encodedPath = match[1];
+    return decodeURIComponent(encodedPath);
+  } catch {
+    return null;
+  }
+};
+
+const guessContentTypeFromPath = (path: string): string => {
+  const lower = path.toLowerCase();
+  if (lower.endsWith('.png')) return 'image/png';
+  if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) return 'image/jpeg';
+  if (lower.endsWith('.webp')) return 'image/webp';
+  if (lower.endsWith('.gif')) return 'image/gif';
+  if (lower.endsWith('.svg')) return 'image/svg+xml';
+  return 'image/png';
+};
+
+/**
+ * Robust logo loader:
+ * - Try direct <img> load + canvas (works when URL is publicly fetchable and CORS is configured).
+ * - If that fails (common when Storage URL returns 403), fall back to Firebase Storage SDK
+ *   (authenticated) and convert bytes to base64.
+ */
+const logoUrlToBase64 = async (url: string): Promise<string> => {
+  if (!url) throw new Error('Missing logo URL');
+  if (url.startsWith('data:')) return url;
+
+  try {
+    return await imageUrlToBase64(url);
+  } catch (firstError) {
+    const storagePath = tryExtractFirebaseStoragePath(url);
+    if (!storagePath) throw firstError;
+
+    const bytes = await getBytes(storageRef(storage, storagePath));
+    return bytesToDataUrl(bytes, guessContentTypeFromPath(storagePath));
+  }
+};
+
 /**
  * Helper function to replace placeholders in header/footer content
  */
@@ -91,8 +151,7 @@ const replacePlaceholders = async (
   if (text.includes('{company_logo}')) {
     if (companyInfo?.logoUrl) {
       try {
-        // Convert Firebase Storage URL to base64 to avoid CORS issues
-        const base64Image = await imageUrlToBase64(companyInfo.logoUrl);
+        const base64Image = await logoUrlToBase64(companyInfo.logoUrl);
         const maxHeight = logoSize?.maxHeight || 40;
         const maxWidth = logoSize?.maxWidth || 150;
         return `<img src="${base64Image}" alt="Company Logo" style="max-height: ${maxHeight}px; max-width: ${maxWidth}px; object-fit: contain;" />`;
@@ -209,6 +268,12 @@ const generatePDFHTML = async (job: Job, settings: PdfSettings, companyInfo: any
             <td style="padding: 5px;">${job.title}</td>
           </tr>
           ` : ''}
+          ${settings.jobTableColumns.poNumber && job.poNumber ? `
+          <tr>
+            <td style="padding: 5px; font-weight: bold;">PO Number:</td>
+            <td style="padding: 5px;">${job.poNumber}</td>
+          </tr>
+          ` : ''}
           ${settings.jobTableColumns.status ? `
           <tr>
             <td style="padding: 5px; font-weight: bold;">Status:</td>
@@ -241,10 +306,10 @@ const generatePDFHTML = async (job: Job, settings: PdfSettings, companyInfo: any
             <td style="padding: 5px;">${formatDate(job.startDate)}</td>
           </tr>
           ` : ''}
-          ${settings.jobTableColumns.scheduleDate && job.scheduleDate ? `
+          ${settings.jobTableColumns.appointmentDate && job.appointmentDate ? `
           <tr>
-            <td style="padding: 5px; font-weight: bold;">Schedule Date:</td>
-            <td style="padding: 5px;">${formatDate(job.scheduleDate)}</td>
+            <td style="padding: 5px; font-weight: bold;">Appointment Date:</td>
+            <td style="padding: 5px;">${formatDate(job.appointmentDate)}</td>
           </tr>
           ` : ''}
           ${settings.jobTableColumns.created ? `
@@ -268,16 +333,6 @@ const generatePDFHTML = async (job: Job, settings: PdfSettings, companyInfo: any
               <td style="padding: 5px;">${job.serviceInformation.serviceRequested}</td>
             </tr>
             ` : ''}
-            ${settings.serviceInformationVisibility.reportingFormat ? `
-            <tr>
-              <td style="padding: 5px; font-weight: bold;">Reporting Format:</td>
-              <td style="padding: 5px;">
-                ${job.serviceInformation.reportingFormat}
-                ${job.serviceInformation.reportingFormat === 'Other' && job.serviceInformation.reportingFormatOther 
-                  ? ` - ${job.serviceInformation.reportingFormatOther}` : ''}
-              </td>
-            </tr>
-            ` : ''}
             ${settings.serviceInformationVisibility.statementOfConformity ? `
             <tr>
               <td style="padding: 5px; font-weight: bold;">Statement of Conformity:</td>
@@ -290,6 +345,13 @@ const generatePDFHTML = async (job: Job, settings: PdfSettings, companyInfo: any
             <tr>
               <td style="padding: 5px; font-weight: bold;">Requirements/Specifications:</td>
               <td style="padding: 5px; white-space: pre-wrap;">${job.serviceInformation.statementOfConformityRequirements}</td>
+            </tr>
+            ` : ''}
+            ${settings.serviceInformationVisibility.statementOfConformityReferencePdf &&
+              job.serviceInformation.statementOfConformityReferencePdf?.url ? `
+            <tr>
+              <td style="padding: 5px; font-weight: bold;">Statement of conformity reference (PDF):</td>
+              <td style="padding: 5px;">${job.serviceInformation.statementOfConformityReferencePdf.name} — ${job.serviceInformation.statementOfConformityReferencePdf.url}</td>
             </tr>
             ` : ''}
           </table>
@@ -592,33 +654,6 @@ export const generatePDFPreview = async (
     return URL.createObjectURL(blob);
   } catch (error) {
     console.error('Error generating PDF preview:', error);
-    throw error;
-  }
-};
-
-/**
- * Generate and download a PDF for a job
- */
-export const generateAndDownloadJobPDF = async (
-  job: Job,
-  settings: Partial<PdfSettings> = {}
-): Promise<void> => {
-  try {
-    const pdfBytes = await generateJobPDF(job, settings);
-    const blob = new Blob([pdfBytes], { type: 'application/pdf' });
-    const url = URL.createObjectURL(blob);
-    
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${job.jobId || 'job'}.pdf`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    
-    // Clean up the URL object
-    setTimeout(() => URL.revokeObjectURL(url), 100);
-  } catch (error) {
-    console.error('Error downloading PDF:', error);
     throw error;
   }
 };

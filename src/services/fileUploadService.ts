@@ -11,6 +11,7 @@ import {
   deleteObject,
 } from './firebase';
 import type { UploadTaskSnapshot } from 'firebase/storage';
+import type { FileAttachment } from '../types';
 
 export interface FileMetadata {
   id: string;
@@ -150,6 +151,38 @@ export const deleteJobAttachment = async (filePath: string): Promise<void> => {
   return deleteFile(filePath);
 };
 
+function toFileAttachment(meta: FileMetadata, userId: string): FileAttachment {
+  return {
+    id: meta.id,
+    name: meta.name,
+    size: meta.size,
+    type: meta.type,
+    url: meta.url,
+    uploadedAt: meta.uploadedAt,
+    uploadedBy: userId,
+  };
+}
+
+/** Single PDF stored on the job under Service Information (statement of conformity reference). */
+export const uploadStatementOfConformityReferencePdf = async (
+  jobId: string,
+  file: File,
+  userId: string,
+  onProgress?: (progress: UploadProgress) => void
+): Promise<FileAttachment> => {
+  const check = validateFile(file, {
+    maxSize: 15 * 1024 * 1024,
+    allowedTypes: ['application/pdf', '.pdf'],
+  });
+  if (!check.valid) {
+    throw new Error(check.error || 'Invalid file');
+  }
+  const safe = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+  const filePath = `jobs/${jobId}/service-information/statement-of-conformity/${Date.now()}_${safe}`;
+  const meta = await uploadFile(file, filePath, onProgress);
+  return toFileAttachment({ ...meta, uploadedBy: userId }, userId);
+};
+
 /**
  * Validate file before upload
  */
@@ -227,6 +260,7 @@ export const fileUploadService = {
   uploadMultipleFiles,
   uploadJobAttachment,
   deleteJobAttachment,
+  uploadStatementOfConformityReferencePdf,
   validateFile,
   formatFileSize,
   getFileIcon,

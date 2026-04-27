@@ -20,8 +20,19 @@ import {
   serverTimestamp,
   query,
   orderBy,
+  where,
+  limit,
+  startAfter,
   getDoc,
-  getDocs
+  getDocs,
+  addDoc,
+  runTransaction,
+  writeBatch,
+  increment,
+  Timestamp,
+  arrayUnion,
+  arrayRemove,
+  deleteField,
 } from "firebase/firestore";
 import {
   getStorage,
@@ -47,11 +58,13 @@ export const storage = getStorage(firebaseApp);
 
 // Re-export Firebase functions for easier imports
 export {
+  // Auth
   onAuthStateChanged,
   signInWithEmailAndPassword,
   firebaseSignOut as signOut,
   createUserWithEmailAndPassword,
   sendPasswordResetEmail,
+  // Firestore
   collection,
   onSnapshot,
   doc,
@@ -61,13 +74,24 @@ export {
   serverTimestamp,
   query,
   orderBy,
+  where,
+  limit,
+  startAfter,
   getDoc,
   getDocs,
+  addDoc,
+  runTransaction,
+  writeBatch,
+  increment,
+  Timestamp,
+  arrayUnion,
+  arrayRemove,
+  deleteField,
+  // Storage
   storageRef,
   uploadBytesResumable,
   getDownloadURL,
-  deleteObject
+  deleteObject,
 };
 
 export type { FirebaseUser };
-

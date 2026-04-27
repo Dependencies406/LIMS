@@ -1,4 +1,10 @@
 import type { Job } from '../types';
+import { firestoreToDate } from '../utils/dateUtils';
+
+/** Strips undefined values so Firestore doesn't reject them */
+export function removeUndefinedForFirestore<T extends object>(obj: T): T {
+  return JSON.parse(JSON.stringify(obj)) as T;
+}
 import {
   db,
   collection,
@@ -7,15 +13,16 @@ import {
   getDocs,
   setDoc,
   updateDoc,
-  deleteDoc,
   query,
   orderBy,
   serverTimestamp,
   onSnapshot
 } from './firebase';
+import { deleteJob as deleteJobLifecycle } from './firestoreDeletionService';
 
 export interface JobInput {
   jobId: string;
+  requestNo?: string;
   title: string;
   status: Job['status'];
   customerCode: string;
@@ -23,8 +30,15 @@ export interface JobInput {
   assignedStaff?: string;
   equipment: Job['equipment'];
   startDate?: string;
-  scheduleDate?: string;
+  appointmentDate?: string;
   comments?: string;
+  poNumber?: string;
+  customerName?: string;
+  customerAddress?: string;
+  customerPhone?: string;
+  customerEmail?: string;
+  serviceInformation?: Job['serviceInformation'];
+  workAuthorization?: Job['workAuthorization'];
 }
 
 /**
@@ -45,13 +59,19 @@ export const jobService = {
     const unsubscribe = onSnapshot(
       q,
       (snapshot) => {
-        const jobs = snapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-          createdAt: doc.data().createdAt?.toDate() || new Date(),
-          updatedAt: doc.data().updatedAt?.toDate() || new Date(),
-        })) as Job[];
-        
+        const jobs = snapshot.docs
+          .map((docSnap) => {
+            const data = docSnap.data();
+            return {
+              id: docSnap.id,
+              ...data,
+              createdAt: firestoreToDate(data.createdAt),
+              updatedAt: firestoreToDate(data.updatedAt),
+              deletedAt: data.deletedAt ? firestoreToDate(data.deletedAt) : undefined,
+            } as Job;
+          })
+          .filter((j) => !j.isDeleted);
+
         callback(jobs);
       },
       (error) => {
@@ -67,17 +87,24 @@ export const jobService = {
    * Get all jobs (one-time fetch)
    * @returns Promise with array of jobs
    */
-  async getAllJobs(): Promise<Job[]> {
+  async getAllJobs(includeDeleted = false): Promise<Job[]> {
     try {
       const q = query(collection(db, 'jobs'), orderBy('createdAt', 'desc'));
       const snapshot = await getDocs(q);
-      
-      return snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-        createdAt: doc.data().createdAt?.toDate() || new Date(),
-        updatedAt: doc.data().updatedAt?.toDate() || new Date(),
-      })) as Job[];
+
+      const jobs = snapshot.docs.map((docSnap) => {
+        const data = docSnap.data();
+        return {
+          id: docSnap.id,
+          ...data,
+          createdAt: firestoreToDate(data.createdAt),
+          updatedAt: firestoreToDate(data.updatedAt),
+          deletedAt: data.deletedAt ? firestoreToDate(data.deletedAt) : undefined,
+        } as Job;
+      });
+
+      if (includeDeleted) return jobs;
+      return jobs.filter((j) => !j.isDeleted);
     } catch (error) {
       console.error('Error fetching jobs:', error);
       throw new Error('Failed to fetch jobs');
@@ -97,11 +124,13 @@ export const jobService = {
         throw new Error('Job not found');
       }
 
+      const data = jobDoc.data();
       return {
         id: jobDoc.id,
-        ...jobDoc.data(),
-        createdAt: jobDoc.data().createdAt?.toDate() || new Date(),
-        updatedAt: jobDoc.data().updatedAt?.toDate() || new Date(),
+        ...data,
+        createdAt: firestoreToDate(data.createdAt),
+        updatedAt: firestoreToDate(data.updatedAt),
+        deletedAt: data.deletedAt ? firestoreToDate(data.deletedAt) : undefined,
       } as Job;
     } catch (error) {
       console.error('Error fetching job:', error);
@@ -126,13 +155,13 @@ export const jobService = {
         throw new Error('At least one equipment entry is required');
       }
 
-      const jobData = {
+      const jobData = removeUndefinedForFirestore({
         ...data,
         equipment: validEquipment,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
         createdBy: userId,
-      };
+      });
 
       const newJobId = `job-${Date.now()}`;
       await setDoc(doc(db, 'jobs', newJobId), jobData);
@@ -166,7 +195,7 @@ export const jobService = {
 
       updateData.updatedAt = serverTimestamp();
 
-      await updateDoc(doc(db, 'jobs', id), updateData);
+      await updateDoc(doc(db, 'jobs', id), removeUndefinedForFirestore(updateData));
     } catch (error) {
       console.error('Error updating job:', error);
       throw error;
@@ -174,12 +203,17 @@ export const jobService = {
   },
 
   /**
-   * Delete a job
+   * Soft-delete a job (moves to Recycle Bin). Permanent removal is done from the Recycle Bin page.
    * @param id Job document ID
+   * @param userId User performing the deletion (audit)
    */
-  async deleteJob(id: string): Promise<void> {
+  async deleteJob(id: string, userId: string): Promise<void> {
     try {
-      await deleteDoc(doc(db, 'jobs', id));
+      await deleteJobLifecycle(id, {
+        userId,
+        softDelete: true,
+        forceHardDelete: false,
+      });
     } catch (error) {
       console.error('Error deleting job:', error);
       throw error;

@@ -1,0 +1,70 @@
+{
+  "name": "lims-desktop",
+  "version": "1.0.0",
+  "description": "LIMS Desktop Application - Electron wrapper for web app",
+  "main": "dist-electron/main.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.electron.json",
+    "build:electron": "tsc -p tsconfig.electron.json",
+    "build:all": "npm run build:electron && npm run build:web",
+    "build:web": "cd .. && npm run build",
+    "start": "electron .",
+    "start:dev": "concurrently \"cd .. && npm run dev\" \"wait-on http://localhost:5173 && npm run build:electron && electron .\"",
+    "package": "electron-builder",
+    "package:win": "electron-builder --win",
+    "package:mac": "electron-builder --mac",
+    "package:linux": "electron-builder --linux"
+  },
+  "keywords": [
+    "electron",
+    "desktop",
+    "lims"
+  ],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/node": "^24.6.0",
+    "concurrently": "^9.1.2",
+    "electron": "^33.2.1",
+    "electron-builder": "^25.1.8",
+    "typescript": "~5.8.3",
+    "vite": "^7.1.7",
+    "vite-plugin-electron": "^0.28.0",
+    "wait-on": "^8.0.1"
+  },
+  "dependencies": {
+    "electron-log": "^5.2.0",
+    "electron-updater": "^6.2.1"
+  },
+  "build": {
+    "appId": "com.lims.desktop",
+    "productName": "LIMS Desktop",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist-electron/**/*",
+      "../dist/**/*",
+      "../dist/index.html",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "icon": "build/icon.ico"
+    },
+    "mac": {
+      "target": [
+        "dmg"
+      ],
+      "icon": "build/icon.icns"
+    },
+    "linux": {
+      "target": [
+        "AppImage"
+      ],
+      "icon": "build/icon.png"
+    }
+  }
+}

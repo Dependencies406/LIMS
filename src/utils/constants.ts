@@ -66,10 +66,11 @@ export const DEFAULT_PDF_SETTINGS = {
     customer: true,
     status: true,
     equipment: true,
-    scheduleDate: true, // Updated from dueDate
+    appointmentDate: true,
     created: true,
     assignedStaff: true,
-    startDate: true
+    startDate: true,
+    poNumber: true,
   },
   equipmentTableColumns: {
     no: true,
@@ -85,9 +86,9 @@ export const DEFAULT_PDF_SETTINGS = {
   },
   serviceInformationVisibility: {
     serviceRequested: true,
-    reportingFormat: true,
     statementOfConformity: true,
-    statementOfConformityRequirements: true
+    statementOfConformityRequirements: true,
+    statementOfConformityReferencePdf: true,
   },
   workAuthorizationVisibility: {
     workAuthorizationStatement: true,

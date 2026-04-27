@@ -64,8 +64,7 @@ export const exportJobsToCSV = (jobs: Job[]): void => {
     'assignedStaff',
     'equipmentCount',
     'startDate',
-    'scheduleDate',
-    'scheduleDate',
+    'appointmentDate',
     'comments',
     'createdAt',
     'createdBy',
@@ -80,7 +79,7 @@ export const exportJobsToCSV = (jobs: Job[]): void => {
     assignedStaff: job.assignedStaff || '',
     equipmentCount: job.equipment?.length || 0,
     startDate: job.startDate || '',
-    scheduleDate: job.scheduleDate || '',
+    appointmentDate: job.appointmentDate || '',
     comments: job.comments || '',
     createdAt: new Date(job.createdAt).toLocaleDateString('en-GB'),
     createdBy: job.createdBy,
@@ -169,10 +168,11 @@ export const exportJobDetailsToCSV = (job: Job): void => {
   lines.push(`Status,${job.status}`);
   lines.push(`Customer Code,${job.customerCode}`);
   lines.push(`Customer Contact,${job.customerContact || 'N/A'}`);
+  lines.push(`PO Number,${job.poNumber?.trim() || 'N/A'}`);
   lines.push(`Assigned Staff,${job.assignedStaff || 'Unassigned'}`);
   lines.push(`Start Date,${job.startDate || 'Not set'}`);
-  lines.push(`Due Date,${job.scheduleDate || 'Not set'}`);
-  lines.push(`End Date,${job.scheduleDate || 'Not completed'}`);
+  lines.push(`Appointment Date,${job.appointmentDate || 'Not set'}`);
+  lines.push(`End Date,${job.completedDate || 'Not completed'}`);
   lines.push(`Created At,${new Date(job.createdAt).toLocaleString()}`);
   lines.push(`Created By,${job.createdBy}`);
   lines.push('');

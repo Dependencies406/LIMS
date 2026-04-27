@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import type { Customer } from '../types';
 import { db, collection, onSnapshot, query, orderBy } from '../services/firebase';
+import { firestoreToDate } from '../utils/dateUtils';
 import { CustomerModal } from '../components/CustomerModal';
 import { useToast } from '../hooks/useToast';
 import { ViewToggle } from '../components/common/ViewToggle';
@@ -33,8 +34,8 @@ export const CustomersPage: React.FC = () => {
         id: doc.id,
         customerCode: doc.id,
         ...doc.data(),
-        createdAt: doc.data().createdAt?.toDate() || new Date(),
-        updatedAt: doc.data().updatedAt?.toDate() || new Date(),
+        createdAt: firestoreToDate(doc.data().createdAt),
+        updatedAt: firestoreToDate(doc.data().updatedAt),
       })) as Customer[];
       setCustomers(customersData);
       setLoading(false);
@@ -78,12 +79,6 @@ export const CustomersPage: React.FC = () => {
   return (
     <div className="flex-1 overflow-auto">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Page Header */}
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold text-gray-900">Customers</h1>
-          <p className="text-gray-600 mt-1">Manage your customer database</p>
-        </div>
-
         {/* Toolbar */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
           <div className="flex flex-wrap gap-4 flex-1">

@@ -1,32 +1,91 @@
-import React, { useState, useEffect } from 'react';
-import type { User } from '../types';
+import React, { useState, useEffect, useMemo } from 'react';
+import type { User, Role } from '../types';
 import { db, doc, updateDoc, serverTimestamp } from '../services/firebase';
 import { useUsers } from '../hooks/useUsers';
+import { useAuth } from '../contexts/AuthContext';
 import { userService } from '../services/userService';
+import { roleService, getRoleDisplayName } from '../services/roleService';
 
 interface UserModalProps {
   user: User | null;
   onClose: () => void;
   onSuccess: () => void;
+  /** Called after Firestore profile is deleted (inactive users only). */
+  onProfileDeleted?: () => void;
 }
 
-export const UserModal: React.FC<UserModalProps> = ({ user, onClose, onSuccess }) => {
-  const { deactivateUser, reactivateUser } = useUsers();
+export const UserModal: React.FC<UserModalProps> = ({ user, onClose, onSuccess, onProfileDeleted }) => {
+  const { currentUser } = useAuth();
+  const { deactivateUser, reactivateUser, deleteUserProfile } = useUsers();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showRemoveProfileConfirm, setShowRemoveProfileConfirm] = useState(false);
   const [activeTab, setActiveTab] = useState<'basic'>('basic');
+  const [pickerRoles, setPickerRoles] = useState<Role[]>([]);
+  const [rolesLoading, setRolesLoading] = useState(true);
 
   const [form, setForm] = useState({
     email: '',
     firstName: '',
     lastName: '',
     position: '',
-    role: 'staff' as 'admin' | 'staff',
+    role: 'staff',
     isActive: true,
     password: '',
     confirmPassword: '',
   });
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadPickerRoles = async () => {
+      setRolesLoading(true);
+      try {
+        await roleService.initializeSystemRoles();
+        const list = await roleService.getMergedRolesForUserPicker();
+        if (!cancelled) setPickerRoles(list);
+      } catch {
+        if (!cancelled) setPickerRoles([]);
+      } finally {
+        if (!cancelled) setRolesLoading(false);
+      }
+    };
+    loadPickerRoles();
+    const unsub = roleService.subscribeToRoles(() => {
+      loadPickerRoles();
+    });
+    return () => {
+      cancelled = true;
+      unsub();
+    };
+  }, []);
+
+  const roleSelectOptions = useMemo(() => {
+    const opts = [...pickerRoles];
+    const ids = new Set(opts.map((o) => o.id));
+    if (user?.role && !ids.has(user.role)) {
+      opts.push({
+        id: user.role,
+        name: getRoleDisplayName(user.role, pickerRoles),
+        permissions: [],
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      } as Role);
+    }
+    return opts.sort((a, b) =>
+      a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })
+    );
+  }, [pickerRoles, user?.role]);
+
+  useEffect(() => {
+    if (rolesLoading || roleSelectOptions.length === 0) return;
+    if (!roleSelectOptions.some((r) => r.id === form.role)) {
+      const fallback = roleSelectOptions.some((r) => r.id === 'staff')
+        ? 'staff'
+        : roleSelectOptions[0].id;
+      setForm((prev) => (prev.role === fallback ? prev : { ...prev, role: fallback }));
+    }
+  }, [rolesLoading, roleSelectOptions, form.role]);
 
   useEffect(() => {
     if (user) {
@@ -35,11 +94,23 @@ export const UserModal: React.FC<UserModalProps> = ({ user, onClose, onSuccess }
         firstName: user.firstName,
         lastName: user.lastName,
         position: user.position || '',
-        role: user.role,
+        role: user.role || 'staff',
         isActive: user.isActive !== false,
         password: '',
         confirmPassword: '',
       });
+    } else {
+      setForm((prev) => ({
+        ...prev,
+        email: '',
+        firstName: '',
+        lastName: '',
+        position: '',
+        role: 'staff',
+        isActive: true,
+        password: '',
+        confirmPassword: '',
+      }));
     }
   }, [user]);
 
@@ -54,6 +125,19 @@ export const UserModal: React.FC<UserModalProps> = ({ user, onClose, onSuccess }
     // Validation
     if (!form.email || !form.firstName || !form.lastName) {
       setError('Please fill in all required fields');
+      return;
+    }
+
+    if (rolesLoading) {
+      setError('Please wait for roles to finish loading.');
+      return;
+    }
+    if (roleSelectOptions.length === 0) {
+      setError('No roles are available. Configure roles under Settings → Roles & permissions.');
+      return;
+    }
+    if (!roleSelectOptions.some((r) => r.id === form.role)) {
+      setError('Please select a valid role.');
       return;
     }
 
@@ -137,9 +221,50 @@ export const UserModal: React.FC<UserModalProps> = ({ user, onClose, onSuccess }
     }
   };
 
+  const handleRemoveProfile = async () => {
+    if (!user) return;
+    if (currentUser?.uid === user.uid) {
+      setError('You cannot delete your own account.');
+      setShowRemoveProfileConfirm(false);
+      return;
+    }
+    if (user.isActive !== false) {
+      setError('Only inactive accounts can be removed this way. Deactivate the user first.');
+      setShowRemoveProfileConfirm(false);
+      return;
+    }
+
+    if (!currentUser?.uid) {
+      setError('You must be signed in to delete a user.');
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+    try {
+      await deleteUserProfile(user.uid, currentUser.uid);
+      setShowRemoveProfileConfirm(false);
+      if (onProfileDeleted) {
+        onProfileDeleted();
+      } else {
+        onSuccess();
+      }
+    } catch (err) {
+      console.error('Error deleting user profile:', err);
+      setError('Failed to delete user profile. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const canDeleteThisProfile =
+    !!user &&
+    user.isActive === false &&
+    currentUser?.uid !== user.uid;
+
   return (
     <div className="modal" onClick={onClose}>
-      <div className="modal-content max-w-3xl" onClick={e => e.stopPropagation()}>
+      <div className="modal-content max-w-3xl relative" onClick={e => e.stopPropagation()}>
         {/* Header */}
         <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4">
           <div className="flex justify-between items-center">
@@ -167,6 +292,39 @@ export const UserModal: React.FC<UserModalProps> = ({ user, onClose, onSuccess }
             </div>
           )}
         </div>
+
+        {user && user.isActive === false && (
+          <div className="px-6 pt-4">
+            <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div>
+                <p className="text-sm font-medium text-amber-900">Account disabled</p>
+                <p className="text-sm text-amber-800">
+                  This user cannot sign in until the account is enabled again.
+                </p>
+              </div>
+              <div className="flex flex-col sm:flex-row gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setShowDeleteConfirm(true)}
+                  className="btn btn-primary whitespace-nowrap"
+                  disabled={loading}
+                >
+                  Enable account
+                </button>
+                {canDeleteThisProfile && (
+                  <button
+                    type="button"
+                    onClick={() => setShowRemoveProfileConfirm(true)}
+                    className="btn border border-red-300 bg-white text-red-700 hover:bg-red-50 whitespace-nowrap"
+                    disabled={loading}
+                  >
+                    Delete profile
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
           {error && (
@@ -287,44 +445,35 @@ export const UserModal: React.FC<UserModalProps> = ({ user, onClose, onSuccess }
                 </h3>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-2" htmlFor="user-modal-role">
                     Role <span className="text-red-500">*</span>
                   </label>
-                  <div className="space-y-2">
-                    <label className="flex items-center space-x-3 p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
-                      <input
-                        type="radio"
-                        name="role"
-                        value="staff"
-                        checked={form.role === 'staff'}
+                  {rolesLoading ? (
+                    <p className="text-sm text-gray-500 py-2">Loading roles…</p>
+                  ) : roleSelectOptions.length === 0 ? (
+                    <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
+                      No roles available. Check Firestore and Settings → Roles & permissions.
+                    </p>
+                  ) : (
+                    <>
+                      <select
+                        id="user-modal-role"
+                        className="input w-full"
+                        value={form.role}
                         onChange={(e) => handleChange('role', e.target.value)}
-                        className="w-4 h-4 text-primary-600"
-                      />
-                      <div className="flex-1">
-                        <div className="font-medium text-gray-900">Staff</div>
-                        <div className="text-sm text-gray-500">
-                          Can view and edit jobs, customers. Cannot access settings or user management.
-                        </div>
-                      </div>
-                    </label>
-
-                    <label className="flex items-center space-x-3 p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
-                      <input
-                        type="radio"
-                        name="role"
-                        value="admin"
-                        checked={form.role === 'admin'}
-                        onChange={(e) => handleChange('role', e.target.value)}
-                        className="w-4 h-4 text-primary-600"
-                      />
-                      <div className="flex-1">
-                        <div className="font-medium text-gray-900">Administrator</div>
-                        <div className="text-sm text-gray-500">
-                          Full access to all features including user management and settings.
-                        </div>
-                      </div>
-                    </label>
-                  </div>
+                        required
+                      >
+                        {roleSelectOptions.map((r) => (
+                          <option key={r.id} value={r.id}>
+                            {r.name}
+                          </option>
+                        ))}
+                      </select>
+                      <p className="text-xs text-gray-500 mt-1">
+                        Same roles as in Roles & permissions. New or renamed roles there appear in this list automatically.
+                      </p>
+                    </>
+                  )}
                 </div>
 
                 {user && (
@@ -386,18 +535,30 @@ export const UserModal: React.FC<UserModalProps> = ({ user, onClose, onSuccess }
 
 
           {/* Actions */}
-          <div className="flex justify-between items-center pt-4 border-t border-gray-200">
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 pt-4 border-t border-gray-200">
             {user && (
-              <button
-                type="button"
-                onClick={() => setShowDeleteConfirm(true)}
-                className="btn btn-danger"
-                disabled={loading}
-              >
-                {form.isActive ? 'Deactivate User' : 'Reactivate User'}
-              </button>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowDeleteConfirm(true)}
+                  className="btn btn-danger"
+                  disabled={loading}
+                >
+                  {form.isActive ? 'Deactivate User' : 'Reactivate User'}
+                </button>
+                {canDeleteThisProfile && (
+                  <button
+                    type="button"
+                    onClick={() => setShowRemoveProfileConfirm(true)}
+                    className="btn border border-red-300 bg-white text-red-700 hover:bg-red-50"
+                    disabled={loading}
+                  >
+                    Delete profile
+                  </button>
+                )}
+              </div>
             )}
-            <div className={`flex space-x-3 ${user ? '' : 'ml-auto'}`}>
+            <div className={`flex space-x-3 ${user ? 'sm:ml-auto' : 'ml-auto'}`}>
               <button
                 type="button"
                 onClick={onClose}
@@ -409,7 +570,7 @@ export const UserModal: React.FC<UserModalProps> = ({ user, onClose, onSuccess }
               <button
                 type="submit"
                 className="btn btn-primary"
-                disabled={loading}
+                disabled={loading || rolesLoading || roleSelectOptions.length === 0}
               >
                 {loading ? 'Saving...' : user ? 'Update User' : 'Create User'}
               </button>
@@ -419,7 +580,7 @@ export const UserModal: React.FC<UserModalProps> = ({ user, onClose, onSuccess }
 
         {/* Deactivate/Reactivate Confirmation */}
         {showDeleteConfirm && (
-          <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center rounded-lg">
+          <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center rounded-lg z-10">
             <div className="bg-white rounded-lg p-6 max-w-sm m-4">
               <h3 className="text-lg font-bold text-gray-900 mb-2">
                 {form.isActive ? 'Confirm Deactivation' : 'Confirm Reactivation'}
@@ -432,6 +593,7 @@ export const UserModal: React.FC<UserModalProps> = ({ user, onClose, onSuccess }
               </p>
               <div className="flex justify-end space-x-3">
                 <button
+                  type="button"
                   onClick={() => setShowDeleteConfirm(false)}
                   className="btn btn-secondary"
                   disabled={loading}
@@ -439,11 +601,48 @@ export const UserModal: React.FC<UserModalProps> = ({ user, onClose, onSuccess }
                   Cancel
                 </button>
                 <button
+                  type="button"
                   onClick={handleDeactivate}
                   className={`btn ${form.isActive ? 'btn-danger' : 'btn-primary'}`}
                   disabled={loading}
                 >
                   {loading ? 'Processing...' : form.isActive ? 'Deactivate' : 'Reactivate'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Remove inactive profile (Firestore only) */}
+        {showRemoveProfileConfirm && (
+          <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center rounded-lg z-20">
+            <div className="bg-white rounded-lg p-6 max-w-md m-4">
+              <h3 className="text-lg font-bold text-gray-900 mb-2">Delete user from database?</h3>
+              <p className="text-gray-600 mb-3 text-sm">
+                This permanently removes <span className="font-medium">{user?.email}</span> from Firestore
+                (user document and related records), and deletes their files under Storage for this user.
+                They will disappear from User Management.
+              </p>
+              <p className="text-amber-800 bg-amber-50 border border-amber-200 rounded px-3 py-2 text-sm mb-4">
+                Firebase Authentication is separate: remove their login under Firebase Console →
+                Authentication → Users if they should not sign in again.
+              </p>
+              <div className="flex justify-end space-x-3">
+                <button
+                  type="button"
+                  onClick={() => setShowRemoveProfileConfirm(false)}
+                  className="btn btn-secondary"
+                  disabled={loading}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleRemoveProfile}
+                  className="btn btn-danger"
+                  disabled={loading}
+                >
+                  {loading ? 'Deleting…' : 'Delete profile'}
                 </button>
               </div>
             </div>

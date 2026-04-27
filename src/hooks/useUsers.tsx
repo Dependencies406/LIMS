@@ -92,10 +92,10 @@ export const useUsers = () => {
   /**
    * Delete user profile
    */
-  const deleteUserProfile = useCallback(async (uid: string): Promise<void> => {
+  const deleteUserProfile = useCallback(async (uid: string, performedByUid: string): Promise<void> => {
     setError(null);
     try {
-      await userService.deleteUserProfile(uid);
+      await userService.deleteUserProfile(uid, performedByUid);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to delete user';
       setError(message);

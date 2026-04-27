@@ -1,27 +1,26 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import type { Job, Customer } from '../types';
 import { db, collection, onSnapshot, query, orderBy } from '../services/firebase';
+import { firestoreToDate } from '../utils/dateUtils';
 import { JobModal } from '../components/JobModal';
 import { useToast } from '../hooks/useToast';
 import { ViewToggle } from '../components/common/ViewToggle';
+import { StatFilterDropdown } from '../components/common/StatFilterDropdown';
 import { useViewPreference } from '../hooks/useViewPreference';
 import { JobListView } from '../components/jobs/JobListView';
 import { JobCardView } from '../components/jobs/JobCardView';
 import { JobGridView } from '../components/jobs/JobGridView';
 import { exportService } from '../services/exportService';
-import { JobPdfSettingsModal } from '../components/JobPdfSettingsModal';
-
 export const JobsPage: React.FC = () => {
+  const navigate = useNavigate();
   const { success, error: showError } = useToast();
   
   const [jobs, setJobs] = useState<Job[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
   
-  const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [showJobModal, setShowJobModal] = useState(false);
-  const [showPdfSettings, setShowPdfSettings] = useState(false);
-  
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [showExportMenu, setShowExportMenu] = useState(false);
@@ -34,12 +33,14 @@ export const JobsPage: React.FC = () => {
   useEffect(() => {
     const q = query(collection(db, 'jobs'), orderBy('createdAt', 'desc'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const jobsData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        createdAt: doc.data().createdAt?.toDate() || new Date(),
-        updatedAt: doc.data().updatedAt?.toDate() || new Date(),
-      })) as Job[];
+      const jobsData = snapshot.docs
+        .filter((d) => !d.data().isDeleted)
+        .map((docSnap) => ({
+          id: docSnap.id,
+          ...docSnap.data(),
+          createdAt: firestoreToDate(docSnap.data().createdAt),
+          updatedAt: firestoreToDate(docSnap.data().updatedAt),
+        })) as Job[];
       setJobs(jobsData);
       setLoading(false);
     }, (err) => {
@@ -59,8 +60,8 @@ export const JobsPage: React.FC = () => {
         id: doc.id,
         customerCode: doc.id,
         ...doc.data(),
-        createdAt: doc.data().createdAt?.toDate() || new Date(),
-        updatedAt: doc.data().updatedAt?.toDate() || new Date(),
+        createdAt: firestoreToDate(doc.data().createdAt),
+        updatedAt: firestoreToDate(doc.data().updatedAt),
       })) as Customer[];
       setCustomers(customersData);
     }, (err) => {
@@ -72,13 +73,11 @@ export const JobsPage: React.FC = () => {
   }, [showError]);
 
   const handleCreateJob = () => {
-    setSelectedJob(null);
     setShowJobModal(true);
   };
 
   const handleEditJob = (job: Job) => {
-    setSelectedJob(job);
-    setShowJobModal(true);
+    navigate(`/jobs/${job.id}`);
   };
 
   const handleExport = (type: 'csv' | 'summary') => {
@@ -135,12 +134,6 @@ export const JobsPage: React.FC = () => {
   return (
     <div className="flex-1 overflow-auto">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Page Header */}
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold text-gray-900">Jobs</h1>
-          <p className="text-gray-600 mt-1">Manage your laboratory jobs and requests</p>
-        </div>
-
         {/* Toolbar */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
           <div className="flex flex-wrap gap-4 flex-1">
@@ -250,14 +243,6 @@ export const JobsPage: React.FC = () => {
               )}
             </div>
 
-            {/* PDF Settings Button */}
-            <button 
-              onClick={() => setShowPdfSettings(true)} 
-              className="btn btn-secondary whitespace-nowrap"
-            >
-              ⚙️ PDF Settings
-            </button>
-
             {/* Create Job Button */}
             <button onClick={handleCreateJob} className="btn btn-primary whitespace-nowrap">
               + Create Job
@@ -265,72 +250,21 @@ export const JobsPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Statistics Dashboard */}
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
-          {/* Total Jobs */}
-          <button
-            onClick={() => setStatusFilter(statusFilter === 'all' ? 'all' : 'all')}
-            className={`p-4 rounded-lg border-2 transition-all ${
-              statusFilter === 'all'
-                ? 'border-primary-500 bg-primary-50 shadow-md'
-                : 'border-gray-200 bg-white hover:border-primary-300 hover:shadow-sm'
-            }`}
-          >
-            <div className="text-2xl font-bold text-gray-900">{stats.total}</div>
-            <div className="text-sm text-gray-600 mt-1">Total Jobs</div>
-          </button>
-
-          {/* Pending */}
-          <button
-            onClick={() => setStatusFilter(statusFilter === 'Pending' ? 'all' : 'Pending')}
-            className={`p-4 rounded-lg border-2 transition-all ${
-              statusFilter === 'Pending'
-                ? 'border-yellow-500 bg-yellow-50 shadow-md'
-                : 'border-gray-200 bg-white hover:border-yellow-300 hover:shadow-sm'
-            }`}
-          >
-            <div className="text-2xl font-bold text-yellow-600">{stats.pending}</div>
-            <div className="text-sm text-gray-600 mt-1">Pending</div>
-          </button>
-
-          {/* In Progress */}
-          <button
-            onClick={() => setStatusFilter(statusFilter === 'In Progress' ? 'all' : 'In Progress')}
-            className={`p-4 rounded-lg border-2 transition-all ${
-              statusFilter === 'In Progress'
-                ? 'border-blue-500 bg-blue-50 shadow-md'
-                : 'border-gray-200 bg-white hover:border-blue-300 hover:shadow-sm'
-            }`}
-          >
-            <div className="text-2xl font-bold text-blue-600">{stats.inProgress}</div>
-            <div className="text-sm text-gray-600 mt-1">In Progress</div>
-          </button>
-
-          {/* Completed */}
-          <button
-            onClick={() => setStatusFilter(statusFilter === 'Completed' ? 'all' : 'Completed')}
-            className={`p-4 rounded-lg border-2 transition-all ${
-              statusFilter === 'Completed'
-                ? 'border-green-500 bg-green-50 shadow-md'
-                : 'border-gray-200 bg-white hover:border-green-300 hover:shadow-sm'
-            }`}
-          >
-            <div className="text-2xl font-bold text-green-600">{stats.completed}</div>
-            <div className="text-sm text-gray-600 mt-1">Completed</div>
-          </button>
-
-          {/* Halt */}
-          <button
-            onClick={() => setStatusFilter(statusFilter === 'Halt' ? 'all' : 'Halt')}
-            className={`p-4 rounded-lg border-2 transition-all ${
-              statusFilter === 'Halt'
-                ? 'border-red-500 bg-red-50 shadow-md'
-                : 'border-gray-200 bg-white hover:border-red-300 hover:shadow-sm'
-            }`}
-          >
-            <div className="text-2xl font-bold text-red-600">{stats.halt}</div>
-            <div className="text-sm text-gray-600 mt-1">Halt</div>
-          </button>
+        {/* Status filter (dropdown replaces stat cards on all screen sizes) */}
+        <div className="mb-6">
+          <StatFilterDropdown
+            id="jobs-status-filter"
+            label="Filter by status"
+            value={statusFilter}
+            onChange={setStatusFilter}
+            options={[
+              { value: 'all', label: 'All jobs', count: stats.total },
+              { value: 'Pending', label: 'Pending', count: stats.pending },
+              { value: 'In Progress', label: 'In progress', count: stats.inProgress },
+              { value: 'Completed', label: 'Completed', count: stats.completed },
+              { value: 'Halt', label: 'Halt', count: stats.halt },
+            ]}
+          />
         </div>
 
         {/* Jobs List */}
@@ -374,24 +308,15 @@ export const JobsPage: React.FC = () => {
         {/* Job Modal */}
         {showJobModal && (
           <JobModal
-            job={selectedJob}
+            job={null}
             customers={customers}
             onClose={() => setShowJobModal(false)}
             onSuccess={() => {
-              // Don't close modal, just show success message
-              success(selectedJob ? 'Job updated successfully' : 'Job created successfully');
+              success('Job created successfully');
             }}
           />
         )}
 
-        {/* Job PDF Settings Modal */}
-        {showPdfSettings && (
-          <JobPdfSettingsModal
-            isOpen={showPdfSettings}
-            onClose={() => setShowPdfSettings(false)}
-            jobs={jobs}
-          />
-        )}
       </div>
     </div>
   );

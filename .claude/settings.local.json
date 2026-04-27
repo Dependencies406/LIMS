@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx tsc:*)",
+      "Bash(node -e \"const pkg = require\\(''./package.json''\\); console.log\\(''vitest in devDeps:'', !!pkg.devDependencies.vitest\\); const v = require\\(''./node_modules/vitest/package.json''\\); console.log\\(''installed version:'', v.version\\)\")",
+      "Bash(node -p \"require\\(''./node_modules/vitest/package.json''\\).version\")",
+      "Bash(npx vite:*)",
+      "Bash(node -p \"require\\(''./node_modules/tailwindcss/package.json''\\).version\")",
+      "Bash(node -e \"console.log\\(require\\(''./node_modules/tailwindcss/package.json''\\).version\\)\")",
+      "Bash(node -e \"const p = require\\(''./node_modules/tailwindcss/package.json''\\); console.log\\(''v''+p.version, ''main:''+p.main\\)\")",
+      "Bash(for f:*)",
+      "Bash(do echo:*)",
+      "Read(//c/Users/seela/OneDrive/Desktop/LIMS-New/**)",
+      "Bash(done)",
+      "Bash(npm run:*)"
+    ]
+  }
+}

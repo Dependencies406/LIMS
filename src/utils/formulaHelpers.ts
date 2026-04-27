@@ -132,3 +132,21 @@ export function isValidFormulaSyntax(formula: string): boolean {
   return depth === 0;
 }
 
+/**
+ * Replace internal spreadsheet column keys / aliases in a formula with Excel column letters
+ * using the export map built from template column definitions.
+ */
+export function transformInternalFormulaToExcel(
+  internalFormula: string,
+  columnMap: Record<string, string>
+): string {
+  let result = internalFormula;
+  const keys = Object.keys(columnMap).sort((a, b) => b.length - a.length);
+  for (const key of keys) {
+    const letter = columnMap[key];
+    if (!letter) continue;
+    const escaped = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    result = result.replace(new RegExp(`\\b${escaped}\\b`, 'g'), letter);
+  }
+  return result;
+}

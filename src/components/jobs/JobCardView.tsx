@@ -1,6 +1,8 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import type { Job } from '../../types';
 import { Card } from '../common/Card';
+import { useUsers } from '../../hooks/useUsers';
+import { matchUserFromAssignedStaffValue } from '../../services/userService';
 
 interface JobCardViewProps {
   jobs: Job[];
@@ -13,6 +15,20 @@ interface JobCardViewProps {
  * Card view for jobs - Detailed card display
  */
 export const JobCardView: React.FC<JobCardViewProps> = ({ jobs, onEdit, getStatusColor, getCustomerName }) => {
+  const { users } = useUsers();
+  const staffDisplay = useCallback((raw: string) => {
+    const u = matchUserFromAssignedStaffValue(raw, users);
+    if (u) {
+      return (
+        u.displayName?.trim() ||
+        `${u.firstName || ''} ${u.lastName || ''}`.trim() ||
+        u.email ||
+        raw
+      );
+    }
+    return raw;
+  }, [users]);
+
   if (jobs.length === 0) {
     return (
       <div className="text-center py-12 bg-white rounded-lg">
@@ -41,14 +57,14 @@ export const JobCardView: React.FC<JobCardViewProps> = ({ jobs, onEdit, getStatu
                 <span>
                   <span className="font-medium">Equipment:</span> {job.equipment.length} items
                 </span>
-                {job.scheduleDate && (
+                {job.appointmentDate && (
                   <span>
-                    <span className="font-medium">Due:</span> {new Date(job.scheduleDate).toLocaleDateString('en-GB')}
+                    <span className="font-medium">Appointment:</span> {new Date(job.appointmentDate).toLocaleDateString('en-GB')}
                   </span>
                 )}
                 {job.assignedStaff && (
                   <span>
-                    <span className="font-medium">Staff:</span> {job.assignedStaff}
+                    <span className="font-medium">Staff:</span> {staffDisplay(job.assignedStaff)}
                   </span>
                 )}
               </div>

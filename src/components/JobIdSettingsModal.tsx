@@ -75,7 +75,7 @@ export const JobIdSettingsModal: React.FC<JobIdSettingsModalProps> = ({
       <div className="modal-content max-w-4xl" onClick={e => e.stopPropagation()}>
         {/* Header with action buttons */}
         <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center">
-          <h2 className="text-2xl font-bold text-gray-900">Job ID Configuration</h2>
+          <h2 className="text-2xl font-bold text-gray-900">Request Number Configuration</h2>
           <div className="flex items-center space-x-3">
             {/* Cancel Button */}
             <button
@@ -134,7 +134,7 @@ export const JobIdSettingsModal: React.FC<JobIdSettingsModalProps> = ({
                   <span className="w-6 h-6 bg-blue-100 rounded-lg flex items-center justify-center mr-3">
                     <span className="text-blue-600 text-sm">🔧</span>
                   </span>
-                  Job ID Configuration
+                  Request Number Configuration
                 </h3>
                 
                 {/* Organization Prefix */}
@@ -158,8 +158,8 @@ export const JobIdSettingsModal: React.FC<JobIdSettingsModalProps> = ({
                 {/* Job Type Prefix */}
                 <div className="flex items-center justify-between py-2">
                   <div className="flex-1">
-                    <label className="text-sm font-medium text-gray-700">Job Type Prefix <span className="text-red-500">*</span></label>
-                    <p className="text-xs text-gray-500">Short abbreviation for job type (max 10 chars)</p>
+                    <label className="text-sm font-medium text-gray-700">Request Type Prefix <span className="text-red-500">*</span></label>
+                    <p className="text-xs text-gray-500">Short abbreviation for request type (max 10 chars)</p>
                   </div>
                   <div className="w-48">
                     <input
@@ -177,7 +177,7 @@ export const JobIdSettingsModal: React.FC<JobIdSettingsModalProps> = ({
                 <div className="flex items-center justify-between py-2">
                   <div className="flex-1">
                     <label className="text-sm font-medium text-gray-700">Current Year <span className="text-red-500">*</span></label>
-                    <p className="text-xs text-gray-500">Year for job ID (last 2 digits used)</p>
+                    <p className="text-xs text-gray-500">Year for request number (last 2 digits used)</p>
                   </div>
                   <div className="w-48">
                     <input
@@ -194,8 +194,8 @@ export const JobIdSettingsModal: React.FC<JobIdSettingsModalProps> = ({
                 {/* Current Sequence */}
                 <div className="flex items-center justify-between py-2">
                   <div className="flex-1">
-                    <label className="text-sm font-medium text-gray-700">Next Job Sequence <span className="text-red-500">*</span></label>
-                    <p className="text-xs text-gray-500">Number for the NEXT job to be created (1-999)</p>
+                    <label className="text-sm font-medium text-gray-700">Next Request Sequence <span className="text-red-500">*</span></label>
+                    <p className="text-xs text-gray-500">Number for the NEXT request to be created (1-999)</p>
                   </div>
                   <div className="w-48">
                     <input

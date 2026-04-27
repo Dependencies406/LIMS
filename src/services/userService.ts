@@ -1,4 +1,5 @@
 import type { User } from '../types';
+import { firestoreToDate } from '../utils/dateUtils';
 import {
   db,
   auth,
@@ -14,6 +15,7 @@ import {
   onSnapshot,
   createUserWithEmailAndPassword
 } from './firebase';
+import { deleteUser as deleteUserAndRelatedData } from './firestoreDeletionService';
 
 // Note: Firebase Admin SDK is required for user creation/deletion
 // For now, we'll manage Firestore user documents
@@ -24,8 +26,35 @@ export interface UserInput {
   firstName: string;
   lastName: string;
   position?: string;
-  role: 'admin' | 'staff';
+  /** Firestore `roles` document id, or legacy `admin` / `staff`. */
+  role: string;
   password?: string; // Only used for initial creation
+}
+
+const normStaffKey = (s: string) =>
+  s.trim().toLowerCase().replace(/\s+/g, ' ');
+
+/**
+ * Resolve `job.assignedStaff` to a user. Prefer uid; also matches legacy values stored as
+ * "FirstName LastName", displayName, or email (Job modal historically used display names).
+ */
+export function matchUserFromAssignedStaffValue(
+  assignment: string | undefined,
+  users: User[]
+): User | undefined {
+  if (!assignment?.trim()) return undefined;
+  const a = assignment.trim();
+  const byUid = users.find((u) => u.uid === a);
+  if (byUid) return byUid;
+  const key = normStaffKey(a);
+  return users.find((u) => {
+    const full = normStaffKey(`${u.firstName || ''} ${u.lastName || ''}`);
+    if (full && full === key) return true;
+    const disp = normStaffKey(u.displayName || '');
+    if (disp && disp === key) return true;
+    if (u.email && normStaffKey(u.email) === key) return true;
+    return false;
+  });
 }
 
 /**
@@ -66,9 +95,9 @@ export const userService = {
               lastName: data.lastName || '',
               position: data.position || '',
               role: data.role || 'staff',
-              lastLogin: data.lastLogin?.toDate(),
-              createdAt: data.createdAt?.toDate(),
-              updatedAt: data.updatedAt?.toDate(),
+              lastLogin: firestoreToDate(data.lastLogin) || undefined,
+              createdAt: firestoreToDate(data.createdAt) || undefined,
+              updatedAt: firestoreToDate(data.updatedAt) || undefined,
               isActive: data.isActive !== false,
               trainingLogs: data.trainingLogs || [],
               documents: data.documents || [],
@@ -131,9 +160,9 @@ export const userService = {
           lastName: data.lastName || '',
           position: data.position || '',
           role: data.role || 'staff',
-          lastLogin: data.lastLogin?.toDate(),
-          createdAt: data.createdAt?.toDate(),
-          updatedAt: data.updatedAt?.toDate(),
+          lastLogin: firestoreToDate(data.lastLogin) || undefined,
+          createdAt: firestoreToDate(data.createdAt) || undefined,
+          updatedAt: firestoreToDate(data.updatedAt) || undefined,
           isActive: data.isActive !== false,
           trainingLogs: data.trainingLogs || [],
           documents: data.documents || [],
@@ -168,9 +197,9 @@ export const userService = {
       return {
         uid: userDoc.id,
         ...userDoc.data(),
-        lastLogin: userDoc.data().lastLogin?.toDate(),
-        createdAt: userDoc.data().createdAt?.toDate(),
-        updatedAt: userDoc.data().updatedAt?.toDate(),
+        lastLogin: firestoreToDate(userDoc.data().lastLogin) || undefined,
+        createdAt: firestoreToDate(userDoc.data().createdAt) || undefined,
+        updatedAt: firestoreToDate(userDoc.data().updatedAt) || undefined,
       } as User;
     } catch (error) {
       console.error('Error fetching user:', error);
@@ -337,14 +366,24 @@ export const userService = {
   },
 
   /**
-   * Delete user profile from Firestore
-   * Note: This doesn't delete the Firebase Auth account
-   * 
-   * @param uid User ID
+   * Permanently remove a user from the database: Firestore profile, known subcollections
+   * (notifications, preferences), and Storage under users/{uid} and avatars/{uid}.
+   * Does not delete the Firebase Auth account (requires Admin SDK or Console).
+   *
+   * @param targetUid User document ID to remove
+   * @param performedByUid Admin (or caller) UID for deletion audit options
    */
-  async deleteUserProfile(uid: string): Promise<void> {
+  async deleteUserProfile(targetUid: string, performedByUid: string): Promise<void> {
     try {
-      await deleteDoc(doc(db, 'users', uid));
+      const result = await deleteUserAndRelatedData(targetUid, {
+        userId: performedByUid,
+        softDelete: false,
+        forceHardDelete: true,
+        deleteStorage: true,
+      });
+      if (result.errors.length > 0) {
+        console.warn('User deletion completed with non-fatal issues:', result.errors);
+      }
     } catch (error) {
       console.error('Error deleting user profile:', error);
       throw error;
@@ -544,8 +583,8 @@ export const userService = {
           lastName: data.lastName || '',
           position: data.position || '',
           role: data.role || 'admin', // Default to admin if not set
-          lastLogin: data.lastLogin?.toDate(),
-          createdAt: data.createdAt?.toDate() || now,
+          lastLogin: firestoreToDate(data.lastLogin) || undefined,
+          createdAt: firestoreToDate(data.createdAt, now),
           updatedAt: now,
           isActive: data.isActive !== false,
         };

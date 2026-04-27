@@ -9,6 +9,8 @@ interface SignatureCanvasProps {
   signerName?: string;
   onSignerNameChange?: (name: string) => void;
   required?: boolean;
+  /** When false, hide the "Signer Name" input (parent UI can provide it). */
+  showSignerNameInput?: boolean;
 }
 
 export const SignatureCanvas: React.FC<SignatureCanvasProps> = ({
@@ -18,7 +20,8 @@ export const SignatureCanvas: React.FC<SignatureCanvasProps> = ({
   disabled = false,
   signerName = '',
   onSignerNameChange,
-  required = false
+  required = false,
+  showSignerNameInput = true
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
@@ -262,31 +265,45 @@ export const SignatureCanvas: React.FC<SignatureCanvasProps> = ({
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center gap-3">
-        <div className="flex-1">
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Signer Name {required && <span className="text-red-500">*</span>}
-          </label>
-          <input
-            type="text"
-            value={signerName}
-            onChange={(e) => onSignerNameChange?.(e.target.value)}
-            disabled={disabled}
-            className="input w-full"
-            placeholder="Enter signer's name"
-            required={required}
-          />
+      {showSignerNameInput ? (
+        <div className="flex items-center gap-3">
+          <div className="flex-1">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Signer Name {required && <span className="text-red-500">*</span>}
+            </label>
+            <input
+              type="text"
+              value={signerName}
+              onChange={(e) => onSignerNameChange?.(e.target.value)}
+              disabled={disabled}
+              className="input w-full"
+              placeholder="Enter signer's name"
+              required={required}
+            />
+          </div>
+          {hasSignature && !disabled && (
+            <button
+              type="button"
+              onClick={clearSignature}
+              className="px-3 py-1 text-sm text-red-600 hover:text-red-800 border border-red-300 rounded hover:bg-red-50 transition-colors"
+            >
+              Clear
+            </button>
+          )}
         </div>
-        {hasSignature && !disabled && (
-          <button
-            type="button"
-            onClick={clearSignature}
-            className="px-3 py-1 text-sm text-red-600 hover:text-red-800 border border-red-300 rounded hover:bg-red-50 transition-colors"
-          >
-            Clear
-          </button>
-        )}
-      </div>
+      ) : (
+        hasSignature && !disabled ? (
+          <div className="flex items-center justify-end">
+            <button
+              type="button"
+              onClick={clearSignature}
+              className="px-3 py-1 text-sm text-red-600 hover:text-red-800 border border-red-300 rounded hover:bg-red-50 transition-colors"
+            >
+              Clear
+            </button>
+          </div>
+        ) : null
+      )}
       
       <div className="space-y-2">
         {/* Lock/Unlock Button */}

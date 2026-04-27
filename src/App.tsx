@@ -1,13 +1,18 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
-import { PdfSettingsProvider } from './contexts/PdfSettingsContext';
 import { CompanyInfoProvider } from './contexts/CompanyInfoContext';
 import { LoginPage } from './components/LoginPage';
 import { Layout } from './components/Layout';
 import { JobsPage } from './pages/JobsPage';
 import { CustomersPage } from './pages/CustomersPage';
 import { SettingsPage } from './pages/SettingsPage';
+import { PendingJobsPage } from './pages/PendingJobsPage';
+import { DocumentIndexPage } from './pages/DocumentIndexPage';
+import { StaffPerformanceDashboard } from './pages/StaffPerformanceDashboard';
+import { RecycleBinPage } from './pages/RecycleBinPage';
+import { PublicServiceRequestPage } from './pages/PublicServiceRequestPage';
+import JobDetailPage from './pages/JobDetailPage';
 import { ToastContainer } from './components/Toast';
 import { useToast } from './hooks/useToast';
 import './index.css';
@@ -64,6 +69,7 @@ const AppContent: React.FC = () => {
       <Routes>
         {/* Public Routes */}
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/request-service" element={<PublicServiceRequestPage />} />
 
         {/* Protected Routes with Layout */}
         <Route
@@ -79,9 +85,21 @@ const AppContent: React.FC = () => {
           
           {/* Jobs Page */}
           <Route path="jobs" element={<JobsPage />} />
+          <Route path="jobs/:jobId" element={<JobDetailPage />} />
+
+          {/* Pending Service Requests */}
+          <Route path="pending-jobs" element={<PendingJobsPage />} />
           
           {/* Customers Page */}
           <Route path="customers" element={<CustomersPage />} />
+
+          <Route path="staff-performance" element={<StaffPerformanceDashboard />} />
+
+          {/* Documents Index */}
+          <Route path="documents" element={<DocumentIndexPage />} />
+
+          {/* Recycle Bin */}
+          <Route path="recycle-bin" element={<RecycleBinPage />} />
           
           {/* Settings Page (Admin Only) */}
           <Route
@@ -106,11 +124,9 @@ function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <PdfSettingsProvider>
-          <CompanyInfoProvider>
-            <AppContent />
-          </CompanyInfoProvider>
-        </PdfSettingsProvider>
+        <CompanyInfoProvider>
+          <AppContent />
+        </CompanyInfoProvider>
       </AuthProvider>
     </BrowserRouter>
   );

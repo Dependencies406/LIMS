@@ -35,6 +35,94 @@ service cloud.firestore {
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
     
+    // Documents collection (ISO/IEC 17025 Document Management)
+    // Published documents: all authenticated users can read
+    // Draft/Review documents: only admins, staff, and assigned reviewers/approvers can read
+    // Write: only admins and staff can create/update
+    match /documents/{documentId} {
+      // Helper function to get user role
+      function getUserRole() {
+        return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+      }
+      
+      // Helper function to check if user is admin or staff
+      function isAdminOrStaff() {
+        return request.auth != null && (getUserRole() == 'admin' || getUserRole() == 'staff');
+      }
+      
+      // Helper function to check if user is assigned reviewer/approver
+      function isAssignedUser() {
+        let docData = resource.data;
+        return request.auth != null && (
+          docData.reviewerId == request.auth.uid || 
+          docData.approverId == request.auth.uid
+        );
+      }
+      
+      // Read rules
+      allow read: if request.auth != null && (
+        // Published documents: everyone can read
+        resource.data.state == 'Published' ||
+        // Obsolete documents: everyone can read (for reference)
+        resource.data.state == 'Obsolete' ||
+        // Draft/Review documents: only admins, staff, or assigned users
+        isAdminOrStaff() ||
+        isAssignedUser()
+      );
+      
+      // Write rules: only admins and staff can create/update
+      allow create: if isAdminOrStaff();
+      allow update: if isAdminOrStaff() || isAssignedUser();
+      allow delete: if isAdminOrStaff();
+    }
+    
+    // Notifications collection - users can read their own notifications
+    match /notifications/{notificationId} {
+      allow read: if request.auth != null && 
+        resource.data.userId == request.auth.uid;
+      allow create: if request.auth != null;
+      allow update: if request.auth != null && 
+        resource.data.userId == request.auth.uid;
+      allow delete: if request.auth != null && 
+        resource.data.userId == request.auth.uid;
+    }
+    
+    // Form templates and responses (if using forms module)
+    match /formTemplates/{templateId} {
+      allow read, write: if request.auth != null;
+    }
+    
+    match /formResponses/{responseId} {
+      allow read, write: if request.auth != null;
+    }
+    
+    // Manufacturer List collection - authenticated users can read/write
+    match /manufacturerList/{manufacturerId} {
+      allow read, write: if request.auth != null;
+    }
+    
+    // Model List collection - authenticated users can read/write
+    match /modelList/{modelId} {
+      allow read, write: if request.auth != null;
+    }
+    
+    // Calibration Method List collection - authenticated users can read/write
+    match /calibrationMethodList/{methodId} {
+      allow read, write: if request.auth != null;
+    }
+    
+    // Equipment collection - authenticated users can read/write
+    // Stores equipment records by serial number
+    match /equipment/{equipmentId} {
+      allow read, write: if request.auth != null;
+    }
+    
+    // Service Requests collection - authenticated users can read/write
+    // Stores customer service requests before conversion to jobs
+    match /serviceRequests/{requestId} {
+      allow read, write: if request.auth != null;
+    }
+    
     // Default rule: deny all other access
     match /{document=**} {
       allow read, write: if false;
@@ -56,6 +144,11 @@ service firebase.storage {
     
     // Job attachments - authenticated users can upload/manage
     match /jobs/{jobId}/attachments/{fileName} {
+      allow read, write: if request.auth != null;
+    }
+    
+    // Statement of Conformity reference PDF (job Service Information)
+    match /jobs/{jobId}/service-information/statement-of-conformity/{fileName} {
       allow read, write: if request.auth != null;
     }
     

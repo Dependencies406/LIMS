@@ -1,4 +1,5 @@
 import type { Customer } from '../types';
+import { firestoreToDate } from '../utils/dateUtils';
 import {
   db,
   collection,
@@ -45,8 +46,8 @@ export const customerService = {
           id: doc.id,
           customerCode: doc.id, // Document ID is the customer code
           ...doc.data(),
-          createdAt: doc.data().createdAt?.toDate() || new Date(),
-          updatedAt: doc.data().updatedAt?.toDate() || new Date(),
+          createdAt: firestoreToDate(doc.data().createdAt),
+          updatedAt: firestoreToDate(doc.data().updatedAt),
         })) as Customer[];
         
         callback(customers);
@@ -73,8 +74,8 @@ export const customerService = {
         id: doc.id,
         customerCode: doc.id,
         ...doc.data(),
-        createdAt: doc.data().createdAt?.toDate() || new Date(),
-        updatedAt: doc.data().updatedAt?.toDate() || new Date(),
+        createdAt: firestoreToDate(doc.data().createdAt),
+        updatedAt: firestoreToDate(doc.data().updatedAt),
       })) as Customer[];
     } catch (error) {
       console.error('Error fetching customers:', error);
@@ -99,8 +100,8 @@ export const customerService = {
         id: customerDoc.id,
         customerCode: customerDoc.id,
         ...customerDoc.data(),
-        createdAt: customerDoc.data().createdAt?.toDate() || new Date(),
-        updatedAt: customerDoc.data().updatedAt?.toDate() || new Date(),
+        createdAt: firestoreToDate(customerDoc.data().createdAt),
+        updatedAt: firestoreToDate(customerDoc.data().updatedAt),
       } as Customer;
     } catch (error) {
       console.error('Error fetching customer:', error);

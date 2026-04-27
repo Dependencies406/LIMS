@@ -71,16 +71,22 @@ export const useJobs = () => {
   /**
    * Delete a job
    */
-  const deleteJob = useCallback(async (id: string): Promise<void> => {
-    setError(null);
-    try {
-      await jobService.deleteJob(id);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to delete job';
-      setError(message);
-      throw err;
-    }
-  }, []);
+  const deleteJob = useCallback(
+    async (id: string): Promise<void> => {
+      if (!currentUser?.uid) {
+        throw new Error('User not authenticated');
+      }
+      setError(null);
+      try {
+        await jobService.deleteJob(id, currentUser.uid);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Failed to delete job';
+        setError(message);
+        throw err;
+      }
+    },
+    [currentUser]
+  );
 
   /**
    * Get a single job by ID

@@ -35,5 +35,8 @@ dist-ssr
 build
 out
 
+# Distribution package
+dist-package
+
 # OS files
 Thumbs.db

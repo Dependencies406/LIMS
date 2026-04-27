@@ -19,3 +19,6 @@ export type { CardProps } from './Card';
 export { ViewToggle } from './ViewToggle';
 export type { ViewToggleProps, ViewType } from './ViewToggle';
 
+export { StatFilterDropdown } from './StatFilterDropdown';
+export type { StatFilterOption, StatFilterDropdownProps } from './StatFilterDropdown';
+

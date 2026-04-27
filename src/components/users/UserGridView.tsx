@@ -1,16 +1,26 @@
 import React from 'react';
-import type { User } from '../../types';
+import type { Role, User } from '../../types';
+import { getRoleDisplayName } from '../../services/roleService';
 import { Card } from '../common/Card';
 
 interface UserGridViewProps {
   users: User[];
+  roles?: Role[];
   onEdit: (user: User) => void;
+  onEnableAccount?: (user: User) => void | Promise<void>;
+  enablingUserId?: string | null;
 }
 
 /**
  * Grid view for users - Compact grid display
  */
-export const UserGridView: React.FC<UserGridViewProps> = ({ users, onEdit }) => {
+export const UserGridView: React.FC<UserGridViewProps> = ({
+  users,
+  roles = [],
+  onEdit,
+  onEnableAccount,
+  enablingUserId = null,
+}) => {
   if (users.length === 0) {
     return (
       <div className="text-center py-12 bg-white rounded-lg">
@@ -21,7 +31,9 @@ export const UserGridView: React.FC<UserGridViewProps> = ({ users, onEdit }) => 
 
   return (
     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
-      {users.map((user) => (
+      {users.map((user) => {
+        const roleLabel = getRoleDisplayName(user.role, roles);
+        return (
         <Card key={user.uid} onClick={() => onEdit(user)} hoverable className="p-4">
           <div className="space-y-2 text-center">
             {/* Avatar */}
@@ -40,12 +52,14 @@ export const UserGridView: React.FC<UserGridViewProps> = ({ users, onEdit }) => 
             </div>
 
             {/* Role Badge */}
-            <span className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${
+            <span
+              title={roleLabel}
+              className={`inline-block max-w-full truncate px-2 py-1 rounded-full text-xs font-medium ${
               user.role === 'admin' 
                 ? 'bg-primary-100 text-primary-800' 
                 : 'bg-blue-100 text-blue-800'
             }`}>
-              {user.role}
+              {roleLabel}
             </span>
 
             {/* Status Indicator */}
@@ -57,9 +71,23 @@ export const UserGridView: React.FC<UserGridViewProps> = ({ users, onEdit }) => 
                 {user.isActive !== false ? 'Active' : 'Inactive'}
               </span>
             </div>
+
+            {user.isActive === false && onEnableAccount && (
+              <div onClick={(e) => e.stopPropagation()} className="pt-1">
+                <button
+                  type="button"
+                  onClick={() => onEnableAccount(user)}
+                  disabled={enablingUserId === user.uid}
+                  className="btn btn-primary w-full text-xs py-1.5 px-2"
+                >
+                  {enablingUserId === user.uid ? '…' : 'Enable'}
+                </button>
+              </div>
+            )}
           </div>
         </Card>
-      ))}
+        );
+      })}
     </div>
   );
 };

@@ -1,39 +1,73 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import type { Role, User } from '../types';
 import { useUsers } from '../hooks/useUsers';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../hooks/useToast';
 import { ViewToggle } from './common/ViewToggle';
+import { StatFilterDropdown } from './common/StatFilterDropdown';
 import { useViewPreference } from '../hooks/useViewPreference';
 import { UserListView } from './users/UserListView';
 import { UserCardView } from './users/UserCardView';
 import { UserGridView } from './users/UserGridView';
 import { UserModal } from './UserModal';
 import { userService } from '../services/userService';
+import { roleService } from '../services/roleService';
 
 interface UserManagementModalProps {
   isOpen: boolean;
   onClose: () => void;
+  /** When true, render only the panel body (for use inside Users & roles combined modal). */
+  embedded?: boolean;
 }
 
-export const UserManagementModal: React.FC<UserManagementModalProps> = ({ isOpen, onClose }) => {
+export const UserManagementModal: React.FC<UserManagementModalProps> = ({
+  isOpen,
+  onClose,
+  embedded = false,
+}) => {
   const { isAdmin } = useAuth();
-  const { users, loading, error } = useUsers();
-  const { success } = useToast();
+  const { users, loading, error, reactivateUser } = useUsers();
+  const { success, error: showError } = useToast();
   
   const [selectedUser, setSelectedUser] = useState<any | null>(null);
   const [showUserModal, setShowUserModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [roleFilter, setRoleFilter] = useState<string>('all');
-  const [statusFilter, setStatusFilter] = useState<boolean>(true); // true = active only
+  /** One chip at a time: no AND overlap between status and role filters */
+  const [listFilter, setListFilter] = useState<
+    'all' | 'active' | 'inactive' | 'admin' | 'staff'
+  >('all');
   const [isSearchExpanded, setIsSearchExpanded] = useState(false);
   
   // View preferences with localStorage persistence
   const [usersView, setUsersView] = useViewPreference('lims-users-view', 'card');
+  const [roles, setRoles] = useState<Role[]>([]);
+  const [enablingUserId, setEnablingUserId] = useState<string | null>(null);
+
+  const handleEnableAccount = async (u: User) => {
+    setEnablingUserId(u.uid);
+    try {
+      await reactivateUser(u.uid);
+      success(`Account enabled — ${u.email} can sign in again.`);
+    } catch {
+      showError('Failed to enable account. Please try again.');
+    } finally {
+      setEnablingUserId(null);
+    }
+  };
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const unsubscribe = roleService.subscribeToRoles((loaded) => {
+      setRoles(loaded);
+    });
+    return unsubscribe;
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
   // Redirect if not admin
   if (!isAdmin) {
+    if (embedded) return null;
     return (
       <div className="modal" onClick={onClose}>
         <div className="modal-content max-w-md" onClick={e => e.stopPropagation()}>
@@ -59,19 +93,32 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({ isOpen
     setShowUserModal(true);
   };
 
-  // Filter users
-  const filteredUsers = users.filter(user => {
-    const matchesSearch = 
+  // Filter users (search + exactly one list chip)
+  const filteredUsers = users.filter((user) => {
+    const matchesSearch =
       user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
       user.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       user.lastName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (user.displayName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
       (user.position || '').toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchesRole = roleFilter === 'all' || user.role === roleFilter;
-    const matchesStatus = !statusFilter || user.isActive !== false;
-    
-    return matchesSearch && matchesRole && matchesStatus;
+
+    if (!matchesSearch) return false;
+
+    const isActiveUser = user.isActive !== false;
+    switch (listFilter) {
+      case 'all':
+        return true;
+      case 'active':
+        return isActiveUser;
+      case 'inactive':
+        return !isActiveUser;
+      case 'admin':
+        return user.role === 'admin';
+      case 'staff':
+        return user.role === 'staff';
+      default:
+        return true;
+    }
   });
 
   // Calculate statistics
@@ -83,84 +130,26 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({ isOpen
     staff: users.filter(u => u.role === 'staff').length,
   };
 
-  return (
-    <>
-      <div className="modal" onClick={onClose}>
-        <div className="modal-content max-w-7xl" onClick={e => e.stopPropagation()}>
-          {/* Header */}
-          <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4">
-            <div className="flex justify-between items-center">
-              <div>
-                <h2 className="text-2xl font-bold text-gray-900">User Management</h2>
-                <p className="text-gray-600 mt-1">Manage user accounts and permissions</p>
-              </div>
-              <button onClick={onClose} className="text-gray-500 hover:text-gray-700 text-2xl">
-                ×
-              </button>
-            </div>
-          </div>
-
+  const listSection = (
           <div className="p-6">
-            {/* Statistics Dashboard */}
+            {/* List filter (dropdown replaces stat cards) */}
             {!error && (
-              <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
-                {/* Total Users */}
-                <div className="p-4 rounded-lg border-2 border-gray-200 bg-white">
-                  <div className="text-2xl font-bold text-gray-900">{stats.total}</div>
-                  <div className="text-sm text-gray-600 mt-1">Total Users</div>
-                </div>
-
-                {/* Active */}
-                <button
-                  onClick={() => setStatusFilter(statusFilter ? statusFilter : true)}
-                  className={`p-4 rounded-lg border-2 transition-all ${
-                    statusFilter
-                      ? 'border-green-500 bg-green-50 shadow-md'
-                      : 'border-gray-200 bg-white hover:border-green-300 hover:shadow-sm'
-                  }`}
-                >
-                  <div className="text-2xl font-bold text-green-600">{stats.active}</div>
-                  <div className="text-sm text-gray-600 mt-1">Active</div>
-                </button>
-
-                {/* Inactive */}
-                <button
-                  onClick={() => setStatusFilter(!statusFilter)}
-                  className={`p-4 rounded-lg border-2 transition-all ${
-                    !statusFilter
-                      ? 'border-gray-500 bg-gray-50 shadow-md'
-                      : 'border-gray-200 bg-white hover:border-gray-300 hover:shadow-sm'
-                  }`}
-                >
-                  <div className="text-2xl font-bold text-gray-600">{stats.inactive}</div>
-                  <div className="text-sm text-gray-600 mt-1">Inactive</div>
-                </button>
-
-                {/* Admins */}
-                <button
-                  onClick={() => setRoleFilter(roleFilter === 'admin' ? 'all' : 'admin')}
-                  className={`p-4 rounded-lg border-2 transition-all ${
-                    roleFilter === 'admin'
-                      ? 'border-primary-500 bg-primary-50 shadow-md'
-                      : 'border-gray-200 bg-white hover:border-primary-300 hover:shadow-sm'
-                  }`}
-                >
-                  <div className="text-2xl font-bold text-primary-600">{stats.admins}</div>
-                  <div className="text-sm text-gray-600 mt-1">Admins</div>
-                </button>
-
-                {/* Staff */}
-                <button
-                  onClick={() => setRoleFilter(roleFilter === 'staff' ? 'all' : 'staff')}
-                  className={`p-4 rounded-lg border-2 transition-all ${
-                    roleFilter === 'staff'
-                      ? 'border-blue-500 bg-blue-50 shadow-md'
-                      : 'border-gray-200 bg-white hover:border-blue-300 hover:shadow-sm'
-                  }`}
-                >
-                  <div className="text-2xl font-bold text-blue-600">{stats.staff}</div>
-                  <div className="text-sm text-gray-600 mt-1">Staff</div>
-                </button>
+              <div className="mb-6">
+                <StatFilterDropdown
+                  id="users-list-filter"
+                  label="Show"
+                  value={listFilter}
+                  onChange={(v) =>
+                    setListFilter(v as 'all' | 'active' | 'inactive' | 'admin' | 'staff')
+                  }
+                  options={[
+                    { value: 'all', label: 'All users', count: stats.total },
+                    { value: 'active', label: 'Active', count: stats.active },
+                    { value: 'inactive', label: 'Inactive', count: stats.inactive },
+                    { value: 'admin', label: 'Administrators', count: stats.admins },
+                    { value: 'staff', label: 'Users', count: stats.staff },
+                  ]}
+                />
               </div>
             )}
 
@@ -298,29 +287,36 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({ isOpen
                 {usersView === 'list' && (
                   <UserListView
                     users={filteredUsers}
+                    roles={roles}
                     onEdit={handleEditUser}
+                    onEnableAccount={handleEnableAccount}
+                    enablingUserId={enablingUserId}
                   />
                 )}
                 {usersView === 'card' && (
                   <UserCardView
                     users={filteredUsers}
+                    roles={roles}
                     onEdit={handleEditUser}
+                    onEnableAccount={handleEnableAccount}
+                    enablingUserId={enablingUserId}
                   />
                 )}
                 {usersView === 'grid' && (
                   <UserGridView
                     users={filteredUsers}
+                    roles={roles}
                     onEdit={handleEditUser}
+                    onEnableAccount={handleEnableAccount}
+                    enablingUserId={enablingUserId}
                   />
                 )}
               </>
             )}
           </div>
-        </div>
-      </div>
+  );
 
-      {/* User Modal */}
-      {showUserModal && (
+  const userEditorModal = showUserModal ? (
         <UserModal
           user={selectedUser}
           onClose={() => {
@@ -332,8 +328,47 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({ isOpen
             setSelectedUser(null);
             success(selectedUser ? 'User updated successfully' : 'User created successfully');
           }}
+          onProfileDeleted={() => {
+            setShowUserModal(false);
+            setSelectedUser(null);
+            success(
+              'User removed from the database (Firestore and Storage for this user). Remove their login in Firebase Authentication if they should not sign in again.'
+            );
+          }}
         />
-      )}
+  ) : null;
+
+  if (embedded) {
+    return (
+      <>
+        {listSection}
+        {userEditorModal}
+      </>
+    );
+  }
+
+  return (
+    <>
+      <div className="modal" onClick={onClose}>
+        <div className="modal-content max-w-7xl" onClick={e => e.stopPropagation()}>
+          {/* Header */}
+          <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4">
+            <div className="flex justify-between items-center">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900">User Management</h2>
+                <p className="text-gray-600 mt-1">Manage user accounts and permissions</p>
+              </div>
+              <button onClick={onClose} className="text-gray-500 hover:text-gray-700 text-2xl">
+                ×
+              </button>
+            </div>
+          </div>
+
+          {listSection}
+        </div>
+      </div>
+
+      {userEditorModal}
     </>
   );
 };

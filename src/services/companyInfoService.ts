@@ -1,5 +1,6 @@
-import { 
-  doc, 
+import { firestoreToDate } from '../utils/dateUtils';
+import {
+  doc,
   getDoc, 
   setDoc, 
   updateDoc, 
@@ -49,8 +50,8 @@ export const getCompanyInfo = async (): Promise<CompanyInfo | null> => {
       return {
         id: docSnap.id,
         ...data,
-        createdAt: data.createdAt?.toDate() || new Date(),
-        updatedAt: data.updatedAt?.toDate() || new Date(),
+        createdAt: firestoreToDate(data.createdAt),
+        updatedAt: firestoreToDate(data.updatedAt),
       } as CompanyInfo;
     }
     
@@ -97,8 +98,8 @@ export const saveCompanyInfo = async (
     return {
       id: updatedDoc.id,
       ...data,
-      createdAt: data?.createdAt?.toDate() || now,
-      updatedAt: data?.updatedAt?.toDate() || now,
+      createdAt: firestoreToDate(data?.createdAt, now),
+      updatedAt: firestoreToDate(data?.updatedAt, now),
     } as CompanyInfo;
   } catch (error) {
     console.error('Error saving company info:', error);
