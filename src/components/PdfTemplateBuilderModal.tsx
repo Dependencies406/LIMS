@@ -7,14 +7,14 @@ import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { PdfTemplateBuilderCanvas } from '../modules/pdf-template-builder/components/PdfTemplateBuilderCanvas';
 import { ElementPropertiesPanel } from '../modules/pdf-template-builder/components/ElementPropertiesPanel';
 import { AlignmentToolbar } from '../modules/pdf-template-builder/components/AlignmentToolbar';
-import { sections, getSectionById } from '../modules/pdf-template-builder/components/sections';
+import { SectionPanel } from '../modules/pdf-template-builder/components/SectionPanel';
 import { createPdfElement, updateElement, getElementLabel } from '../modules/pdf-template-builder/models/PdfElement';
 import type { ComponentDefinition } from '../modules/pdf-template-builder/components/sections/types';
 import { pdfTemplateService } from '../services/pdfTemplateService';
 import { useAuth } from '../contexts/AuthContext';
 import { useUndoRedo } from '../modules/pdf-template-builder/hooks/useUndoRedo';
 import { useClipboard } from '../modules/pdf-template-builder/hooks/useClipboard';
-import type { PdfTemplate, PdfElement, PdfElementType, PdfPage } from '../modules/pdf-template-builder/types';
+import type { PdfTemplate, PdfElement, PdfElementType, PdfPage, PdfTemplateScope } from '../modules/pdf-template-builder/types';
 import { PdfComponentScannerModal } from './PdfComponentScannerModal';
 
 export interface PdfTemplateBuilderModalProps {
@@ -22,6 +22,8 @@ export interface PdfTemplateBuilderModalProps {
   onClose: () => void;
   templateId?: string; // If provided, load existing template
   onSave?: (template: PdfTemplate) => void;
+  /** When creating a new template, pre-set its scope so it appears in the right module picker. */
+  initialScope?: PdfTemplateScope;
 }
 
 export const PdfTemplateBuilderModal: React.FC<PdfTemplateBuilderModalProps> = ({
@@ -29,6 +31,7 @@ export const PdfTemplateBuilderModal: React.FC<PdfTemplateBuilderModalProps> = (
   onClose,
   templateId,
   onSave,
+  initialScope,
 }) => {
   const { currentUser } = useAuth();
   const initialTemplate: PdfTemplate = {
@@ -91,6 +94,7 @@ export const PdfTemplateBuilderModal: React.FC<PdfTemplateBuilderModalProps> = (
           updateTemplate({
             name: '',
             description: '',
+            scope: initialScope ?? 'global',
             pageSize: 'A4',
             orientation: 'portrait',
             elements: [],
@@ -105,9 +109,9 @@ export const PdfTemplateBuilderModal: React.FC<PdfTemplateBuilderModalProps> = (
     return () => {
       isMounted = false;
     };
-    // Only depend on isOpen and templateId - not updateTemplate
+    // Only depend on isOpen, templateId, and initialScope - not updateTemplate
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, templateId]);
+  }, [isOpen, templateId, initialScope]);
 
   // Removed - loadTemplate logic moved to useEffect to prevent race conditions
 
@@ -983,61 +987,13 @@ export const PdfTemplateBuilderModal: React.FC<PdfTemplateBuilderModalProps> = (
                 )}
 
                 {activeLeftSidebarTab === 'sections' && (
-                  <>
-                    <h3 className="text-sm font-semibold text-gray-900 mb-3" style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", "Roboto", sans-serif' }}>
-                      Sections
-                    </h3>
-                    <div className="space-y-1 mb-4">
-                      {sections.map((section) => (
-                        <button
-                          key={section.id}
-                          onClick={() => setSelectedSectionId(section.id)}
-                          className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${
-                            selectedSectionId === section.id
-                              ? 'bg-blue-50 border border-blue-200 text-blue-900'
-                              : 'bg-transparent border border-transparent text-gray-700 hover:bg-gray-50'
-                          }`}
-                          style={{
-                            borderColor: selectedSectionId === section.id ? '#BFDBFE' : 'transparent'
-                          }}
-                        >
-                          <div className="flex items-center gap-2">
-                            <span>{section.icon}</span>
-                            <span className="font-medium">{section.name}</span>
-                          </div>
-                        </button>
-                      ))}
-                    </div>
-
-                    {/* Section Components */}
-                    {selectedSectionId && getSectionById(selectedSectionId) && (
-                      <div className="mb-4 pb-4 border-b" style={{ borderBottomColor: '#E5E7EB' }}>
-                        <h4 className="text-xs font-semibold text-gray-700 mb-2 uppercase tracking-wide">
-                          {getSectionById(selectedSectionId)?.name} Components
-                        </h4>
-                        <div className="space-y-1">
-                          {getSectionById(selectedSectionId)?.components.map((component, idx) => (
-                            <button
-                              key={idx}
-                              onClick={() => {
-                                const element = createPdfElement(
-                                  component.type as PdfElementType,
-                                  100,
-                                  100,
-                                  component.defaultProperties
-                                );
-                                handleElementAdd(element);
-                              }}
-                              className="w-full text-left px-3 py-2 rounded-md text-xs transition-colors flex items-center gap-2 hover:bg-gray-50 text-gray-700"
-                            >
-                              <span>{component.icon}</span>
-                              <span className="font-medium truncate">{component.name}</span>
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </>
+                  <SectionPanel
+                    selectedSectionId={selectedSectionId}
+                    onSectionSelect={setSelectedSectionId}
+                    onComponentAdd={handleElementAdd}
+                    currentElements={activeElements}
+                    className="w-full flex flex-col"
+                  />
                 )}
 
                 {activeLeftSidebarTab === 'layers' && (

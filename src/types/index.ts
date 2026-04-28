@@ -20,6 +20,7 @@ export type PermissionAction =
 export interface Role {
   id: string;
   name: string;
+  description?: string;
   permissions: PermissionAction[];
   isSystemRole?: boolean;
   createdAt: Date;
@@ -50,10 +51,15 @@ export interface User {
 
 export interface EquipmentAttachment {
   id: string;
-  name: string;
-  size: number;
-  type: string;
-  url: string;
+  /** Original file name (as uploaded). */
+  fileName: string;
+  /** MIME type (e.g. 'application/pdf', 'image/jpeg'). */
+  fileType: string;
+  /** File size in bytes. */
+  fileSize: number;
+  /** Firebase Storage download URL. */
+  downloadURL: string;
+  /** Firebase Storage path (used for deletion). */
   storagePath: string;
   uploadedAt: Date;
   uploadedBy: string;

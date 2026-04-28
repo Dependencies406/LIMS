@@ -14,6 +14,7 @@ import { PdfTemplateManagerModal } from '../components/PdfTemplateManagerModal';
 import { CertificateNumberManagerModal } from '../components/CertificateNumberManagerModal';
 import { MasterListsManagementModal } from '../components/MasterListsManagementModal';
 import { SettingsCardHelpTooltip } from '../components/SettingsCardHelpTooltip';
+import { DriveBackupModal } from '../components/DriveBackupModal';
 
 export const SettingsPage: React.FC = () => {
   const { error: showError } = useToast();
@@ -27,6 +28,7 @@ export const SettingsPage: React.FC = () => {
   const [showPdfTemplateManager, setShowPdfTemplateManager] = useState(false);
   const [showCertificateNumberManager, setShowCertificateNumberManager] = useState(false);
   const [showMasterLists, setShowMasterLists] = useState(false);
+  const [showDriveBackup, setShowDriveBackup] = useState(false);
   // Loading and success states
   const [loading, setLoading] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
@@ -384,6 +386,50 @@ export const SettingsPage: React.FC = () => {
             </button>
           </div>
 
+          {/* Backup & Export */}
+          <SettingsCardHelpTooltip
+            panel={
+              <div className="space-y-2">
+                <h4 className="font-semibold">Backup &amp; Export</h4>
+                <p>Download all job data as a JSON backup file. Save it anywhere — local drive, USB, or Google Drive.</p>
+                <ul className="text-xs text-gray-300 space-y-1 pt-2 border-t border-gray-700">
+                  <li>• All jobs, equipment &amp; measurement data included</li>
+                  <li>• Attachment download links included</li>
+                  <li>• Option to include deleted jobs</li>
+                  <li>• No setup required — works instantly</li>
+                </ul>
+              </div>
+            }
+          >
+            <button
+              type="button"
+              onClick={() => setShowDriveBackup(true)}
+              className="w-full p-6 bg-white rounded-xl border border-gray-200 hover:border-primary-300 hover:shadow-lg transition-all duration-200 text-left group-hover:scale-[1.02]"
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-4 flex-1 min-w-0">
+                  <div className="w-14 h-14 bg-gradient-to-br from-green-100 to-teal-200 rounded-xl flex items-center justify-center flex-shrink-0">
+                    <span className="text-2xl" aria-hidden>
+                      💾
+                    </span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-lg font-semibold text-gray-900 truncate">Backup &amp; Export</h3>
+                    <p className="text-sm text-gray-500 truncate">Download all job data as a file</p>
+                  </div>
+                </div>
+                <div className="flex items-center space-x-1 ml-3 flex-shrink-0">
+                  <svg className="w-4 h-4 text-gray-400 group-hover:text-gray-600 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <svg className="w-4 h-4 text-gray-400 group-hover:text-gray-600 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </div>
+              </div>
+            </button>
+          </SettingsCardHelpTooltip>
+
           {/* Equipment master lists — methods, manufacturers, models (tabbed modal) */}
           <SettingsCardHelpTooltip
             panel={
@@ -449,9 +495,9 @@ export const SettingsPage: React.FC = () => {
             </div>
             <div className="p-6 bg-gray-50 border border-gray-200 rounded-xl text-center hover:bg-gray-100 transition-colors duration-200">
               <div className="w-12 h-12 bg-gradient-to-br from-gray-200 to-gray-300 rounded-xl flex items-center justify-center mx-auto mb-3">
-                <span className="text-xl">🔄</span>
+                <span className="text-xl">🔔</span>
               </div>
-              <h3 className="text-sm font-medium text-gray-500">Backup & Export</h3>
+              <h3 className="text-sm font-medium text-gray-500">Notifications</h3>
             </div>
             <div className="p-6 bg-gray-50 border border-gray-200 rounded-xl text-center hover:bg-gray-100 transition-colors duration-200">
               <div className="w-12 h-12 bg-gradient-to-br from-gray-200 to-gray-300 rounded-xl flex items-center justify-center mx-auto mb-3">
@@ -522,6 +568,12 @@ export const SettingsPage: React.FC = () => {
       <MasterListsManagementModal
         isOpen={showMasterLists}
         onClose={() => setShowMasterLists(false)}
+      />
+
+      {/* Google Drive Backup Modal */}
+      <DriveBackupModal
+        isOpen={showDriveBackup}
+        onClose={() => setShowDriveBackup(false)}
       />
     </div>
   );

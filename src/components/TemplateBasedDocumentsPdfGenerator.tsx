@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { TemplateSelectorModal } from './TemplateSelectorModal';
 import { MissingDataWarningModal } from './MissingDataWarningModal';
 import { Modal, Button } from './common';
 import { useTemplatePdfWorkflow } from '../hooks/useTemplatePdfWorkflow';
+import { PdfTemplateBuilderModal } from './PdfTemplateBuilderModal';
 import type { DocumentIndexItem } from '../types';
 
 export interface TemplateBasedDocumentsPdfGeneratorProps {
@@ -18,10 +19,16 @@ export const TemplateBasedDocumentsPdfGenerator: React.FC<TemplateBasedDocuments
   documentIndexItems,
   onClose,
 }) => {
-  const wf = useTemplatePdfWorkflow({ mode: 'documents', documentIndexItems });
+  const [showBuilder, setShowBuilder] = useState(false);
+
+  const wf = useTemplatePdfWorkflow({ mode: 'documents', documentIndexItems, scope: 'documents' });
 
   const handleStart = () => {
     wf.setShowTemplateSelector(true);
+  };
+
+  const handleCreateNew = () => {
+    setShowBuilder(true);
   };
 
   return (
@@ -48,6 +55,8 @@ export const TemplateBasedDocumentsPdfGenerator: React.FC<TemplateBasedDocuments
           onClose?.();
         }}
         onSelect={wf.handleTemplateSelect}
+        scope="documents"
+        onCreateNew={handleCreateNew}
       />
 
       <MissingDataWarningModal
@@ -98,7 +107,17 @@ export const TemplateBasedDocumentsPdfGenerator: React.FC<TemplateBasedDocuments
           Generating PDF for print...
         </div>
       )}
+
+      {/* Template Builder — opens when user clicks "Create New Template" in the selector */}
+      <PdfTemplateBuilderModal
+        isOpen={showBuilder}
+        onClose={() => setShowBuilder(false)}
+        initialScope="documents"
+        onSave={() => {
+          setShowBuilder(false);
+          wf.setShowTemplateSelector(true);
+        }}
+      />
     </>
   );
 };
-

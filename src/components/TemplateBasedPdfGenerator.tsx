@@ -1,153 +1,158 @@
 /**
- * Template-Based PDF Generator
- * Implements the complete workflow: Select Template → Check Missing Data → Generate PDF
+ * Template-Based PDF Generator (Jobs)
+ * Workflow: Select Template → Check Missing Data → In-app Preview → Print / Download
  */
 
 import React, { useState } from 'react';
 import type { Job } from '../types';
 import { TemplateSelectorModal } from './TemplateSelectorModal';
 import { MissingDataWarningModal } from './MissingDataWarningModal';
-import { useTemplatePdfGeneration } from '../hooks/useTemplatePdfGeneration';
-import { pdfDataResolver } from '../services/pdfDataResolver';
-import { pdfTemplateRenderer } from '../services/pdfTemplateRenderer';
-import type { PdfTemplate } from '../modules/pdf-template-builder/types';
-import type { MissingDataReport } from '../services/pdfDataResolver';
+import { Modal, Button } from './common';
+import { useTemplatePdfWorkflow } from '../hooks/useTemplatePdfWorkflow';
+import { PdfTemplateBuilderModal } from './PdfTemplateBuilderModal';
 
 export interface TemplateBasedPdfGeneratorProps {
   job: Job;
   onPdfGenerated?: (pdfBlob: Blob) => void;
   onClose?: () => void;
-  trigger?: React.ReactNode; // Custom trigger button
+  /** Custom trigger element. Clicking it opens the template selector. */
+  trigger?: React.ReactNode;
+  /** Override the equipment index to include in the PDF (pass undefined to include all). */
+  selectedEquipmentIndex?: number;
 }
 
 export const TemplateBasedPdfGenerator: React.FC<TemplateBasedPdfGeneratorProps> = ({
   job,
-  onPdfGenerated,
   onClose,
   trigger,
+  selectedEquipmentIndex,
 }) => {
-  const [showTemplateSelector, setShowTemplateSelector] = useState(false);
-  const [showMissingDataWarning, setShowMissingDataWarning] = useState(false);
-  const [localMissingData, setLocalMissingData] = useState<MissingDataReport[]>([]);
+  const [showBuilder, setShowBuilder] = useState(false);
 
-  const {
-    selectedTemplate,
-    missingData,
-    isGenerating,
-    error,
-    selectTemplate,
-    generatePdf,
-    reset,
-  } = useTemplatePdfGeneration();
+  const wf = useTemplatePdfWorkflow({
+    mode: 'job',
+    job,
+    selectedEquipmentIndex,
+    scope: 'jobs',
+  });
 
-  const handleTemplateSelect = (template: PdfTemplate) => {
-    selectTemplate(template);
-    setShowTemplateSelector(false);
+  const handleStart = () => {
+    wf.setShowTemplateSelector(true);
   };
 
-
-  const handleGenerateClick = async () => {
-    try {
-      if (!selectedTemplate) {
-        setShowTemplateSelector(true);
-        return;
-      }
-
-      // First, check for missing data before generating
-      // Prepare job data with company info from settings for accurate validation
-      const jobData = await pdfTemplateRenderer.prepareJobDataForPdf(job);
-      const missing = pdfDataResolver.validateTemplate(selectedTemplate, jobData);
-      setLocalMissingData(missing);
-      
-      if (missing.length > 0) {
-        // Show warning modal with missing data
-        setShowMissingDataWarning(true);
-        return;
-      }
-
-      // No missing data, generate PDF directly
-      const pdfBlob = await generatePdf(job, false);
-      
-      if (error) {
-        alert(`Error: ${error}`);
-        return;
-      }
-
-      if (pdfBlob) {
-        onPdfGenerated?.(pdfBlob);
-        handleDownload(pdfBlob);
-      }
-    } catch (err) {
-      console.error('Error in handleGenerateClick:', err);
-      alert(`Failed to generate PDF: ${err instanceof Error ? err.message : 'Unknown error'}`);
-    }
+  const handleCreateNew = () => {
+    // TemplateSelectorModal calls onClose internally before calling this
+    setShowBuilder(true);
   };
 
-  const handleContinueWithNA = async () => {
-    try {
-      setShowMissingDataWarning(false);
-      
-      if (!selectedTemplate) return;
-
-      const pdfBlob = await generatePdf(job, true);
-      
-      if (pdfBlob) {
-        onPdfGenerated?.(pdfBlob);
-        handleDownload(pdfBlob);
-      } else if (error) {
-        alert(`Error: ${error}`);
-      }
-    } catch (err) {
-      console.error('Error in handleContinueWithNA:', err);
-      alert(`Failed to generate PDF: ${err instanceof Error ? err.message : 'Unknown error'}`);
-    }
-  };
-
-  const handleDownload = (blob: Blob) => {
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `job-${job.jobId}-${new Date().toISOString().split('T')[0]}.pdf`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  };
-
-  const handleCancel = () => {
-    reset();
-    setShowTemplateSelector(false);
-    setShowMissingDataWarning(false);
-    onClose?.();
-  };
+  const fileName = `job-${job.jobId}-${new Date().toISOString().slice(0, 10)}.pdf`;
 
   return (
     <>
+      {/* Trigger */}
       {trigger ? (
-        <div onClick={handleGenerateClick}>
+        <div onClick={handleStart} aria-busy={wf.isGenerating}>
           {trigger}
         </div>
       ) : (
         <button
-          onClick={handleGenerateClick}
-          disabled={isGenerating}
+          type="button"
+          onClick={handleStart}
+          disabled={wf.isGenerating}
           className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
         >
-          {isGenerating ? 'Generating...' : selectedTemplate ? `Generate PDF (${selectedTemplate.name})` : 'Generate PDF'}
+          {wf.isGenerating
+            ? 'Generating…'
+            : wf.selectedTemplate
+            ? `Print (${wf.selectedTemplate.name})`
+            : 'Print PDF'}
         </button>
       )}
 
+      {/* Template Selector (scoped to jobs + global) */}
       <TemplateSelectorModal
-        isOpen={showTemplateSelector}
-        onClose={() => setShowTemplateSelector(false)}
-        onSelect={handleTemplateSelect}
+        isOpen={wf.showTemplateSelector}
+        onClose={() => {
+          wf.setShowTemplateSelector(false);
+          onClose?.();
+        }}
+        onSelect={wf.handleTemplateSelect}
+        scope="jobs"
+        onCreateNew={handleCreateNew}
       />
 
+      {/* Missing Data Warning */}
       <MissingDataWarningModal
-        isOpen={showMissingDataWarning}
-        missingData={localMissingData.length > 0 ? localMissingData : missingData}
-        onContinue={handleContinueWithNA}
-        onCancel={handleCancel}
+        isOpen={wf.showMissingDataWarning}
+        missingData={wf.missingData}
+        onContinue={() => void wf.handleContinueWithNA()}
+        onCancel={() => {
+          wf.setShowMissingDataWarning(false);
+          onClose?.();
+        }}
+      />
+
+      {/* In-app PDF Preview */}
+      <Modal
+        isOpen={!!wf.previewUrl && !wf.showTemplateSelector && !wf.showMissingDataWarning}
+        onClose={() => {
+          wf.reset();
+          onClose?.();
+        }}
+        title={`PDF Preview${wf.selectedTemplate ? ` — ${wf.selectedTemplate.name}` : ''}`}
+        size="large"
+      >
+        <div className="space-y-4">
+          <div className="bg-gray-100 rounded-lg overflow-hidden" style={{ height: '600px' }}>
+            {wf.previewUrl && (
+              <iframe
+                src={wf.previewUrl}
+                className="w-full h-full border-0"
+                title="Job PDF Preview"
+              />
+            )}
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" onClick={() => wf.setShowTemplateSelector(true)}>
+              Change Template
+            </Button>
+            <Button variant="secondary" onClick={wf.printPreview}>
+              Print
+            </Button>
+            <Button variant="primary" onClick={() => wf.downloadPreview(fileName)}>
+              Download
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Status messages */}
+      {wf.error && (
+        <div className="text-xs text-red-600 mt-2" role="alert">
+          {wf.error}
+        </div>
+      )}
+      {wf.infoMessage && (
+        <div className="text-xs text-blue-700 mt-2" role="status">
+          {wf.infoMessage}
+        </div>
+      )}
+      {wf.isGenerating && (
+        <div className="text-xs text-gray-600 mt-2" aria-live="polite">
+          Generating PDF…
+        </div>
+      )}
+
+      {/* Template Builder — opens when user clicks "Create New Template" in the selector */}
+      <PdfTemplateBuilderModal
+        isOpen={showBuilder}
+        onClose={() => setShowBuilder(false)}
+        initialScope="jobs"
+        onSave={() => {
+          // After saving, close builder and re-open selector so user can pick the new template
+          setShowBuilder(false);
+          wf.setShowTemplateSelector(true);
+        }}
       />
     </>
   );

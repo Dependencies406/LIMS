@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Job, DocumentIndexItem } from '../types';
-import type { PdfTemplate } from '../modules/pdf-template-builder/types';
+import type { PdfTemplate, PdfTemplateScope } from '../modules/pdf-template-builder/types';
 import { pdfTemplateRenderer } from '../services/pdfTemplateRenderer';
 import { pdfDataResolver, type MissingDataReport } from '../services/pdfDataResolver';
 import { documentsTemplatePrintService } from '../services/documentsTemplatePrintService';
@@ -12,9 +12,11 @@ interface Params {
   job?: Job;
   selectedEquipmentIndex?: number;
   documentIndexItems?: DocumentIndexItem[];
+  /** When provided, the TemplateSelectorModal will filter to this scope + global templates. */
+  scope?: PdfTemplateScope;
 }
 
-export function useTemplatePdfWorkflow({ mode, job, selectedEquipmentIndex, documentIndexItems }: Params) {
+export function useTemplatePdfWorkflow({ mode, job, selectedEquipmentIndex, documentIndexItems, scope }: Params) {
   const [selectedTemplate, setSelectedTemplate] = useState<PdfTemplate | null>(null);
   const [showTemplateSelector, setShowTemplateSelector] = useState(false);
   const [showMissingDataWarning, setShowMissingDataWarning] = useState(false);
@@ -156,6 +158,8 @@ export function useTemplatePdfWorkflow({ mode, job, selectedEquipmentIndex, docu
   }, [cleanupPreviewUrl]);
 
   return {
+    /** Pass to <TemplateSelectorModal scope={...}> to filter templates. */
+    scope,
     selectedTemplate,
     showTemplateSelector,
     setShowTemplateSelector,

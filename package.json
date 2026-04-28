@@ -17,8 +17,10 @@
   },
   "dependencies": {
     "@handsontable/react": "^12.2.0",
+    "@types/jszip": "^3.4.0",
     "firebase": "^9.22.1",
     "handsontable": "^12.2.0",
+    "jszip": "^3.10.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-router-dom": "^6.21.0",

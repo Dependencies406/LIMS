@@ -9,6 +9,7 @@ import type { Job } from '../types';
 import { Modal, Button } from './common';
 import { TemplateSelectorModal } from './TemplateSelectorModal';
 import { MissingDataWarningModal } from './MissingDataWarningModal';
+import { PdfTemplateBuilderModal } from './PdfTemplateBuilderModal';
 import { useTemplatePdfGeneration } from '../hooks/useTemplatePdfGeneration';
 import { pdfDataResolver } from '../services/pdfDataResolver';
 import { pdfTemplateRenderer } from '../services/pdfTemplateRenderer';
@@ -40,6 +41,7 @@ export const TemplateBasedPdfPreviewModal: React.FC<TemplateBasedPdfPreviewModal
 }) => {
   const [showTemplateSelector, setShowTemplateSelector] = useState(false);
   const [showMissingDataWarning, setShowMissingDataWarning] = useState(false);
+  const [showBuilder, setShowBuilder] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [localMissingData, setLocalMissingData] = useState<MissingDataReport[]>([]);
   const iframeRef = React.useRef<HTMLIFrameElement>(null);
@@ -411,7 +413,7 @@ export const TemplateBasedPdfPreviewModal: React.FC<TemplateBasedPdfPreviewModal
         </div>
       </Modal>
 
-      {/* Template Selector Modal */}
+      {/* Template Selector Modal (scoped to jobs + global) */}
       <TemplateSelectorModal
         isOpen={showTemplateSelector}
         onClose={() => {
@@ -422,6 +424,22 @@ export const TemplateBasedPdfPreviewModal: React.FC<TemplateBasedPdfPreviewModal
           }
         }}
         onSelect={handleTemplateSelect}
+        scope="jobs"
+        onCreateNew={() => {
+          setShowTemplateSelector(false);
+          setShowBuilder(true);
+        }}
+      />
+
+      {/* Template Builder — lets users create a new jobs-scoped template inline */}
+      <PdfTemplateBuilderModal
+        isOpen={showBuilder}
+        onClose={() => setShowBuilder(false)}
+        initialScope="jobs"
+        onSave={() => {
+          setShowBuilder(false);
+          setShowTemplateSelector(true);
+        }}
       />
 
       {/* Missing Data Warning Modal */}
