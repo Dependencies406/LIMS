@@ -22,7 +22,8 @@ export interface SectionDefinition {
   dataSources: Array<{
     key: string;
     label: string;
-    type: 'text' | 'number' | 'date' | 'image';
+    type: 'text' | 'number' | 'date' | 'image' | 'boolean';
     category: string;
+    description?: string;
   }>;
 }

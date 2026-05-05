@@ -3,8 +3,8 @@
  * Panel for editing selected element properties
  */
 
-import React, { useState, useEffect, useMemo } from 'react';
-import type { PdfElement, TextElement, LineElement, RectangleElement, ImageElement, ChartElement, EquipmentTableElement, EquipmentTableColumnDef, DocumentsTableElement, DocumentsTableColumnDef, TrebTableElement, PdfPage } from '../types';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import type { PdfElement, TextElement, LineElement, RectangleElement, ImageElement, CheckboxElement, ChartElement, EquipmentTableElement, EquipmentTableColumnDef, DocumentsTableElement, DocumentsTableColumnDef, TrebTableElement, PdfPage } from '../types';
 import { EQUIPMENT_TABLE_DEFAULT_COLUMNS, DOCUMENTS_TABLE_DEFAULT_COLUMNS } from '../types';
 import { DataSourceBrowser } from './DataSourceBrowser';
 import { getDataSourceDiscovery } from '../../../services/dataSourceDiscoveryService';
@@ -20,6 +20,290 @@ const PropertySection: React.FC<{ title: string; children: React.ReactNode }> = 
     {children}
   </div>
 );
+
+// ── Checkbox data-source combobox ─────────────────────────────────────────────
+/**
+ * Searchable dropdown that scans the data-source registry for boolean fields
+ * and lets the user pick one (or type a custom key) for a checkbox element.
+ */
+const CheckboxDataSourcePicker: React.FC<{
+  value: string;
+  onChange: (key: string) => void;
+}> = ({ value, onChange }) => {
+  const [query, setQuery]         = useState(value);
+  const [open, setOpen]           = useState(false);
+  const containerRef              = useRef<HTMLDivElement>(null);
+  const inputRef                  = useRef<HTMLInputElement>(null);
+
+  // Keep the text field in sync when the parent value changes
+  useEffect(() => { setQuery(value); }, [value]);
+
+  // Close when clicking outside
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (!containerRef.current?.contains(e.target as Node)) setOpen(false);
+    };
+    window.addEventListener('mousedown', handler);
+    return () => window.removeEventListener('mousedown', handler);
+  }, [open]);
+
+  // Gather boolean data sources from the registry (run once per render of the panel)
+  const allBooleanSources = useMemo(() => {
+    const discovery = getDataSourceDiscovery();
+    return discovery
+      .getAllDataSources()
+      .filter((ds) => ds.type === 'boolean')
+      .sort((a, b) => a.category.localeCompare(b.category) || a.label.localeCompare(b.label));
+  }, []);
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return allBooleanSources;
+    return allBooleanSources.filter(
+      (ds) =>
+        ds.key.toLowerCase().includes(q) ||
+        ds.label.toLowerCase().includes(q) ||
+        ds.description?.toLowerCase().includes(q),
+    );
+  }, [query, allBooleanSources]);
+
+  // Group filtered results by category
+  const grouped = useMemo(() => {
+    const map = new Map<string, typeof filtered>();
+    for (const ds of filtered) {
+      if (!map.has(ds.category)) map.set(ds.category, []);
+      map.get(ds.category)!.push(ds);
+    }
+    return map;
+  }, [filtered]);
+
+  const handleSelect = useCallback((key: string) => {
+    onChange(key);
+    setQuery(key);
+    setOpen(false);
+  }, [onChange]);
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setQuery(e.target.value);
+    setOpen(true);
+    // Propagate free-text immediately so partially-typed keys are not lost
+    onChange(e.target.value);
+  };
+
+  const handleClear = () => {
+    setQuery('');
+    onChange('');
+    inputRef.current?.focus();
+  };
+
+  const countLabel =
+    allBooleanSources.length === 0
+      ? 'No boolean fields registered'
+      : `${allBooleanSources.length} field${allBooleanSources.length !== 1 ? 's' : ''} available`;
+
+  return (
+    <div ref={containerRef} className="relative">
+      {/* Header row */}
+      <div className="flex items-center justify-between mb-1">
+        <label className="text-xs font-medium text-gray-700">
+          Data Source&nbsp;
+          <span className="text-gray-400 font-normal">(truthy = checked)</span>
+        </label>
+        <span className="text-xs text-gray-400">{countLabel}</span>
+      </div>
+
+      {/* Input + scan button */}
+      <div className="flex gap-1">
+        <div className="relative flex-1">
+          <input
+            ref={inputRef}
+            type="text"
+            value={query}
+            onChange={handleInputChange}
+            onFocus={() => setOpen(true)}
+            placeholder="Select or type a field key…"
+            className="w-full pl-2 pr-7 py-1.5 border border-gray-300 rounded-md text-xs font-mono focus:outline-none focus:ring-1 focus:ring-blue-400"
+          />
+          {query && (
+            <button
+              type="button"
+              onClick={handleClear}
+              className="absolute right-1.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 leading-none"
+              title="Clear"
+            >×</button>
+          )}
+        </div>
+
+        {/* Scan / open dropdown button */}
+        <button
+          type="button"
+          onClick={() => { setOpen((o) => !o); inputRef.current?.focus(); }}
+          className="flex items-center gap-1 px-2 py-1.5 text-xs border border-gray-300 rounded-md hover:bg-gray-50 text-gray-600 whitespace-nowrap flex-shrink-0"
+          title="Scan available boolean fields"
+        >
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+          Scan
+        </button>
+      </div>
+
+      {/* Dropdown */}
+      {open && (
+        <div
+          className="absolute left-0 right-0 top-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg z-50 overflow-y-auto"
+          style={{ maxHeight: '260px' }}
+        >
+          {grouped.size === 0 ? (
+            <div className="px-3 py-4 text-xs text-gray-400 text-center">No matching fields</div>
+          ) : (
+            Array.from(grouped.entries()).map(([category, sources]) => (
+              <div key={category}>
+                {/* Category header */}
+                <div className="px-3 py-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wide bg-gray-50 border-b border-gray-100 sticky top-0">
+                  {category}
+                </div>
+                {sources.map((ds) => (
+                  <button
+                    key={ds.key}
+                    type="button"
+                    onMouseDown={(e) => e.preventDefault()} // prevent blur before click
+                    onClick={() => handleSelect(ds.key)}
+                    className={`w-full text-left px-3 py-2 text-xs hover:bg-blue-50 border-b border-gray-50 last:border-0 ${
+                      value === ds.key ? 'bg-blue-50 text-blue-800' : 'text-gray-800'
+                    }`}
+                  >
+                    <div className="font-medium truncate">{ds.label}</div>
+                    <div className="font-mono text-gray-400 truncate mt-0.5">{ds.key}</div>
+                    {ds.description && (
+                      <div className="text-gray-400 mt-0.5 line-clamp-1">{ds.description}</div>
+                    )}
+                  </button>
+                ))}
+              </div>
+            ))
+          )}
+        </div>
+      )}
+
+      <p className="mt-1 text-xs text-gray-400">
+        Leave blank to use the static checked state above.
+      </p>
+    </div>
+  );
+};
+
+// ── Lock icons ────────────────────────────────────────────────────────────────
+const LockClosedIcon = () => (
+  <svg viewBox="0 0 16 16" fill="currentColor" className="w-3.5 h-3.5">
+    <path d="M11 6V5a3 3 0 0 0-6 0v1H3.5A1.5 1.5 0 0 0 2 7.5v5A1.5 1.5 0 0 0 3.5 14h9a1.5 1.5 0 0 0 1.5-1.5v-5A1.5 1.5 0 0 0 12.5 6H11zm-5 0V5a2 2 0 1 1 4 0v1H6zm2 4.5a1 1 0 1 1 0-2 1 1 0 0 1 0 2z"/>
+  </svg>
+);
+const LockOpenIcon = () => (
+  <svg viewBox="0 0 16 16" fill="currentColor" className="w-3.5 h-3.5">
+    <path d="M11 1a3 3 0 0 0-3 3v2H3.5A1.5 1.5 0 0 0 2 7.5v5A1.5 1.5 0 0 0 3.5 14h9a1.5 1.5 0 0 0 1.5-1.5v-5A1.5 1.5 0 0 0 12.5 6H10V4a1 1 0 0 1 2 0v1h1V4a2 2 0 0 0-2-3zm-3 9.5a1 1 0 1 1 0-2 1 1 0 0 1 0 2z"/>
+  </svg>
+);
+
+// ── Linked Width + Height inputs with aspect-ratio lock ───────────────────────
+interface LockedDimensionsProps {
+  width: number;
+  height: number;
+  locked: boolean;
+  onUpdate: (updates: { width?: number; height?: number; lockAspectRatio?: boolean }) => void;
+  widthLabel?: string;
+  heightLabel?: string;
+  widthNote?: string;
+  heightNote?: string;
+  minWidth?: number;
+  minHeight?: number;
+}
+
+const LockedDimensions: React.FC<LockedDimensionsProps> = ({
+  width,
+  height,
+  locked,
+  onUpdate,
+  widthLabel = 'Width (pt)',
+  heightLabel = 'Height (pt)',
+  widthNote,
+  heightNote,
+  minWidth = 10,
+  minHeight = 10,
+}) => {
+  const handleWidthChange = (raw: string) => {
+    const newW = Math.max(minWidth, parseFloat(raw) || minWidth);
+    if (locked && width > 0 && height > 0) {
+      onUpdate({ width: newW, height: Math.round((newW / width) * height) });
+    } else {
+      onUpdate({ width: newW });
+    }
+  };
+
+  const handleHeightChange = (raw: string) => {
+    const newH = Math.max(minHeight, parseFloat(raw) || minHeight);
+    if (locked && width > 0 && height > 0) {
+      onUpdate({ height: newH, width: Math.round((newH / height) * width) });
+    } else {
+      onUpdate({ height: newH });
+    }
+  };
+
+  const LINE_COLOR = locked ? '#c73636' : '#E5E7EB';
+
+  return (
+    <div className="flex items-stretch gap-3">
+      {/* Inputs */}
+      <div className="flex-1 space-y-3">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">{widthLabel}</label>
+          {widthNote && <p className="text-xs text-gray-500 mb-1">{widthNote}</p>}
+          <input
+            type="number"
+            min={minWidth}
+            value={width}
+            onChange={(e) => handleWidthChange(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">{heightLabel}</label>
+          {heightNote && <p className="text-xs text-gray-500 mb-1">{heightNote}</p>}
+          <input
+            type="number"
+            min={minHeight}
+            value={height}
+            onChange={(e) => handleHeightChange(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+          />
+        </div>
+      </div>
+
+      {/* Lock column */}
+      <div className="flex flex-col items-center" style={{ paddingTop: '1.6rem' }}>
+        {/* Top connector */}
+        <div style={{ width: 1, flex: 1, backgroundColor: LINE_COLOR, minHeight: 6 }} />
+        {/* Lock button */}
+        <button
+          type="button"
+          onClick={() => onUpdate({ lockAspectRatio: !locked })}
+          title={locked ? 'Unlock aspect ratio' : 'Lock aspect ratio'}
+          className="flex items-center justify-center w-7 h-7 rounded border transition-colors flex-shrink-0"
+          style={{
+            backgroundColor: locked ? '#c73636' : '#FFFFFF',
+            borderColor: locked ? '#c73636' : '#D1D5DB',
+            color: locked ? '#FFFFFF' : '#6B7280',
+          }}
+        >
+          {locked ? <LockClosedIcon /> : <LockOpenIcon />}
+        </button>
+        {/* Bottom connector */}
+        <div style={{ width: 1, flex: 1, backgroundColor: LINE_COLOR, minHeight: 6 }} />
+      </div>
+    </div>
+  );
+};
 
 export interface ElementPropertiesPanelProps {
   element: PdfElement | null;
@@ -482,16 +766,106 @@ export const ElementPropertiesPanel: React.FC<ElementPropertiesPanelProps> = ({
 
             {/* Alignment */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Alignment</label>
-              <select
-                value={textEl.align || 'left'}
-                onChange={(e) => handleUpdate({ align: e.target.value as 'left' | 'center' | 'right' })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md"
-              >
-                <option value="left">Left</option>
-                <option value="center">Center</option>
-                <option value="right">Right</option>
-              </select>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Alignment</label>
+
+              {/* Horizontal alignment */}
+              <div className="mb-2">
+                <p className="text-xs text-gray-500 mb-1">Horizontal</p>
+                <div className="flex gap-1">
+                  {([
+                    { value: 'left',   title: 'Align Left',   icon: (
+                      <svg viewBox="0 0 16 16" fill="currentColor" className="w-4 h-4">
+                        <rect x="1" y="2" width="14" height="1.5" rx="0.5"/>
+                        <rect x="1" y="5.5" width="9" height="1.5" rx="0.5"/>
+                        <rect x="1" y="9" width="14" height="1.5" rx="0.5"/>
+                        <rect x="1" y="12.5" width="9" height="1.5" rx="0.5"/>
+                      </svg>
+                    )},
+                    { value: 'center', title: 'Align Center', icon: (
+                      <svg viewBox="0 0 16 16" fill="currentColor" className="w-4 h-4">
+                        <rect x="1" y="2" width="14" height="1.5" rx="0.5"/>
+                        <rect x="3.5" y="5.5" width="9" height="1.5" rx="0.5"/>
+                        <rect x="1" y="9" width="14" height="1.5" rx="0.5"/>
+                        <rect x="3.5" y="12.5" width="9" height="1.5" rx="0.5"/>
+                      </svg>
+                    )},
+                    { value: 'right',  title: 'Align Right',  icon: (
+                      <svg viewBox="0 0 16 16" fill="currentColor" className="w-4 h-4">
+                        <rect x="1" y="2" width="14" height="1.5" rx="0.5"/>
+                        <rect x="6" y="5.5" width="9" height="1.5" rx="0.5"/>
+                        <rect x="1" y="9" width="14" height="1.5" rx="0.5"/>
+                        <rect x="6" y="12.5" width="9" height="1.5" rx="0.5"/>
+                      </svg>
+                    )},
+                  ] as const).map(({ value, title, icon }) => {
+                    const active = (textEl.align || 'left') === value;
+                    return (
+                      <button
+                        key={value}
+                        type="button"
+                        title={title}
+                        onClick={() => handleUpdate({ align: value })}
+                        className="flex items-center justify-center w-9 h-9 rounded border transition-colors"
+                        style={{
+                          backgroundColor: active ? '#c73636' : '#FFFFFF',
+                          borderColor: active ? '#c73636' : '#D1D5DB',
+                          color: active ? '#FFFFFF' : '#374151',
+                        }}
+                      >
+                        {icon}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Vertical alignment */}
+              <div>
+                <p className="text-xs text-gray-500 mb-1">Vertical</p>
+                <div className="flex gap-1">
+                  {([
+                    { value: 'top',    title: 'Align Top',    icon: (
+                      <svg viewBox="0 0 16 16" fill="currentColor" className="w-4 h-4">
+                        <rect x="1" y="1" width="14" height="1.5" rx="0.5"/>
+                        <rect x="4.5" y="3.5" width="7" height="9" rx="1" fillOpacity="0.25"/>
+                        <rect x="4.5" y="3.5" width="7" height="1.5" rx="0.5"/>
+                      </svg>
+                    )},
+                    { value: 'middle', title: 'Align Middle',  icon: (
+                      <svg viewBox="0 0 16 16" fill="currentColor" className="w-4 h-4">
+                        <rect x="1" y="7.25" width="14" height="1.5" rx="0.5"/>
+                        <rect x="4.5" y="3" width="7" height="10" rx="1" fillOpacity="0.25"/>
+                        <rect x="4.5" y="7.25" width="7" height="1.5" rx="0.5"/>
+                      </svg>
+                    )},
+                    { value: 'bottom', title: 'Align Bottom',  icon: (
+                      <svg viewBox="0 0 16 16" fill="currentColor" className="w-4 h-4">
+                        <rect x="1" y="13.5" width="14" height="1.5" rx="0.5"/>
+                        <rect x="4.5" y="3.5" width="7" height="9" rx="1" fillOpacity="0.25"/>
+                        <rect x="4.5" y="11" width="7" height="1.5" rx="0.5"/>
+                      </svg>
+                    )},
+                  ] as const).map(({ value, title, icon }) => {
+                    const active = (textEl.verticalAlign || 'top') === value;
+                    return (
+                      <button
+                        key={value}
+                        type="button"
+                        title={title}
+                        onClick={() => handleUpdate({ verticalAlign: value })}
+                        className="flex items-center justify-center w-9 h-9 rounded border transition-colors"
+                        style={{
+                          backgroundColor: active ? '#c73636' : '#FFFFFF',
+                          borderColor: active ? '#c73636' : '#D1D5DB',
+                          color: active ? '#FFFFFF' : '#374151',
+                        }}
+                      >
+                        {icon}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
 
             {/* Style */}
@@ -659,27 +1033,17 @@ export const ElementPropertiesPanel: React.FC<ElementPropertiesPanelProps> = ({
             </div>
           </div>
 
-          {/* Width/Height */}
-          <div className="grid grid-cols-2 gap-4 mt-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Width</label>
-              <input
-                type="number"
-                value={rectEl.width || 200}
-                onChange={(e) => handleUpdate({ width: parseFloat(e.target.value) || 200 })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Height</label>
-              <input
-                type="number"
-                value={rectEl.height || 100}
-                onChange={(e) => handleUpdate({ height: parseFloat(e.target.value) || 100 })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md"
-              />
-            </div>
-          </div>
+          {/* Width/Height with lock */}
+          <LockedDimensions
+            width={rectEl.width || 200}
+            height={rectEl.height || 100}
+            locked={!!rectEl.lockAspectRatio}
+            onUpdate={handleUpdate}
+            widthLabel="Width"
+            heightLabel="Height"
+            minWidth={10}
+            minHeight={10}
+          />
         </PropertySection>
 
         <PropertySection title="Appearance">
@@ -763,27 +1127,17 @@ export const ElementPropertiesPanel: React.FC<ElementPropertiesPanelProps> = ({
               </div>
             </div>
 
-            {/* Width/Height */}
-            <div className="grid grid-cols-2 gap-4 mt-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Width</label>
-                <input
-                  type="number"
-                  value={imgEl.width || 200}
-                  onChange={(e) => handleUpdate({ width: parseFloat(e.target.value) || 200 })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Height</label>
-                <input
-                  type="number"
-                  value={imgEl.height || 150}
-                  onChange={(e) => handleUpdate({ height: parseFloat(e.target.value) || 150 })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                />
-              </div>
-            </div>
+            {/* Width/Height with lock */}
+            <LockedDimensions
+              width={imgEl.width || 200}
+              height={imgEl.height || 150}
+              locked={!!imgEl.lockAspectRatio}
+              onUpdate={handleUpdate}
+              widthLabel="Width"
+              heightLabel="Height"
+              minWidth={10}
+              minHeight={10}
+            />
           </PropertySection>
 
           <PropertySection title="Content / Source">
@@ -940,27 +1294,17 @@ export const ElementPropertiesPanel: React.FC<ElementPropertiesPanelProps> = ({
                     />
                   </div>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Table Width (pt)</label>
-                  <input
-                    type="number"
-                    min={100}
-                    value={tableEl.width ?? 500}
-                    onChange={(e) => handleUpdate({ width: parseFloat(e.target.value) || 500 })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Table Height (pt)</label>
-                  <p className="text-xs text-gray-500 mb-1">Bounds the table body for PDF pagination; extra rows continue on continuation pages.</p>
-                  <input
-                    type="number"
-                    min={40}
-                    value={tableEl.height ?? 200}
-                    onChange={(e) => handleUpdate({ height: parseFloat(e.target.value) || 200 })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                  />
-                </div>
+                <LockedDimensions
+                  width={tableEl.width ?? 500}
+                  height={tableEl.height ?? 200}
+                  locked={!!tableEl.lockAspectRatio}
+                  onUpdate={handleUpdate}
+                  widthLabel="Table Width (pt)"
+                  heightLabel="Table Height (pt)"
+                  heightNote="Bounds the table body for PDF pagination; extra rows continue on continuation pages."
+                  minWidth={100}
+                  minHeight={40}
+                />
               </PropertySection>
 
               {/* Block 2: Columns */}
@@ -1114,27 +1458,17 @@ export const ElementPropertiesPanel: React.FC<ElementPropertiesPanelProps> = ({
                     />
                   </div>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Table Width (pt)</label>
-                  <input
-                    type="number"
-                    min={100}
-                    value={tableEl.width ?? 500}
-                    onChange={(e) => handleUpdate({ width: parseFloat(e.target.value) || 500 })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Table Height (pt)</label>
-                  <p className="text-xs text-gray-500 mb-1">Viewport for the table; overflow splits across PDF pages with repeated headers.</p>
-                  <input
-                    type="number"
-                    min={40}
-                    value={tableEl.height ?? 200}
-                    onChange={(e) => handleUpdate({ height: parseFloat(e.target.value) || 200 })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                  />
-                </div>
+                <LockedDimensions
+                  width={tableEl.width ?? 500}
+                  height={tableEl.height ?? 200}
+                  locked={!!tableEl.lockAspectRatio}
+                  onUpdate={handleUpdate}
+                  widthLabel="Table Width (pt)"
+                  heightLabel="Table Height (pt)"
+                  heightNote="Viewport for the table; overflow splits across PDF pages with repeated headers."
+                  minWidth={100}
+                  minHeight={40}
+                />
               </PropertySection>
 
               {/* Block 2: Columns */}
@@ -1303,28 +1637,16 @@ export const ElementPropertiesPanel: React.FC<ElementPropertiesPanelProps> = ({
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Width</label>
-            <input
-              type="number"
-              min={50}
-              value={chartEl.width ?? 300}
-              onChange={(e) => handleUpdate({ width: parseFloat(e.target.value) || 300 })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Height</label>
-            <input
-              type="number"
-              min={50}
-              value={chartEl.height ?? 200}
-              onChange={(e) => handleUpdate({ height: parseFloat(e.target.value) || 200 })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md"
-            />
-          </div>
-        </div>
+        <LockedDimensions
+          width={chartEl.width ?? 300}
+          height={chartEl.height ?? 200}
+          locked={!!chartEl.lockAspectRatio}
+          onUpdate={handleUpdate}
+          widthLabel="Width"
+          heightLabel="Height"
+          minWidth={50}
+          minHeight={50}
+        />
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Data Source Key (optional)</label>
@@ -1482,6 +1804,219 @@ export const ElementPropertiesPanel: React.FC<ElementPropertiesPanelProps> = ({
             </>
           );
         })()}
+      </div>
+    );
+  }
+
+  // ── Checkbox element ─────────────────────────────────────────────────────────
+  if (element.type === 'checkbox') {
+    const cbEl = element as CheckboxElement;
+    return (
+      <div className="p-6 space-y-4" style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", "Roboto", sans-serif' }}>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-semibold text-sm text-gray-900">Checkbox Properties</h3>
+          {renderDeleteButton()}
+        </div>
+
+        {/* Position & Size */}
+        <PropertySection title="Position & Size">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">X (pt)</label>
+              <input
+                type="number"
+                value={Math.round(cbEl.x ?? 0)}
+                onChange={(e) => handleUpdate({ x: parseFloat(e.target.value) || 0 })}
+                className="w-full px-2 py-1.5 border border-gray-300 rounded-md text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Y (pt)</label>
+              <input
+                type="number"
+                value={Math.round(cbEl.y ?? 0)}
+                onChange={(e) => handleUpdate({ y: parseFloat(e.target.value) || 0 })}
+                className="w-full px-2 py-1.5 border border-gray-300 rounded-md text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Width (pt)</label>
+              <input
+                type="number"
+                min={10}
+                value={Math.round(cbEl.width ?? (cbEl.size ?? 10) + (cbEl.label ? 100 : 0))}
+                onChange={(e) => handleUpdate({ width: parseFloat(e.target.value) || 10 })}
+                className="w-full px-2 py-1.5 border border-gray-300 rounded-md text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Height (pt)</label>
+              <input
+                type="number"
+                min={10}
+                value={Math.round(cbEl.height ?? (cbEl.size ?? 10))}
+                onChange={(e) => handleUpdate({ height: parseFloat(e.target.value) || 10 })}
+                className="w-full px-2 py-1.5 border border-gray-300 rounded-md text-sm"
+              />
+            </div>
+          </div>
+        </PropertySection>
+
+        {/* Checkbox appearance */}
+        <PropertySection title="Checkbox">
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Box Size (pt)</label>
+                <input
+                  type="number"
+                  min={4}
+                  max={40}
+                  value={cbEl.size ?? 10}
+                  onChange={(e) => handleUpdate({ size: parseFloat(e.target.value) || 10 })}
+                  className="w-full px-2 py-1.5 border border-gray-300 rounded-md text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Check Style</label>
+                <select
+                  value={cbEl.checkStyle ?? 'checkmark'}
+                  onChange={(e) => handleUpdate({ checkStyle: e.target.value as CheckboxElement['checkStyle'] })}
+                  className="w-full px-2 py-1.5 border border-gray-300 rounded-md text-sm"
+                >
+                  <option value="checkmark">Checkmark ✓</option>
+                  <option value="x">Cross ✗</option>
+                  <option value="filled">Filled ■</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="cb-checked"
+                checked={cbEl.checked ?? false}
+                onChange={(e) => handleUpdate({ checked: e.target.checked })}
+                className="w-4 h-4"
+              />
+              <label htmlFor="cb-checked" className="text-sm text-gray-700">Checked (static default)</label>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Border Color</label>
+                <div className="flex gap-2">
+                  <input
+                    type="color"
+                    value={cbEl.strokeColor ?? '#000000'}
+                    onChange={(e) => handleUpdate({ strokeColor: e.target.value })}
+                    className="w-8 h-8 rounded border border-gray-300 cursor-pointer p-0"
+                  />
+                  <input
+                    type="text"
+                    value={cbEl.strokeColor ?? '#000000'}
+                    onChange={(e) => handleUpdate({ strokeColor: e.target.value })}
+                    className="flex-1 px-2 py-1.5 border border-gray-300 rounded-md text-sm font-mono"
+                    placeholder="#000000"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Check Color</label>
+                <div className="flex gap-2">
+                  <input
+                    type="color"
+                    value={cbEl.checkColor ?? '#000000'}
+                    onChange={(e) => handleUpdate({ checkColor: e.target.value })}
+                    className="w-8 h-8 rounded border border-gray-300 cursor-pointer p-0"
+                  />
+                  <input
+                    type="text"
+                    value={cbEl.checkColor ?? '#000000'}
+                    onChange={(e) => handleUpdate({ checkColor: e.target.value })}
+                    className="flex-1 px-2 py-1.5 border border-gray-300 rounded-md text-sm font-mono"
+                    placeholder="#000000"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Border Width (pt)</label>
+              <input
+                type="number"
+                min={0.25}
+                max={5}
+                step={0.25}
+                value={cbEl.strokeWidth ?? 0.75}
+                onChange={(e) => handleUpdate({ strokeWidth: parseFloat(e.target.value) || 0.75 })}
+                className="w-full px-2 py-1.5 border border-gray-300 rounded-md text-sm"
+              />
+            </div>
+          </div>
+        </PropertySection>
+
+        {/* Label */}
+        <PropertySection title="Label">
+          <div className="space-y-3">
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Label Text</label>
+              <input
+                type="text"
+                value={cbEl.label ?? ''}
+                onChange={(e) => handleUpdate({ label: e.target.value || undefined })}
+                className="w-full px-2 py-1.5 border border-gray-300 rounded-md text-sm"
+                placeholder="Optional label beside checkbox"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Label Position</label>
+                <select
+                  value={cbEl.labelPosition ?? 'right'}
+                  onChange={(e) => handleUpdate({ labelPosition: e.target.value as 'left' | 'right' })}
+                  className="w-full px-2 py-1.5 border border-gray-300 rounded-md text-sm"
+                >
+                  <option value="right">Right</option>
+                  <option value="left">Left</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Font Size (pt)</label>
+                <input
+                  type="number"
+                  min={6}
+                  max={32}
+                  value={cbEl.labelFontSize ?? 9}
+                  onChange={(e) => handleUpdate({ labelFontSize: parseInt(e.target.value, 10) || 9 })}
+                  className="w-full px-2 py-1.5 border border-gray-300 rounded-md text-sm"
+                />
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="cb-label-bold"
+                checked={cbEl.labelBold ?? false}
+                onChange={(e) => handleUpdate({ labelBold: e.target.checked })}
+                className="w-4 h-4"
+              />
+              <label htmlFor="cb-label-bold" className="text-sm text-gray-700">Bold label</label>
+            </div>
+          </div>
+        </PropertySection>
+
+        {/* Data source (dynamic checked state) */}
+        <PropertySection title="Data Source">
+          <CheckboxDataSourcePicker
+            value={cbEl.dataSource?.key ?? ''}
+            onChange={(key) =>
+              handleUpdate({ dataSource: key.trim() ? { type: 'boolean', key: key.trim() } : undefined })
+            }
+          />
+        </PropertySection>
+
+        {renderPaginationControls(cbEl)}
       </div>
     );
   }

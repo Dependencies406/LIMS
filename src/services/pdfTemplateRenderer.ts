@@ -15,11 +15,16 @@ import type {
   ImageElement,
   LineElement,
   RectangleElement,
+  CheckboxElement,
   ChartElement,
   EquipmentTableElement,
   DocumentsTableElement,
   TrebTableElement,
 } from '../modules/pdf-template-builder/types';
+import { assertNever } from '../modules/pdf-template-builder/types';
+import { renderEquipmentTable } from './pdf-renderers/renderEquipmentTable';
+import { renderDocumentsTable } from './pdf-renderers/renderDocumentsTable';
+import type { RendererHelpers } from './pdf-renderers/rendererHelpers';
 import { documentIndexService } from './documentIndexService';
 import { pdfDataResolver, type MissingDataReport } from './pdfDataResolver';
 import { getCompanyInfo, formatCompanyAddress } from './companyInfoService';
@@ -77,7 +82,7 @@ type SubPageRenderContext = {
 };
 
 export class PdfTemplateRenderer {
-  private readonly MISSING_DATA_LABEL = 'N/A';
+  private readonly MISSING_DATA_LABEL = '-';
   private readonly PDF_TABLE_BOTTOM_MARGIN_PT = 50;
   private readonly TEXT_ELLIPSIS = '…';
 
@@ -581,6 +586,9 @@ export class PdfTemplateRenderer {
       case 'rectangle':
         this.renderRectangleElement(pdf, element as RectangleElement);
         break;
+      case 'checkbox':
+        this.renderCheckboxElement(pdf, element as CheckboxElement, jobData);
+        break;
       case 'chart':
         this.renderChartElement(pdf, element as ChartElement);
         break;
@@ -594,7 +602,9 @@ export class PdfTemplateRenderer {
         await this.renderTrebTableElement(pdf, element as TrebTableElement, jobData, options);
         break;
       default:
-        console.warn(`Unknown element type: ${(element as any).type}`);
+        // If TypeScript raises an error here, a new PdfElementType was added
+        // but renderElement has no case for it. Add a render case above to fix.
+        assertNever((element as PdfElement).type as never);
     }
   }
 
@@ -750,7 +760,25 @@ export class PdfTemplateRenderer {
       lines = lines.slice(0, maxLinesByHeight);
     }
 
-    let y = element.y + fontSize;
+    // ── Vertical alignment within the element's bounding box ──────────────
+    // Only applies when a non-zero height is set; otherwise fall back to 'top'.
+    const boxHeight = typeof element.height === 'number' && element.height > 0 ? element.height : 0;
+    const totalTextHeight = lines.length > 1 ? (lines.length - 1) * lineHeight + fontSize : fontSize;
+    const verticalAlign = (element as any).verticalAlign || 'top';
+
+    let startY: number;
+    if (boxHeight > 0 && verticalAlign === 'middle') {
+      // Centre the text block inside the box
+      startY = element.y + (boxHeight - totalTextHeight) / 2 + fontSize;
+    } else if (boxHeight > 0 && verticalAlign === 'bottom') {
+      // Align the bottom of the last line to the bottom of the box
+      startY = element.y + boxHeight - (lines.length - 1) * lineHeight;
+    } else {
+      // 'top' (default) — baseline of first line at y + fontSize
+      startY = element.y + fontSize;
+    }
+
+    let y = startY;
     for (const line of lines) {
       pdf.text(line, textX, y, {
         align: align as any,
@@ -973,6 +1001,84 @@ export class PdfTemplateRenderer {
   }
 
   /**
+   * Render checkbox element.
+   * Draws a square box; if checked draws a checkmark / X / filled square inside.
+   * Supports static `checked` boolean and dynamic data-bound keys (truthy = checked).
+   */
+  private renderCheckboxElement(pdf: jsPDF, element: CheckboxElement, jobData: any): void {
+    const size = element.size ?? 10;
+    const x = element.x;
+    const y = element.y;
+    const strokeColor = element.strokeColor || '#000000';
+    const strokeWidth = element.strokeWidth ?? 0.75;
+    const checkColor = element.checkColor || '#000000';
+
+    // ── Resolve checked state ────────────────────────────────────────
+    let isChecked = element.checked ?? false;
+    if (element.dataSource?.key) {
+      const rawValue = this.resolveNestedPath(jobData, element.dataSource.key);
+      if (rawValue !== null && rawValue !== undefined) {
+        // Treat as checked if truthy and not the string literals 'false' / '0' / ''
+        isChecked = Boolean(rawValue) && rawValue !== 'false' && rawValue !== '0' && rawValue !== '';
+      }
+    }
+
+    // ── Draw the box ─────────────────────────────────────────────────
+    pdf.setDrawColor(strokeColor);
+    pdf.setLineWidth(strokeWidth);
+    pdf.rect(x, y, size, size);
+
+    // ── Draw check mark ──────────────────────────────────────────────
+    if (isChecked) {
+      const style = element.checkStyle ?? 'checkmark';
+      const pad = size * 0.18;
+
+      if (style === 'filled') {
+        pdf.setFillColor(checkColor);
+        pdf.rect(x + pad, y + pad, size - pad * 2, size - pad * 2, 'F');
+      } else if (style === 'x') {
+        pdf.setDrawColor(checkColor);
+        pdf.setLineWidth(strokeWidth + 0.5);
+        pdf.line(x + pad, y + pad, x + size - pad, y + size - pad);
+        pdf.line(x + size - pad, y + pad, x + pad, y + size - pad);
+      } else {
+        // checkmark ✓ — two lines: short stroke down-right, long stroke up-right
+        pdf.setDrawColor(checkColor);
+        pdf.setLineWidth(strokeWidth + 0.5);
+        const mid = { x: x + size * 0.35, y: y + size - pad };
+        pdf.line(x + pad, y + size * 0.55, mid.x, mid.y);
+        pdf.line(mid.x, mid.y, x + size - pad, y + pad);
+      }
+    }
+
+    // ── Draw label ───────────────────────────────────────────────────
+    if (element.label) {
+      const fontSize = element.labelFontSize ?? 9;
+      pdf.setFontSize(fontSize);
+      pdf.setTextColor('#000000');
+      const fontStyle = element.labelBold ? 'bold' : 'normal';
+      pdf.setFont('Helvetica', fontStyle);
+
+      // Vertically centre the text baseline with the box
+      const labelY = y + size * 0.78;
+      const gap = 3; // pt gap between box edge and text
+      const labelX = element.labelPosition === 'left'
+        ? x - pdf.getTextWidth(element.label) - gap
+        : x + size + gap;
+
+      pdf.text(element.label, labelX, labelY);
+    }
+  }
+
+  /** Resolve a dot-path key against a nested object (e.g. 'job.customer.name') */
+  private resolveNestedPath(obj: any, path: string): unknown {
+    return path.split('.').reduce((cur, key) => {
+      if (cur === null || cur === undefined) return undefined;
+      return (cur as Record<string, unknown>)[key];
+    }, obj as unknown);
+  }
+
+  /**
    * Render chart element. Placeholder: draws a bordered box and title.
    * Full data-driven chart (from dataSource) can be added later via Chart.js or similar.
    */
@@ -1064,9 +1170,8 @@ export class PdfTemplateRenderer {
   }
 
   /**
-   * Render equipment table element. Data source: job.equipment (one row per equipment).
-   * Optional row slice for template-page overflow continuation (header redrawn each slice).
-   * Pagination is driven by renderTemplate sub-pages; do not call pdf.addPage here.
+   * Render equipment table element.
+   * Logic lives in: src/services/pdf-renderers/renderEquipmentTable.ts
    */
   private renderEquipmentTableElement(
     pdf: jsPDF,
@@ -1074,117 +1179,7 @@ export class PdfTemplateRenderer {
     jobData: any,
     slice?: { rowStart: number; rowEnd: number }
   ): void {
-    const equipmentAll: any[] = Array.isArray(jobData.equipment) ? jobData.equipment : [];
-    const rowStart = slice ? Math.max(0, slice.rowStart) : 0;
-    const rowEnd = slice ? Math.max(rowStart, slice.rowEnd) : equipmentAll.length;
-    const equipment = equipmentAll.slice(rowStart, rowEnd);
-
-    const columns = (element.columns || [])
-      .filter((c: any) => c.visible !== false)
-      .sort((a: any, b: any) => (a.order ?? 0) - (b.order ?? 0));
-    if (columns.length === 0) return;
-
-    const borderColor = element.borderColor || '#000000';
-    const borderWidth = element.borderWidth ?? 1;
-    const fontSize = element.fontSize ?? element.cellStyle?.fontSize ?? 9;
-    const headerFontSize = element.headerFontSize ?? element.headerStyle?.fontSize ?? 10;
-    const headerStyle = element.headerStyle || {};
-    const cellStyle = element.cellStyle || {};
-    const headerSample = columns.map((c: any) => String(c.label || c.id || '')).join(' ');
-    const bodySample = equipment.map((eq: any) => columns.map((c: any) => String(eq?.[c.id] ?? '')).join(' ')).join(' ');
-    const lineHeight = computeSafeLineHeight({ fontSize, text: bodySample });
-    const headerLineHeight = computeSafeLineHeight({ fontSize: headerFontSize, text: headerSample });
-    const cellPadding = 4;
-    const defaultRowHeight = 18;
-
-    let currentY = element.y;
-    const startX = element.x;
-
-    const colWidths = columns.map((c: any) => c.width ?? 60);
-    const tableContentWidth = colWidths.reduce((a, b) => a + b, 0);
-
-    const drawCellBorder = (x: number, y: number, w: number, h: number) => {
-      pdf.setDrawColor(borderColor);
-      pdf.setLineWidth(borderWidth);
-      pdf.rect(x, y, w, h);
-    };
-
-    const getAlignedX = (x: number, w: number, align: string, text: string): number => {
-      const tw = pdf.getTextWidth(text);
-      if (align === 'center') return x + (w - tw) / 2;
-      if (align === 'right') return x + w - tw - cellPadding;
-      return x + cellPadding;
-    };
-
-    // Header row: set font before wrapping so getTextWidth uses same metrics as drawn text
-    this.applyContentFont(pdf, columns.map((c: any) => c.label || c.id).join(' '), undefined, headerStyle.bold ? 'bold' : 'normal', headerFontSize);
-    let headerHeight = defaultRowHeight;
-    const headerLines: string[][] = columns.map((col: any, idx: number) => {
-      const cellWidth = colWidths[idx] - cellPadding * 2;
-      const lines = this.wrapTextForCell(col.label || col.id, cellWidth, headerFontSize, pdf);
-      const cellHeight =
-        lines.length > 0 ? lines.length * headerLineHeight + cellPadding * 2 : defaultRowHeight;
-      headerHeight = Math.max(headerHeight, cellHeight);
-      return lines;
-    });
-    if (headerStyle.backgroundColor) {
-      pdf.setFillColor(headerStyle.backgroundColor);
-      pdf.rect(startX, currentY, tableContentWidth, headerHeight, 'F');
-    }
-    let cx = startX;
-    for (let i = 0; i < columns.length; i++) {
-      const col = columns[i];
-      const w = colWidths[i];
-      drawCellBorder(cx, currentY, w, headerHeight);
-      pdf.setTextColor(headerStyle.color || '#000000');
-      const lines = headerLines[i];
-      let ly = currentY + cellPadding + headerFontSize;
-      for (const line of lines) {
-        const tx = getAlignedX(cx, w, col.align || 'left', line);
-        pdf.text(line, tx, ly);
-        ly += headerLineHeight;
-      }
-      cx += w;
-    }
-    currentY += headerHeight;
-
-    this.applyContentFont(pdf, equipment.map((eq) => columns.map((c: any) => String(eq?.[c.id] ?? '')).join(' ')).join(' '), undefined, cellStyle.bold ? 'bold' : 'normal', fontSize);
-    pdf.setTextColor(cellStyle.color || '#000000');
-
-    const emptyLabel = '-';
-    for (const eq of equipment) {
-      const cellTexts: string[][] = columns.map((col: any) => {
-        const raw = eq[col.id];
-        const val =
-          raw === undefined || raw === null || String(raw).trim() === '' ? emptyLabel : String(raw).trim();
-        return this.wrapTextForCell(val, colWidths[columns.indexOf(col)] - cellPadding * 2, fontSize, pdf);
-      });
-      let rowHeight = defaultRowHeight;
-      for (const lines of cellTexts) {
-        rowHeight = Math.max(rowHeight, lines.length * lineHeight + cellPadding * 2);
-      }
-      cx = startX;
-      for (let i = 0; i < columns.length; i++) {
-        const col = columns[i];
-        const w = colWidths[i];
-        drawCellBorder(cx, currentY, w, rowHeight);
-        const lines = cellTexts[i];
-        let ly = currentY + cellPadding + fontSize;
-        for (const line of lines) {
-          const tx = getAlignedX(cx, w, col.align || 'left', line);
-          pdf.text(line, tx, ly);
-          ly += lineHeight;
-        }
-        cx += w;
-      }
-      currentY += rowHeight;
-    }
-
-    // Outer border (stronger) for readability
-    const outerBorderWidth = (element as any).outerBorderWidth ?? Math.max(borderWidth, 1.25);
-    pdf.setDrawColor(borderColor);
-    pdf.setLineWidth(outerBorderWidth);
-    pdf.rect(startX, element.y, tableContentWidth, Math.max(1, currentY - element.y));
+    renderEquipmentTable(pdf, element, jobData, slice, this.getRendererHelpers());
   }
 
   private formatDocumentSourceForPdf(source: DocumentSource | undefined): string {
@@ -1274,7 +1269,8 @@ export class PdfTemplateRenderer {
   }
 
   /**
-   * Documents index table: data from jobData.documentIndexItems (documentIndexService.list order).
+   * Documents index table.
+   * Logic lives in: src/services/pdf-renderers/renderDocumentsTable.ts
    */
   private renderDocumentsTableElement(
     pdf: jsPDF,
@@ -1282,114 +1278,7 @@ export class PdfTemplateRenderer {
     jobData: PdfRenderJobData,
     slice?: { rowStart: number; rowEnd: number }
   ): void {
-    const itemsAll: DocumentIndexItem[] = Array.isArray(jobData.documentIndexItems)
-      ? (jobData.documentIndexItems as DocumentIndexItem[])
-      : [];
-    const rowStart = slice ? Math.max(0, slice.rowStart) : 0;
-    const rowEnd = slice ? Math.max(rowStart, slice.rowEnd) : itemsAll.length;
-    const items = itemsAll.slice(rowStart, rowEnd);
-
-    const columns = (element.columns || [])
-      .filter((c: any) => c.visible !== false)
-      .sort((a: any, b: any) => (a.order ?? 0) - (b.order ?? 0));
-    if (columns.length === 0) return;
-
-    const borderColor = element.borderColor || '#000000';
-    const borderWidth = element.borderWidth ?? 1;
-    const fontSize = element.fontSize ?? element.cellStyle?.fontSize ?? 9;
-    const headerFontSize = element.headerFontSize ?? element.headerStyle?.fontSize ?? 10;
-    const headerStyle = element.headerStyle || {};
-    const cellStyle = element.cellStyle || {};
-    const headerSample = columns.map((c: any) => String(c.label || c.id || '')).join(' ');
-    const bodySample = items.map((it) => columns.map((c: any) => this.getDocumentsTableCellText(it, c.id)).join(' ')).join(' ');
-    const lineHeight = computeSafeLineHeight({ fontSize, text: bodySample });
-    const headerLineHeight = computeSafeLineHeight({ fontSize: headerFontSize, text: headerSample });
-    const cellPadding = 4;
-    const defaultRowHeight = 18;
-
-    let currentY = element.y;
-    const startX = element.x;
-    const colWidths = columns.map((c: any) => c.width ?? 60);
-    const tableContentWidth = colWidths.reduce((a, b) => a + b, 0);
-
-    const drawCellBorder = (x: number, y: number, w: number, h: number) => {
-      pdf.setDrawColor(borderColor);
-      pdf.setLineWidth(borderWidth);
-      pdf.rect(x, y, w, h);
-    };
-
-    const getAlignedX = (x: number, w: number, align: string, text: string): number => {
-      const tw = pdf.getTextWidth(text);
-      if (align === 'center') return x + (w - tw) / 2;
-      if (align === 'right') return x + w - tw - cellPadding;
-      return x + cellPadding;
-    };
-
-    this.applyContentFont(pdf, columns.map((c: any) => c.label || c.id).join(' '), undefined, headerStyle.bold ? 'bold' : 'normal', headerFontSize);
-    let headerHeight = defaultRowHeight;
-    const headerLines: string[][] = columns.map((col: any, idx: number) => {
-      const cellWidth = colWidths[idx] - cellPadding * 2;
-      const lines = this.wrapTextForCell(col.label || col.id, cellWidth, headerFontSize, pdf);
-      const cellHeight =
-        lines.length > 0 ? lines.length * headerLineHeight + cellPadding * 2 : defaultRowHeight;
-      headerHeight = Math.max(headerHeight, cellHeight);
-      return lines;
-    });
-    if (headerStyle.backgroundColor) {
-      pdf.setFillColor(headerStyle.backgroundColor);
-      pdf.rect(startX, currentY, tableContentWidth, headerHeight, 'F');
-    }
-    let cx = startX;
-    for (let i = 0; i < columns.length; i++) {
-      const col = columns[i];
-      const w = colWidths[i];
-      drawCellBorder(cx, currentY, w, headerHeight);
-      pdf.setTextColor(headerStyle.color || '#000000');
-      const lines = headerLines[i];
-      let ly = currentY + cellPadding + headerFontSize;
-      for (const line of lines) {
-        const tx = getAlignedX(cx, w, col.align || 'left', line);
-        pdf.text(line, tx, ly);
-        ly += headerLineHeight;
-      }
-      cx += w;
-    }
-    currentY += headerHeight;
-
-    this.applyContentFont(pdf, items.map((it) => columns.map((c: any) => this.getDocumentsTableCellText(it, c.id)).join(' ')).join(' '), undefined, cellStyle.bold ? 'bold' : 'normal', fontSize);
-    pdf.setTextColor(cellStyle.color || '#000000');
-
-    for (const item of items) {
-      const cellTexts: string[][] = columns.map((col: any) => {
-        const val = this.getDocumentsTableCellText(item, col.id);
-        return this.wrapTextForCell(val, colWidths[columns.indexOf(col)] - cellPadding * 2, fontSize, pdf);
-      });
-      let rowHeight = defaultRowHeight;
-      for (const lines of cellTexts) {
-        rowHeight = Math.max(rowHeight, lines.length * lineHeight + cellPadding * 2);
-      }
-      cx = startX;
-      for (let i = 0; i < columns.length; i++) {
-        const col = columns[i];
-        const w = colWidths[i];
-        drawCellBorder(cx, currentY, w, rowHeight);
-        const lines = cellTexts[i];
-        let ly = currentY + cellPadding + fontSize;
-        for (const line of lines) {
-          const tx = getAlignedX(cx, w, col.align || 'left', line);
-          pdf.text(line, tx, ly);
-          ly += lineHeight;
-        }
-        cx += w;
-      }
-      currentY += rowHeight;
-    }
-
-    // Outer border (stronger) for readability
-    const outerBorderWidth = (element as any).outerBorderWidth ?? Math.max(borderWidth, 1.25);
-    pdf.setDrawColor(borderColor);
-    pdf.setLineWidth(outerBorderWidth);
-    pdf.rect(startX, element.y, tableContentWidth, Math.max(1, currentY - element.y));
+    renderDocumentsTable(pdf, element, jobData as any, slice, this.getRendererHelpers());
   }
 
   /**
@@ -3250,9 +3139,18 @@ export class PdfTemplateRenderer {
         ...job.workAuthorization.technicalReviewerSignature,
         signerName: job.workAuthorization.technicalReviewerSignature.signerName || '',
       } : undefined,
+      // ── Computed item-condition booleans ──────────────────────────────────────
+      // itemsConditionOnReceipt is a string enum; these boolean aliases let
+      // checkbox elements bind without a conditional expression.
+      itemConditionGood:    job.workAuthorization.itemsConditionOnReceipt === 'Acceptable',
+      itemConditionDamaged: job.workAuthorization.itemsConditionOnReceipt === 'Damaged or altered',
+      itemConditionDirty:   job.workAuthorization.itemsConditionOnReceipt === 'Improper storage/transportation conditions',
     } : {
       // If workAuthorization doesn't exist, provide default structure
       workAuthorizationStatement: defaultWorkAuthorizationStatement,
+      itemConditionGood: false,
+      itemConditionDamaged: false,
+      itemConditionDirty: false,
     };
 
     return {
@@ -3300,6 +3198,11 @@ export class PdfTemplateRenderer {
           job.serviceInformation?.statementOfConformityReferencePdf?.url || '',
         statementOfConformityReferencePdfName:
           job.serviceInformation?.statementOfConformityReferencePdf?.name || '',
+        // Computed boolean helpers — drive checkboxes in Service Request templates
+        statementOfConformityRequired:
+          job.serviceInformation?.statementOfConformity === 'Required',
+        statementOfConformityNotRequired:
+          job.serviceInformation?.statementOfConformity === 'Not required',
       },
       workAuthorization: workAuthorization,
       measurements: {
@@ -3381,6 +3284,22 @@ export class PdfTemplateRenderer {
       
       img.src = url;
     });
+  }
+
+  /**
+   * Build the RendererHelpers object to pass into sub-renderer files.
+   * This gives extracted functions access to shared utilities without
+   * importing the class itself (which would be circular).
+   */
+  private getRendererHelpers(): RendererHelpers {
+    return {
+      applyContentFont: (pdf, text, family, style, size) =>
+        this.applyContentFont(pdf, text, family, style as any, size),
+      wrapTextForCell: (text, maxWidth, fontSize, pdf) =>
+        this.wrapTextForCell(text, maxWidth, fontSize, pdf),
+      normalizePdfText: (text) => this.normalizePdfText(text),
+      formatDate: (value, format) => this.formatDate(value, format),
+    };
   }
 }
 

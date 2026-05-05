@@ -6,13 +6,14 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import type { Job } from '../types';
-import { Modal, Button } from './common';
+import { Modal, Button, PrinterIcon, DownloadIcon } from './common';
 import { TemplateSelectorModal } from './TemplateSelectorModal';
 import { MissingDataWarningModal } from './MissingDataWarningModal';
 import { PdfTemplateBuilderModal } from './PdfTemplateBuilderModal';
 import { useTemplatePdfGeneration } from '../hooks/useTemplatePdfGeneration';
 import { pdfDataResolver } from '../services/pdfDataResolver';
 import { pdfTemplateRenderer } from '../services/pdfTemplateRenderer';
+import { pdfTemplateService } from '../services/pdfTemplateService';
 import type { PdfTemplate } from '../modules/pdf-template-builder/types';
 import type { MissingDataReport } from '../services/pdfDataResolver';
 import {
@@ -31,6 +32,10 @@ interface TemplateBasedPdfPreviewModalProps {
   onClose: () => void;
   job: Job;
   selectedEquipmentIndex?: number; // Equipment index that user has selected/currently viewing
+  /** Pre-linked template ID — if set, the selector is skipped and this template is loaded automatically */
+  defaultTemplateId?: string;
+  /** Called after the user picks a template so the parent can persist the choice on the job */
+  onTemplateSelected?: (templateId: string) => void;
 }
 
 export const TemplateBasedPdfPreviewModal: React.FC<TemplateBasedPdfPreviewModalProps> = ({
@@ -38,6 +43,8 @@ export const TemplateBasedPdfPreviewModal: React.FC<TemplateBasedPdfPreviewModal
   onClose,
   job,
   selectedEquipmentIndex,
+  defaultTemplateId,
+  onTemplateSelected,
 }) => {
   const [showTemplateSelector, setShowTemplateSelector] = useState(false);
   const [showMissingDataWarning, setShowMissingDataWarning] = useState(false);
@@ -45,6 +52,8 @@ export const TemplateBasedPdfPreviewModal: React.FC<TemplateBasedPdfPreviewModal
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [localMissingData, setLocalMissingData] = useState<MissingDataReport[]>([]);
   const iframeRef = React.useRef<HTMLIFrameElement>(null);
+  /** Stable ref to handleTemplateSelect so the "open" effect doesn't need it as a dep */
+  const handleTemplateSelectRef = React.useRef<((tpl: PdfTemplate) => Promise<void>) | null>(null);
   /** Bumps on modal close and before each auto-generation so late async work does not commit after unmount / remount. */
   const previewGenerationEpochRef = React.useRef(0);
   /** Last prepare+validate from template selection (or full preview path); avoids duplicate work before renderTemplate. */
@@ -65,16 +74,31 @@ export const TemplateBasedPdfPreviewModal: React.FC<TemplateBasedPdfPreviewModal
     reset,
   } = useTemplatePdfGeneration();
 
-  // When modal opens, show template selector if no template selected
+  // When modal opens: if there's a linked template ID, auto-load it; otherwise show the selector
   useEffect(() => {
-    if (isOpen && !selectedTemplate) {
-      setShowTemplateSelector(true);
-      setPreviewUrl((prev) => {
-        if (prev) URL.revokeObjectURL(prev);
-        return null;
+    if (!isOpen || selectedTemplate) return;
+
+    setPreviewUrl((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return null;
+    });
+
+    if (defaultTemplateId) {
+      // Silently fetch the linked template and select it — no selector shown
+      pdfTemplateService.getTemplate(defaultTemplateId).then((tpl) => {
+        if (tpl && handleTemplateSelectRef.current) {
+          void handleTemplateSelectRef.current(tpl);
+        } else {
+          // Template no longer exists — fall back to showing the selector
+          setShowTemplateSelector(true);
+        }
+      }).catch(() => {
+        setShowTemplateSelector(true);
       });
+    } else {
+      setShowTemplateSelector(true);
     }
-  }, [isOpen, selectedTemplate]);
+  }, [isOpen, defaultTemplateId, selectedTemplate]);
 
   // Clean up when modal closes
   useEffect(() => {
@@ -102,7 +126,12 @@ export const TemplateBasedPdfPreviewModal: React.FC<TemplateBasedPdfPreviewModal
 
   const handleTemplateSelect = async (template: PdfTemplate) => {
     selectTemplate(template);
-    
+
+    // Notify parent so it can persist the template choice on the job
+    if (template.id && onTemplateSelected) {
+      onTemplateSelected(template.id);
+    }
+
     // Check for missing data with the selected template
     // Prepare job data with company info from settings for accurate validation
     const jobData = await pdfTemplateRenderer.prepareJobDataForPdf(job);
@@ -117,18 +146,20 @@ export const TemplateBasedPdfPreviewModal: React.FC<TemplateBasedPdfPreviewModal
       missing,
     };
     setLocalMissingData(missing);
-    
+
     // Close template selector
     setShowTemplateSelector(false);
-    
+
     if (missing.length > 0) {
       // Show warning modal - rendering will happen after user confirms
       setShowMissingDataWarning(true);
       return;
     }
-    
+
     // No missing data - let the useEffect handle rendering to avoid duplicate calls
   };
+  // Always keep ref pointing to the latest version (read by the "open" effect)
+  handleTemplateSelectRef.current = handleTemplateSelect;
 
   const generateAndShowPreview = useCallback(
     async (continueWithNA: boolean): Promise<Blob | null> => {
@@ -147,7 +178,7 @@ export const TemplateBasedPdfPreviewModal: React.FC<TemplateBasedPdfPreviewModal
         try {
           const result = await pdfTemplateRenderer.renderTemplate(selectedTemplate, job, {
             showMissingDataAsNA: continueWithNA,
-            missingDataLabel: 'N/A',
+            missingDataLabel: '-',
             selectedEquipmentIndex,
           });
 
@@ -396,6 +427,7 @@ export const TemplateBasedPdfPreviewModal: React.FC<TemplateBasedPdfPreviewModal
               )}
               <Button
                 variant="secondary"
+                icon={<PrinterIcon />}
                 onClick={handlePrint}
                 disabled={!previewUrl || isGenerating}
               >
@@ -403,6 +435,7 @@ export const TemplateBasedPdfPreviewModal: React.FC<TemplateBasedPdfPreviewModal
               </Button>
               <Button
                 variant="primary"
+                icon={<DownloadIcon />}
                 onClick={handleDownload}
                 disabled={!previewUrl || isGenerating}
               >

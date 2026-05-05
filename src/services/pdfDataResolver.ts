@@ -123,6 +123,59 @@ export class PdfDataResolver {
         };
       }
 
+      // ── Page counter data sources ─────────────────────────────────────────────
+      // These are always valid — actual values are injected by the renderer at
+      // render time via jobData.footer. During validation (raw Job object) we
+      // return sensible placeholders so templates never flag them as "missing".
+      if (dataSource === 'footer.page_number' || dataSource === 'page.current') {
+        const value = (job as any)?.footer?.page_number ?? 1;
+        return { value, exists: true, isNull: false, isEmpty: false, isValid: true };
+      }
+      if (dataSource === 'footer.total_pages' || dataSource === 'page.total') {
+        const value = (job as any)?.footer?.total_pages ?? 1;
+        return { value, exists: true, isNull: false, isEmpty: false, isValid: true };
+      }
+      if (dataSource === 'page.counter') {
+        const current = (job as any)?.footer?.page_number ?? 1;
+        const total   = (job as any)?.footer?.total_pages ?? 1;
+        return { value: `Page ${current} of ${total}`, exists: true, isNull: false, isEmpty: false, isValid: true };
+      }
+
+      // ── Statement of Conformity boolean helpers ───────────────────────────────
+      // The raw Job stores `serviceInformation.statementOfConformity` as a string
+      // ('Required' | 'Not required'). These two synthetic keys expose it as a
+      // boolean so checkbox elements can bind directly to it.
+      // The renderer also injects these onto the prepared service object, but the
+      // resolver is called against the raw Job during template validation.
+      if (dataSource === 'service.statementOfConformityRequired') {
+        const soc = (job as any)?.serviceInformation?.statementOfConformity;
+        const value = soc === 'Required';
+        return { value, exists: soc !== undefined, isNull: soc === null, isEmpty: false, isValid: true };
+      }
+      if (dataSource === 'service.statementOfConformityNotRequired') {
+        const soc = (job as any)?.serviceInformation?.statementOfConformity;
+        const value = soc === 'Not required' || soc === undefined || soc === null;
+        return { value, exists: true, isNull: false, isEmpty: false, isValid: true };
+      }
+
+      // ── Item condition boolean helpers ────────────────────────────────────────
+      // itemsConditionOnReceipt is a string enum on WorkAuthorization.
+      // These synthetic boolean keys let checkboxes bind without expressions.
+      // The renderer injects the same booleans onto the workAuthorization object,
+      // but the resolver handles validation against the raw Job.
+      if (dataSource === 'workAuthorization.itemConditionGood') {
+        const cond = (job as any)?.workAuthorization?.itemsConditionOnReceipt;
+        return { value: cond === 'Acceptable', exists: cond !== undefined, isNull: cond === null, isEmpty: false, isValid: true };
+      }
+      if (dataSource === 'workAuthorization.itemConditionDamaged') {
+        const cond = (job as any)?.workAuthorization?.itemsConditionOnReceipt;
+        return { value: cond === 'Damaged or altered', exists: cond !== undefined, isNull: cond === null, isEmpty: false, isValid: true };
+      }
+      if (dataSource === 'workAuthorization.itemConditionDirty') {
+        const cond = (job as any)?.workAuthorization?.itemsConditionOnReceipt;
+        return { value: cond === 'Improper storage/transportation conditions', exists: cond !== undefined, isNull: cond === null, isEmpty: false, isValid: true };
+      }
+
       /** Documents index table: loaded onto prepared jobData as documentIndexItems (not on raw Job). */
       if (dataSource === 'documentIndex.list') {
         const items = (job as any).documentIndexItems;

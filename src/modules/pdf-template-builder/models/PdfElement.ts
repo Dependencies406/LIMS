@@ -9,6 +9,7 @@ import type {
   LineElement,
   RectangleElement,
   ImageElement,
+  CheckboxElement,
   ChartElement,
   EquipmentTableElement,
   EquipmentTableColumnDef,
@@ -17,7 +18,7 @@ import type {
   TrebTableElement,
   PdfElementType,
 } from '../types';
-import { DOCUMENTS_TABLE_DEFAULT_COLUMNS, EQUIPMENT_TABLE_DEFAULT_COLUMNS } from '../types';
+import { DOCUMENTS_TABLE_DEFAULT_COLUMNS, EQUIPMENT_TABLE_DEFAULT_COLUMNS, assertNever } from '../types';
 
 /**
  * Create a new PDF element
@@ -156,6 +157,25 @@ export function createPdfElement(
       } as DocumentsTableElement;
     }
 
+    case 'checkbox': {
+      const cbOpts = options as CheckboxElement;
+      return {
+        ...baseElement,
+        type: 'checkbox',
+        size: cbOpts?.size ?? 10,
+        checked: cbOpts?.checked ?? false,
+        checkStyle: cbOpts?.checkStyle ?? 'checkmark',
+        strokeColor: cbOpts?.strokeColor ?? '#000000',
+        strokeWidth: cbOpts?.strokeWidth ?? 0.75,
+        checkColor: cbOpts?.checkColor ?? '#000000',
+        label: cbOpts?.label ?? '',
+        labelPosition: cbOpts?.labelPosition ?? 'right',
+        labelFontSize: cbOpts?.labelFontSize ?? 9,
+        labelBold: cbOpts?.labelBold ?? false,
+        dataSource: cbOpts?.dataSource,
+      } as CheckboxElement;
+    }
+
     case 'chart':
       const chartOptions = options as ChartElement;
       return {
@@ -192,7 +212,9 @@ export function createPdfElement(
     }
 
     default:
-      return baseElement;
+      // If TypeScript raises an error here, a new PdfElementType was added
+      // but createPdfElement has no case for it. Add a case above to fix.
+      return assertNever(type);
   }
 }
 
@@ -258,12 +280,31 @@ export function getElementLabel(element: PdfElement): string {
         return `👤 ${key.replace('customer.', '').replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}`;
       } else if (key === 'static') {
         return `📄 Static Text`;
+      } else if (key === 'page.counter') {
+        return `📄 Page X of Y`;
+      } else if (key === 'page.current') {
+        return `📄 Current Page`;
+      } else if (key === 'page.total') {
+        return `📄 Total Pages`;
+      } else if (key === 'footer.page_number') {
+        return `📄 Page Number`;
+      } else if (key === 'footer.total_pages') {
+        return `📄 Total Pages`;
       }
       return `📝 ${key}`;
       
     case 'line':
       return '➖ Line';
-      
+
+    case 'checkbox': {
+      const cbEl = element as CheckboxElement;
+      const label = cbEl.label ? `: ${cbEl.label}` : '';
+      const state = cbEl.dataSource?.key
+        ? ` [${cbEl.dataSource.key}]`
+        : cbEl.checked ? ' ✓' : ' ☐';
+      return `☑ Checkbox${label}${state}`;
+    }
+
     case 'rectangle':
       return '▭ Rectangle';
       
@@ -300,7 +341,9 @@ export function getElementLabel(element: PdfElement): string {
     }
 
     default:
-      return `❓ ${element.type}`;
+      // If TypeScript raises an error here, a new PdfElementType was added
+      // but getElementLabel has no case for it. Add a case above to fix.
+      return assertNever(element.type);
   }
 }
 

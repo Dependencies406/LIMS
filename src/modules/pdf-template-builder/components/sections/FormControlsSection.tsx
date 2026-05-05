@@ -1,0 +1,270 @@
+/**
+ * Form Controls Section
+ * Provides checkbox components for building form-style PDF templates
+ * (e.g. Service Request Forms, checklists, conformity statements).
+ */
+
+import type { ComponentDefinition } from './types';
+
+export const formControlsSectionComponents: ComponentDefinition[] = [
+  // ── Static checkboxes ────────────────────────────────────────────
+  {
+    type: 'checkbox',
+    name: 'Checkbox (Unchecked)',
+    icon: '☐',
+    section: 'form-controls',
+    description: 'Empty checkbox — always unchecked',
+    defaultProperties: {
+      size: 10,
+      checked: false,
+      checkStyle: 'checkmark',
+      strokeColor: '#000000',
+      strokeWidth: 0.75,
+      checkColor: '#000000',
+      label: '',
+      labelPosition: 'right',
+      labelFontSize: 9,
+      labelBold: false,
+    },
+  },
+  {
+    type: 'checkbox',
+    name: 'Checkbox (Checked)',
+    icon: '☑',
+    section: 'form-controls',
+    description: 'Pre-ticked checkbox — always checked',
+    defaultProperties: {
+      size: 10,
+      checked: true,
+      checkStyle: 'checkmark',
+      strokeColor: '#000000',
+      strokeWidth: 0.75,
+      checkColor: '#000000',
+      label: '',
+      labelPosition: 'right',
+      labelFontSize: 9,
+      labelBold: false,
+    },
+  },
+  {
+    type: 'checkbox',
+    name: 'Checkbox with Label',
+    icon: '☑',
+    section: 'form-controls',
+    description: 'Checkbox with text label on the right',
+    defaultProperties: {
+      size: 10,
+      checked: false,
+      checkStyle: 'checkmark',
+      strokeColor: '#000000',
+      strokeWidth: 0.75,
+      checkColor: '#000000',
+      label: 'Label text',
+      labelPosition: 'right',
+      labelFontSize: 9,
+      labelBold: false,
+    },
+  },
+
+  // ── Dynamic checkboxes (data-bound) ──────────────────────────────
+  {
+    type: 'checkbox',
+    name: 'Statement of Conformity: Required',
+    icon: '☑',
+    section: 'form-controls',
+    description: 'Checked when customer selected "Required" for Statement of Conformity',
+    defaultProperties: {
+      size: 10,
+      checkStyle: 'checkmark',
+      strokeColor: '#000000',
+      strokeWidth: 0.75,
+      checkColor: '#000000',
+      label: 'Required',
+      labelPosition: 'right',
+      labelFontSize: 9,
+      labelBold: false,
+      dataSource: {
+        type: 'boolean',
+        key: 'service.statementOfConformityRequired',
+      },
+    },
+  },
+  {
+    type: 'checkbox',
+    name: 'Statement of Conformity: Not Required',
+    icon: '☐',
+    section: 'form-controls',
+    description: 'Checked when customer selected "Not required" for Statement of Conformity',
+    defaultProperties: {
+      size: 10,
+      checkStyle: 'checkmark',
+      strokeColor: '#000000',
+      strokeWidth: 0.75,
+      checkColor: '#000000',
+      label: 'Not required',
+      labelPosition: 'right',
+      labelFontSize: 9,
+      labelBold: false,
+      dataSource: {
+        type: 'boolean',
+        key: 'service.statementOfConformityNotRequired',
+      },
+    },
+  },
+  {
+    type: 'checkbox',
+    name: 'Item Condition: Good',
+    icon: '☑',
+    section: 'form-controls',
+    description: 'Checked when item condition on receipt is "Good"',
+    defaultProperties: {
+      size: 10,
+      checkStyle: 'checkmark',
+      strokeColor: '#000000',
+      strokeWidth: 0.75,
+      checkColor: '#000000',
+      label: 'Good',
+      labelPosition: 'right',
+      labelFontSize: 9,
+      labelBold: false,
+      dataSource: {
+        type: 'boolean',
+        key: 'workAuthorization.itemConditionGood',
+      },
+    },
+  },
+  {
+    type: 'checkbox',
+    name: 'Item Condition: Damaged',
+    icon: '☑',
+    section: 'form-controls',
+    description: 'Checked when item is damaged on receipt',
+    defaultProperties: {
+      size: 10,
+      checkStyle: 'checkmark',
+      strokeColor: '#000000',
+      strokeWidth: 0.75,
+      checkColor: '#000000',
+      label: 'Damaged',
+      labelPosition: 'right',
+      labelFontSize: 9,
+      labelBold: false,
+      dataSource: {
+        type: 'boolean',
+        key: 'workAuthorization.itemConditionDamaged',
+      },
+    },
+  },
+  {
+    type: 'checkbox',
+    name: 'Item Condition: Dirty',
+    icon: '☑',
+    section: 'form-controls',
+    description: 'Checked when item is dirty on receipt',
+    defaultProperties: {
+      size: 10,
+      checkStyle: 'checkmark',
+      strokeColor: '#000000',
+      strokeWidth: 0.75,
+      checkColor: '#000000',
+      label: 'Dirty',
+      labelPosition: 'right',
+      labelFontSize: 9,
+      labelBold: false,
+      dataSource: {
+        type: 'boolean',
+        key: 'workAuthorization.itemConditionDirty',
+      },
+    },
+  },
+  {
+    type: 'checkbox',
+    name: 'Pre-Work Checklist Item',
+    icon: '☑',
+    section: 'form-controls',
+    description: 'Pre-work capability checklist checkbox (always checked when issued)',
+    defaultProperties: {
+      size: 10,
+      checked: true,
+      checkStyle: 'checkmark',
+      strokeColor: '#000000',
+      strokeWidth: 0.75,
+      checkColor: '#000000',
+      label: '',
+      labelPosition: 'right',
+      labelFontSize: 9,
+      labelBold: false,
+    },
+  },
+];
+
+export const formControlsSectionDataSources = [
+  // ── Statement of Conformity ──────────────────────────────────────
+  {
+    key: 'service.statementOfConformityRequired',
+    label: 'Statement of Conformity: Required',
+    description: 'Checked when customer selected "Required" for Statement of Conformity',
+    type: 'boolean' as const,
+    category: 'Form Controls',
+  },
+  {
+    key: 'service.statementOfConformityNotRequired',
+    label: 'Statement of Conformity: Not Required',
+    description: 'Checked when customer selected "Not required" for Statement of Conformity',
+    type: 'boolean' as const,
+    category: 'Form Controls',
+  },
+
+  // ── Item condition on receipt ────────────────────────────────────
+  {
+    key: 'workAuthorization.itemConditionGood',
+    label: 'Item Condition: Good',
+    description: 'Checked when items are in good condition on receipt',
+    type: 'boolean' as const,
+    category: 'Form Controls',
+  },
+  {
+    key: 'workAuthorization.itemConditionDamaged',
+    label: 'Item Condition: Damaged',
+    description: 'Checked when items are damaged on receipt',
+    type: 'boolean' as const,
+    category: 'Form Controls',
+  },
+  {
+    key: 'workAuthorization.itemConditionDirty',
+    label: 'Item Condition: Dirty',
+    description: 'Checked when items are dirty / improperly stored on receipt',
+    type: 'boolean' as const,
+    category: 'Form Controls',
+  },
+
+  // ── Pre-work checklist ────────────────────────────────────────────
+  {
+    key: 'workAuthorization.preWorkChecklist.capabilityResourcesAvailable',
+    label: 'Pre-Work: Capability & Resources Available',
+    description: 'Checked when lab has the capability and resources to perform the service',
+    type: 'boolean' as const,
+    category: 'Form Controls',
+  },
+  {
+    key: 'workAuthorization.preWorkChecklist.methodAppropriateValidatedUpToDate',
+    label: 'Pre-Work: Method Appropriate, Validated & Up-to-Date',
+    description: 'Checked when the calibration method is appropriate, validated and current',
+    type: 'boolean' as const,
+    category: 'Form Controls',
+  },
+  {
+    key: 'workAuthorization.preWorkChecklist.equipmentConditionChecked',
+    label: 'Pre-Work: Equipment Condition Checked',
+    description: 'Checked when equipment condition has been inspected before work begins',
+    type: 'boolean' as const,
+    category: 'Form Controls',
+  },
+  {
+    key: 'workAuthorization.preWorkChecklist.customerRequirementsUnderstood',
+    label: 'Pre-Work: Customer Requirements Understood',
+    description: 'Checked when customer requirements have been reviewed and understood',
+    type: 'boolean' as const,
+    category: 'Form Controls',
+  },
+];

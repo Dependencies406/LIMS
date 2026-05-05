@@ -16,6 +16,24 @@ class DataSourceDiscovery {
   }
 
   private initializeDataSources(): void {
+    // ── Boolean / checkbox-compatible fields ─────────────────────────────────
+    // Registered first (before section loop) so type: 'boolean' is guaranteed
+    // even if a section cast previously coerced the type to 'text'.
+    const booleanFields: DataSourceItem[] = [
+      { key: 'service.statementOfConformityRequired',    label: 'Statement of Conformity: Required',     description: 'Checked when the customer selected "Required" for Statement of Conformity',     category: 'Form Controls', type: 'boolean' },
+      { key: 'service.statementOfConformityNotRequired', label: 'Statement of Conformity: Not Required',  description: 'Checked when the customer selected "Not required" for Statement of Conformity',  category: 'Form Controls', type: 'boolean' },
+      { key: 'workAuthorization.itemConditionGood',                                      label: 'Item Condition: Good',                          description: 'Checked when items are in good condition on receipt',                                     category: 'Form Controls', type: 'boolean' },
+      { key: 'workAuthorization.itemConditionDamaged',                                   label: 'Item Condition: Damaged',                       description: 'Checked when items are damaged on receipt',                                               category: 'Form Controls', type: 'boolean' },
+      { key: 'workAuthorization.itemConditionDirty',                                     label: 'Item Condition: Dirty',                         description: 'Checked when items are dirty / improperly stored on receipt',                             category: 'Form Controls', type: 'boolean' },
+      { key: 'workAuthorization.preWorkChecklist.capabilityResourcesAvailable',          label: 'Pre-Work: Capability & Resources Available',    description: 'Checked when lab has capability and resources to perform the service',                    category: 'Form Controls', type: 'boolean' },
+      { key: 'workAuthorization.preWorkChecklist.methodAppropriateValidatedUpToDate',    label: 'Pre-Work: Method Appropriate, Validated & Up-to-Date', description: 'Checked when calibration method is appropriate, validated and current',             category: 'Form Controls', type: 'boolean' },
+      { key: 'workAuthorization.preWorkChecklist.equipmentConditionChecked',             label: 'Pre-Work: Equipment Condition Checked',         description: 'Checked when equipment condition has been inspected before work begins',                 category: 'Form Controls', type: 'boolean' },
+      { key: 'workAuthorization.preWorkChecklist.customerRequirementsUnderstood',        label: 'Pre-Work: Customer Requirements Understood',    description: 'Checked when customer requirements have been reviewed and understood',                    category: 'Form Controls', type: 'boolean' },
+    ];
+    for (const item of booleanFields) {
+      this.dataSources.set(item.key, item); // force-set so type is always 'boolean'
+    }
+
     // Initialize from section definitions
     sections.forEach(section => {
       section.dataSources.forEach(ds => {
@@ -335,6 +353,29 @@ class DataSourceDiscovery {
       key: 'footer.total_pages',
       label: 'Total Pages',
       description: 'Total number of pages',
+      category: 'Footer',
+      type: 'number',
+    });
+
+    // Friendly aliases for page counter elements
+    this.addLegacyDataSource({
+      key: 'page.counter',
+      label: 'Page Counter (X of Y)',
+      description: 'Renders "Page X of Y" — use this for a page number element on the canvas',
+      category: 'Footer',
+      type: 'text',
+    });
+    this.addLegacyDataSource({
+      key: 'page.current',
+      label: 'Current Page Number',
+      description: 'The current page number (e.g. 1, 2, 3…)',
+      category: 'Footer',
+      type: 'number',
+    });
+    this.addLegacyDataSource({
+      key: 'page.total',
+      label: 'Total Pages',
+      description: 'Total number of pages in the document',
       category: 'Footer',
       type: 'number',
     });

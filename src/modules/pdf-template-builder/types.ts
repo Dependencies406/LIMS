@@ -11,6 +11,7 @@ export type PdfElementType =
   | 'line'
   | 'rectangle'
   | 'image'
+  | 'checkbox'
   | 'chart'
   | 'equipment-table'
   | 'documents-table'
@@ -48,6 +49,8 @@ export interface PdfElement {
   /** Optional ordering hint when multiple dynamic elements share a page. Lower draws/plans first. */
   overflowPriority?: number;
   dataSource?: PdfElementDataSource;
+  /** When true, changing width or height in the Properties Panel proportionally adjusts the other dimension. */
+  lockAspectRatio?: boolean;
   [key: string]: any; // Type-specific properties
 }
 
@@ -63,6 +66,7 @@ export interface TextElement extends PdfElement {
   italic?: boolean;
   underline?: boolean;
   align?: 'left' | 'center' | 'right';
+  verticalAlign?: 'top' | 'middle' | 'bottom';
   color?: string;
   letterSpacing?: number;
   lineHeight?: number;
@@ -119,6 +123,41 @@ export interface ImageElement extends PdfElement {
   maintainAspect?: boolean;
   fitMode?: 'contain' | 'cover' | 'fill';
   condition?: ConditionalRule;
+}
+
+/**
+ * Checkbox element.
+ * Renders a square checkbox with an optional label and optional dynamic checked state.
+ */
+export interface CheckboxElement extends PdfElement {
+  type: 'checkbox';
+  /** Box size in pt. Default: 10 */
+  size?: number;
+  /** Static checked state (used when dataSource is absent). Default: false */
+  checked?: boolean;
+  /** What to draw inside the box when checked. Default: 'checkmark' */
+  checkStyle?: 'checkmark' | 'x' | 'filled';
+  /** Border colour. Default: #000000 */
+  strokeColor?: string;
+  /** Border thickness in pt. Default: 0.75 */
+  strokeWidth?: number;
+  /** Colour of the check mark / fill. Default: #000000 */
+  checkColor?: string;
+  /** Optional text rendered beside the box */
+  label?: string;
+  /** Which side the label appears on. Default: 'right' */
+  labelPosition?: 'right' | 'left';
+  /** Font size for the label text. Default: 9 */
+  labelFontSize?: number;
+  /** Bold label text. Default: false */
+  labelBold?: boolean;
+  /** Optional conditional rendering */
+  condition?: ConditionalRule;
+  /** Optional data source — resolves to a truthy/falsy value to set checked state */
+  dataSource?: {
+    type: string;
+    key: string;
+  };
 }
 
 /**
@@ -242,12 +281,21 @@ export interface ConditionalRule {
 export type PageOrientation = 'portrait' | 'landscape';
 
 /**
+ * Which module a template belongs to.
+ * Templates in the selector are filtered to the calling module's scope.
+ * 'global' means the template appears in all selectors (backward-compatible default).
+ */
+export type PdfTemplateScope = 'jobs' | 'customers' | 'documents' | 'global';
+
+/**
  * PDF template structure
  */
 export interface PdfTemplate {
   id?: string;
   name: string;
   description?: string;
+  /** Which module this template belongs to. Defaults to 'global' for backward compatibility. */
+  scope?: PdfTemplateScope;
   pageSize: 'A4' | 'Letter' | 'A3' | 'A5';
   /** Page orientation (portrait or landscape). Default: portrait */
   orientation?: PageOrientation;
@@ -288,7 +336,7 @@ export interface DataSourceItem {
   label: string;
   description?: string;
   category: string;
-  type: 'text' | 'number' | 'date' | 'image';
+  type: 'text' | 'number' | 'date' | 'image' | 'boolean';
 }
 
 /** Default column definitions for equipment table (id, label, default width in pt). Order defines initial display order. */
@@ -305,6 +353,19 @@ export const EQUIPMENT_TABLE_DEFAULT_COLUMNS: ReadonlyArray<{ id: string; label:
   { id: 'remark', label: 'Remark', defaultWidth: 70 },
   { id: 'certificateNumber', label: 'Certificate Number', defaultWidth: 90 },
 ];
+
+/**
+ * Exhaustiveness helper.
+ * Use as the `default` branch of a switch over PdfElementType:
+ *
+ *   default: assertNever(element.type);
+ *
+ * TypeScript will emit a compile error if any element type is not handled,
+ * so adding a new type to PdfElementType forces every switch to be updated.
+ */
+export function assertNever(x: never): never {
+  throw new Error(`Unhandled element type: ${String(x)}`);
+}
 
 /** Default columns for documents-table (tags excluded per product spec). */
 export const DOCUMENTS_TABLE_DEFAULT_COLUMNS: ReadonlyArray<{ id: string; label: string; defaultWidth: number }> = [

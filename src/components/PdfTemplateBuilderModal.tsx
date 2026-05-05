@@ -16,6 +16,7 @@ import { useUndoRedo } from '../modules/pdf-template-builder/hooks/useUndoRedo';
 import { useClipboard } from '../modules/pdf-template-builder/hooks/useClipboard';
 import type { PdfTemplate, PdfElement, PdfElementType, PdfPage, PdfTemplateScope } from '../modules/pdf-template-builder/types';
 import { PdfComponentScannerModal } from './PdfComponentScannerModal';
+import { Button, IconButton } from './common';
 
 export interface PdfTemplateBuilderModalProps {
   isOpen: boolean;
@@ -58,6 +59,19 @@ export const PdfTemplateBuilderModal: React.FC<PdfTemplateBuilderModalProps> = (
   const [activeLeftSidebarTab, setActiveLeftSidebarTab] = useState<'pages' | 'sections' | 'layers'>('pages');
   const isInputFocusedRef = useRef(false);
   const hasInitializedRef = useRef(false);
+  const [leftSidebarCollapsed, setLeftSidebarCollapsed] = useState(false);
+  const [rightSidebarCollapsed, setRightSidebarCollapsed] = useState(false);
+  /** null = use default CSS position (bottom-center); after first drag, stores explicit x/y */
+  const [counterPos, setCounterPos] = useState<{ x: number; y: number } | null>(null);
+  const [isCounterDragging, setIsCounterDragging] = useState(false);
+  const counterRef = useRef<HTMLDivElement>(null);
+  const canvasAreaRef = useRef<HTMLDivElement>(null);
+  const counterDragRef = useRef<{
+    startMouseX: number;
+    startMouseY: number;
+    startPosX: number;
+    startPosY: number;
+  } | null>(null);
 
   // Load template if templateId is provided - only on mount/open, not on every update
   useEffect(() => {
@@ -144,6 +158,18 @@ export const PdfTemplateBuilderModal: React.FC<PdfTemplateBuilderModalProps> = (
   useEffect(() => {
     setSelectedElementIds([]);
   }, [activePageId]);
+
+  // Safety net: prevent the browser's built-in Ctrl+Scroll zoom while the modal is open.
+  // The canvas component handles its own Ctrl+Scroll, but this catches events that fire
+  // outside the canvas (e.g. over the sidebars or toolbar).
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleWheel = (e: WheelEvent) => {
+      if (e.ctrlKey) e.preventDefault();
+    };
+    window.addEventListener('wheel', handleWheel, { passive: false });
+    return () => window.removeEventListener('wheel', handleWheel);
+  }, [isOpen]);
 
   const pages = template.pages || [];
   const activePage = pages.find(page => page.id === activePageId) || pages[0];
@@ -530,6 +556,52 @@ export const PdfTemplateBuilderModal: React.FC<PdfTemplateBuilderModalProps> = (
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, undo, redo, handleCopy, handlePaste, handleDuplicate, activeElements]);
 
+  const handleCounterDragStart = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    e.stopPropagation();
+
+    const containerEl = canvasAreaRef.current;
+    const counterEl = counterRef.current;
+    if (!containerEl || !counterEl) return;
+
+    const containerRect = containerEl.getBoundingClientRect();
+    const counterRect = counterEl.getBoundingClientRect();
+
+    // Compute current position relative to the canvas container
+    counterDragRef.current = {
+      startMouseX: e.clientX,
+      startMouseY: e.clientY,
+      startPosX: counterRect.left - containerRect.left,
+      startPosY: counterRect.top - containerRect.top,
+    };
+
+    setIsCounterDragging(true);
+    document.body.style.cursor = 'grabbing';
+
+    const handleMouseMove = (ev: MouseEvent) => {
+      if (!counterDragRef.current || !containerEl || !counterRef.current) return;
+      const { startMouseX, startMouseY, startPosX, startPosY } = counterDragRef.current;
+      const counterW = counterRef.current.offsetWidth;
+      const counterH = counterRef.current.offsetHeight;
+      setCounterPos({
+        x: Math.max(8, Math.min(containerEl.clientWidth - counterW - 8, startPosX + ev.clientX - startMouseX)),
+        y: Math.max(8, Math.min(containerEl.clientHeight - counterH - 8, startPosY + ev.clientY - startMouseY)),
+      });
+    };
+
+    const handleMouseUp = () => {
+      counterDragRef.current = null;
+      setIsCounterDragging(false);
+      document.body.style.cursor = '';
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+  }, []);
+
   const selectedElement = selectedElementIds.length === 1
     ? activeElements.find(el => el.id === selectedElementIds[0]) || null
     : null;
@@ -690,17 +762,34 @@ export const PdfTemplateBuilderModal: React.FC<PdfTemplateBuilderModalProps> = (
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 10h-10a8 8 0 00-8 8v2M21 10l-6 6m6-6l-6-6" />
                 </svg>
               </button>
-              <div className="flex items-center gap-2 ml-2">
+              <div className="flex items-center gap-1 ml-2">
+                <button
+                  type="button"
+                  onClick={() => setZoom((z) => Math.max(0.25, Math.round((z - 0.1) * 100) / 100))}
+                  className="w-6 h-6 flex items-center justify-center rounded text-gray-600 hover:bg-gray-100 text-sm font-medium leading-none"
+                  title="Zoom out"
+                >−</button>
                 <input
                   type="range"
-                  min="0.5"
-                  max="2"
-                  step="0.1"
+                  min="0.25"
+                  max="3"
+                  step="0.05"
                   value={zoom}
                   onChange={(e) => setZoom(parseFloat(e.target.value))}
                   className="w-20"
                 />
-                <span className="text-xs text-gray-600 min-w-[3rem]">{Math.round(zoom * 100)}%</span>
+                <button
+                  type="button"
+                  onClick={() => setZoom((z) => Math.min(3, Math.round((z + 0.1) * 100) / 100))}
+                  className="w-6 h-6 flex items-center justify-center rounded text-gray-600 hover:bg-gray-100 text-sm font-medium leading-none"
+                  title="Zoom in"
+                >+</button>
+                <button
+                  type="button"
+                  onClick={() => setZoom(1)}
+                  className="text-xs text-gray-600 min-w-[3rem] hover:text-primary-600 hover:underline"
+                  title="Reset zoom to 100%"
+                >{Math.round(zoom * 100)}%</button>
               </div>
             </div>
           </div>
@@ -718,54 +807,68 @@ export const PdfTemplateBuilderModal: React.FC<PdfTemplateBuilderModalProps> = (
               </svg>
               <span className="text-gray-700">Scan Components</span>
             </button>
-            <button
-              type="button"
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                handleSave();
-              }}
-              className="px-4 py-1.5 rounded-md text-sm font-medium transition-colors disabled:opacity-50 whitespace-nowrap shadow-sm"
-              style={{ 
-                backgroundColor: saving || !templateName.trim() ? '#9CA3AF' : '#0055FF',
-                color: '#FFFFFF'
-              }}
+            <Button
+              variant="primary"
+              size="sm"
+              loading={saving}
               disabled={saving || !templateName.trim()}
-              onMouseEnter={(e) => {
-                if (!saving && templateName.trim()) {
-                  e.currentTarget.style.backgroundColor = '#0044CC';
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (!saving && templateName.trim()) {
-                  e.currentTarget.style.backgroundColor = '#0055FF';
-                }
-              }}
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleSave(); }}
             >
-              {saving ? 'Saving...' : 'Save'}
-            </button>
-            <button
-              type="button"
-              onClick={onClose}
-              className="text-gray-400 hover:text-gray-600 text-2xl leading-none w-8 h-8 flex items-center justify-center flex-shrink-0 hover:bg-gray-100 rounded transition-colors font-light"
+              Save
+            </Button>
+            <IconButton
+              variant="ghost"
+              size="sm"
               title="Close"
-              aria-label="Close"
+              onClick={onClose}
             >
-              ×
-            </button>
+              <span className="text-xl leading-none">×</span>
+            </IconButton>
           </div>
         </div>
 
         {/* Main Content - Holy Grail Layout */}
         <div className="flex-1 flex overflow-hidden">
-          {/* Left Sidebar (280px fixed) */}
-          <div 
-            className="w-[280px] border-r overflow-hidden flex flex-col"
-            style={{ 
+          {/* Left Sidebar */}
+          <div
+            className={`${leftSidebarCollapsed ? 'w-10' : 'w-[280px]'} border-r flex flex-col flex-shrink-0 transition-all duration-200 overflow-hidden`}
+            style={{
               borderRightColor: '#E5E7EB',
               backgroundColor: '#FFFFFF'
             }}
           >
+            {/* Sidebar header / collapse toggle */}
+            <div
+              className="flex items-center justify-between px-2 border-b flex-shrink-0"
+              style={{ borderBottomColor: '#E5E7EB', backgroundColor: '#F9FAFB', minHeight: '32px' }}
+            >
+              {!leftSidebarCollapsed && (
+                <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Elements</span>
+              )}
+              <button
+                type="button"
+                onClick={() => setLeftSidebarCollapsed((c) => !c)}
+                className={`w-6 h-6 flex items-center justify-center rounded hover:bg-gray-200 text-gray-500 flex-shrink-0 ${leftSidebarCollapsed ? 'mx-auto' : 'ml-auto'}`}
+                title={leftSidebarCollapsed ? 'Expand panel' : 'Collapse panel'}
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  {leftSidebarCollapsed
+                    ? <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
+                    : <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" />
+                  }
+                </svg>
+              </button>
+            </div>
+
+            {/* Collapsed indicator */}
+            {leftSidebarCollapsed && (
+              <div className="flex-1 flex flex-col items-center justify-center">
+                <span className="text-xs text-gray-400 select-none" style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}>Elements</span>
+              </div>
+            )}
+
+            {/* Sidebar content */}
+            {!leftSidebarCollapsed && (<>
             {/* Toolbox */}
             <div className="border-b p-4 flex-[0_0_50%] overflow-y-auto min-h-0" style={{ borderBottomColor: '#E5E7EB' }}>
               <h3 className="text-sm font-semibold text-gray-900 mb-3" style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", "Roboto", sans-serif' }}>
@@ -846,6 +949,24 @@ export const PdfTemplateBuilderModal: React.FC<PdfTemplateBuilderModalProps> = (
                     >
                       <div className="text-xs font-medium text-gray-900 mb-1">Chart</div>
                       <span className="text-lg">📈</span>
+                    </button>
+                    <button
+                      onClick={() => handleElementAdd({
+                        id: `text-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                        type: 'text',
+                        x: 100,
+                        y: 100,
+                        width: 120,
+                        height: 20,
+                        fontSize: 9,
+                        align: 'center',
+                        dataSource: { type: 'text', key: 'page.counter' },
+                      } as any)}
+                      className="p-3 border rounded-md hover:bg-gray-50 transition-colors text-left"
+                      style={{ borderColor: '#E5E7EB' }}
+                    >
+                      <div className="text-xs font-medium text-gray-900 mb-1">Page Counter</div>
+                      <span className="text-sm font-semibold text-gray-600">1/N</span>
                     </button>
                   </div>
                 </div>
@@ -1083,11 +1204,13 @@ export const PdfTemplateBuilderModal: React.FC<PdfTemplateBuilderModalProps> = (
                   </div>
                 )}
               </div>
+            </>)}
           </div>
 
           {/* Center - Canvas Area */}
-          <div 
-            className="flex-1 overflow-auto flex items-center justify-center"
+          <div
+            ref={canvasAreaRef}
+            className="flex-1 relative overflow-hidden"
             style={{ backgroundColor: '#F3F4F6' }}
           >
             <PdfTemplateBuilderCanvas
@@ -1101,26 +1224,125 @@ export const PdfTemplateBuilderModal: React.FC<PdfTemplateBuilderModalProps> = (
               onElementMove={handleElementMove}
               onElementResize={handleElementResize}
               onElementDelete={handleElementDelete}
+              onZoomChange={(newZoom) => setZoom(Math.min(3, Math.max(0.25, newZoom)))}
             />
+
+            {/* Floating draggable page counter */}
+            {(() => {
+              const currentIdx = pages.findIndex((p) => p.id === activePageId);
+              const total = Math.max(1, pages.length);
+              const current = Math.max(1, currentIdx + 1);
+              return (
+                <div
+                  ref={counterRef}
+                  onMouseDown={handleCounterDragStart}
+                  style={{
+                    position: 'absolute',
+                    zIndex: 20,
+                    cursor: isCounterDragging ? 'grabbing' : 'grab',
+                    userSelect: 'none',
+                    ...(counterPos
+                      ? { left: counterPos.x, top: counterPos.y }
+                      : { bottom: 16, left: '50%', transform: 'translateX(-50%)' }),
+                  }}
+                  className="flex items-center gap-1.5 bg-white border border-gray-200 rounded-full pl-2 pr-3 py-1.5 shadow-md"
+                  title="Drag to reposition"
+                >
+                  {/* Drag handle dots */}
+                  <svg width="8" height="12" viewBox="0 0 8 12" className="text-gray-400 flex-shrink-0" fill="currentColor">
+                    <circle cx="2" cy="2"  r="1.3"/><circle cx="6" cy="2"  r="1.3"/>
+                    <circle cx="2" cy="6"  r="1.3"/><circle cx="6" cy="6"  r="1.3"/>
+                    <circle cx="2" cy="10" r="1.3"/><circle cx="6" cy="10" r="1.3"/>
+                  </svg>
+
+                  {/* Prev */}
+                  <button
+                    type="button"
+                    onMouseDown={(e) => e.stopPropagation()}
+                    onClick={() => { if (currentIdx > 0) setActivePageId(pages[currentIdx - 1].id); }}
+                    disabled={currentIdx <= 0}
+                    className="w-5 h-5 flex items-center justify-center rounded-full hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed text-gray-600"
+                    title="Previous page"
+                  >
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" />
+                    </svg>
+                  </button>
+
+                  <span className="text-xs font-medium text-gray-700 tabular-nums whitespace-nowrap">
+                    Page {current} of {total}
+                  </span>
+
+                  {/* Next */}
+                  <button
+                    type="button"
+                    onMouseDown={(e) => e.stopPropagation()}
+                    onClick={() => { if (currentIdx < pages.length - 1) setActivePageId(pages[currentIdx + 1].id); }}
+                    disabled={currentIdx >= pages.length - 1}
+                    className="w-5 h-5 flex items-center justify-center rounded-full hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed text-gray-600"
+                    title="Next page"
+                  >
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </button>
+                </div>
+              );
+            })()}
           </div>
 
-          {/* Right Sidebar - Properties (300px fixed) */}
-          <div 
-            className="w-[300px] border-l overflow-y-auto"
-            style={{ 
+          {/* Right Sidebar - Properties */}
+          <div
+            className={`${rightSidebarCollapsed ? 'w-10' : 'w-[300px]'} border-l flex flex-col flex-shrink-0 transition-all duration-200 overflow-hidden`}
+            style={{
               borderLeftColor: '#E5E7EB',
               backgroundColor: '#FFFFFF'
             }}
           >
-            <ElementPropertiesPanel
-              element={selectedElement}
-              template={template}
-              page={activePage}
-              onUpdate={handleElementUpdate}
-              onTemplateUpdate={(updates) => updateTemplate({ ...template, ...updates })}
-              onPageUpdate={(updates) => updateActivePage(updates)}
-              onDelete={handleSelectedElementsDelete}
-            />
+            {/* Sidebar header / collapse toggle */}
+            <div
+              className="flex items-center justify-between px-2 border-b flex-shrink-0"
+              style={{ borderBottomColor: '#E5E7EB', backgroundColor: '#F9FAFB', minHeight: '32px' }}
+            >
+              <button
+                type="button"
+                onClick={() => setRightSidebarCollapsed((c) => !c)}
+                className={`w-6 h-6 flex items-center justify-center rounded hover:bg-gray-200 text-gray-500 flex-shrink-0 ${rightSidebarCollapsed ? 'mx-auto' : 'mr-auto'}`}
+                title={rightSidebarCollapsed ? 'Expand panel' : 'Collapse panel'}
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  {rightSidebarCollapsed
+                    ? <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" />
+                    : <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
+                  }
+                </svg>
+              </button>
+              {!rightSidebarCollapsed && (
+                <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Properties</span>
+              )}
+            </div>
+
+            {/* Collapsed indicator */}
+            {rightSidebarCollapsed && (
+              <div className="flex-1 flex flex-col items-center justify-center">
+                <span className="text-xs text-gray-400 select-none" style={{ writingMode: 'vertical-rl' }}>Properties</span>
+              </div>
+            )}
+
+            {/* Sidebar content */}
+            {!rightSidebarCollapsed && (
+              <div className="flex-1 overflow-y-auto">
+                <ElementPropertiesPanel
+                  element={selectedElement}
+                  template={template}
+                  page={activePage}
+                  onUpdate={handleElementUpdate}
+                  onTemplateUpdate={(updates) => updateTemplate({ ...template, ...updates })}
+                  onPageUpdate={(updates) => updateActivePage(updates)}
+                  onDelete={handleSelectedElementsDelete}
+                />
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -1184,13 +1406,9 @@ export const PdfTemplateBuilderModal: React.FC<PdfTemplateBuilderModalProps> = (
 
           {/* Footer */}
           <div className="px-6 py-4 border-t border-gray-200 flex justify-end">
-            <button
-              onClick={() => setShowSaveSuccess(false)}
-              className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors font-medium"
-              type="button"
-            >
+            <Button variant="success" onClick={() => setShowSaveSuccess(false)}>
               OK
-            </button>
+            </Button>
           </div>
         </div>
       </div>
