@@ -56,7 +56,7 @@ export const PdfTemplateBuilderModal: React.FC<PdfTemplateBuilderModalProps> = (
   const [showSaveSuccess, setShowSaveSuccess] = useState(false);
   const [showComponentScanner, setShowComponentScanner] = useState(false);
   const [activePageId, setActivePageId] = useState<string>('');
-  const [activeLeftSidebarTab, setActiveLeftSidebarTab] = useState<'pages' | 'sections' | 'layers'>('pages');
+  const [activeLeftSidebarTab, setActiveLeftSidebarTab] = useState<'pages' | 'sections' | 'layers'>('layers');
   const isInputFocusedRef = useRef(false);
   const hasInitializedRef = useRef(false);
   const [leftSidebarCollapsed, setLeftSidebarCollapsed] = useState(false);
@@ -66,6 +66,8 @@ export const PdfTemplateBuilderModal: React.FC<PdfTemplateBuilderModalProps> = (
   const [isCounterDragging, setIsCounterDragging] = useState(false);
   const counterRef = useRef<HTMLDivElement>(null);
   const canvasAreaRef = useRef<HTMLDivElement>(null);
+  /** Scroll container for the Layers list — used to bring selected element into view. */
+  const layersScrollRef = useRef<HTMLDivElement>(null);
   const counterDragRef = useRef<{
     startMouseX: number;
     startMouseY: number;
@@ -321,6 +323,24 @@ export const PdfTemplateBuilderModal: React.FC<PdfTemplateBuilderModalProps> = (
       setSelectedElementIds([elementId]);
     }
   }, []);
+
+  // When an element is selected (from canvas or elsewhere), switch to the Layers
+  // tab and scroll that element's row into view automatically.
+  useEffect(() => {
+    if (selectedElementIds.length === 0) return;
+    const firstId = selectedElementIds[0];
+
+    // Switch to layers tab so the user can see the row
+    setActiveLeftSidebarTab('layers');
+
+    // Defer scroll by one tick so the tab content has rendered
+    requestAnimationFrame(() => {
+      const row = layersScrollRef.current?.querySelector<HTMLElement>(
+        `[data-element-id="${firstId}"]`
+      );
+      row?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    });
+  }, [selectedElementIds]);
 
   const handleElementMove = useCallback((elementId: string, x: number, y: number) => {
     updateActiveElements((elements) => elements.map(el => {
@@ -1125,10 +1145,11 @@ export const PdfTemplateBuilderModal: React.FC<PdfTemplateBuilderModalProps> = (
                     {activeElements.length === 0 ? (
                       <p className="text-xs text-gray-500">No elements yet</p>
                     ) : (
-                      <div className="space-y-1">
+                      <div ref={layersScrollRef} className="space-y-1">
                         {activeElements.map((element, index) => (
                           <div
                             key={element.id}
+                            data-element-id={element.id}
                             className={`flex items-center gap-2 rounded-md overflow-hidden ${
                               selectedElementIds.includes(element.id)
                                 ? 'bg-blue-50'
