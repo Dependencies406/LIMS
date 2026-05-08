@@ -18,6 +18,7 @@ import { TemplateBasedPdfPreviewModal } from './TemplateBasedPdfPreviewModal';
 import { StatementOfConformityPdfUpload } from './StatementOfConformityPdfUpload';
 import { matchUserFromAssignedStaffValue } from '../services/userService';
 import { jobService } from '../services/jobService';
+import { IconButton, PlusIcon } from './common';
 
 interface JobModalProps {
   job: Job | null;
@@ -94,6 +95,8 @@ export const JobModal: React.FC<JobModalProps> = ({
   const [recycleMoveLoading, setRecycleMoveLoading] = useState(false);
   const [showStatusDropdown, setShowStatusDropdown] = useState(false);
   const [showTemplatePdfPreview, setShowTemplatePdfPreview] = useState(false);
+  /** Template linked to this job — persisted immediately to Firestore when the user picks one */
+  const [linkedPdfTemplateId, setLinkedPdfTemplateId] = useState<string | undefined>(job?.pdfTemplateId);
   const [activeJobTab, setActiveJobTab] = useState<JobModalTab>('job');
   const [customerSuggestOpen, setCustomerSuggestOpen] = useState(false);
   const [receivedByUserSuggestOpen, setReceivedByUserSuggestOpen] = useState(false);
@@ -268,6 +271,7 @@ export const JobModal: React.FC<JobModalProps> = ({
   // Update currentJob when job prop changes
   useEffect(() => {
     setCurrentJob(job);
+    setLinkedPdfTemplateId(job?.pdfTemplateId);
   }, [job]);
 
   useEffect(() => {
@@ -442,6 +446,18 @@ export const JobModal: React.FC<JobModalProps> = ({
     }
   }, [form.assignedStaff]);
 
+  /** Called when the user selects a template inside the PDF preview modal — saves to Firestore immediately. */
+  const handlePdfTemplateSelected = useCallback(async (templateId: string) => {
+    setLinkedPdfTemplateId(templateId);
+    if (currentJob) {
+      try {
+        await updateDoc(doc(db, 'jobs', currentJob.id), { pdfTemplateId: templateId });
+      } catch (err) {
+        console.error('Failed to save linked PDF template:', err);
+      }
+    }
+  }, [currentJob]);
+
   /** Live Job snapshot from the form for template-based PDF. */
   const getJobForPreview = (): Job => {
     const serviceInformation = {
@@ -577,7 +593,7 @@ export const JobModal: React.FC<JobModalProps> = ({
       ['Job ID', form.jobId || ''],
       ['Title', form.title || ''],
       ['Status', form.status || ''],
-      ['Staff', form.assignedStaff || ''],
+      ['Staff', assignedStaffDisplayName || ''],
       ['Contact', form.customerContact || ''],
       ['Received', formatDateForExcel(currentJob?.receivedDate || form.startDate)],
       ['Appointment', formatDateForExcel(form.appointmentDate || (currentJob as any)?.appointmentDate || (currentJob as any)?.scheduleDate)],
@@ -1084,6 +1100,7 @@ export const JobModal: React.FC<JobModalProps> = ({
         equipment: equipment.filter(eq => eq.name || eq.model), // Filter empty equipment
         serviceInformation,
         workAuthorization,
+        ...(linkedPdfTemplateId ? { pdfTemplateId: linkedPdfTemplateId } : {}),
         updatedAt: serverTimestamp(),
         ...(job ? {} : { 
           createdAt: serverTimestamp(), 
@@ -1513,6 +1530,8 @@ export const JobModal: React.FC<JobModalProps> = ({
             isOpen={showTemplatePdfPreview}
             onClose={() => setShowTemplatePdfPreview(false)}
             job={getJobForPreview()}
+            defaultTemplateId={linkedPdfTemplateId}
+            onTemplateSelected={handlePdfTemplateSelected}
           />
         )}
 
@@ -2216,16 +2235,7 @@ export const JobModal: React.FC<JobModalProps> = ({
                 </span>
                 <span className="min-w-0 break-words">Item Details <span className="text-red-500">*</span></span>
               </h3>
-              <button
-                type="button"
-                onClick={addEquipment}
-                className="shrink-0 flex items-center justify-center w-10 h-10 rounded-lg border border-primary-500 bg-primary-600 hover:bg-primary-700 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                title="Add Item Row"
-              >
-                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                </svg>
-              </button>
+              <IconButton variant="primary" title="Add Item Row" onClick={addEquipment}><PlusIcon /></IconButton>
             </div>
 
             <div className="space-y-3">
