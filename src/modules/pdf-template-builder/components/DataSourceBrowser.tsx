@@ -39,9 +39,15 @@ export const DataSourceBrowser: React.FC<DataSourceBrowserProps> = ({
       sources = discovery.getAllDataSources();
     }
 
-    // Filter by type if specified
+    // Filter by type if specified.
+    // Text elements can display any scalar value (dates, numbers, text), so
+    // when filterType is 'text' we also include 'date' and 'number' sources.
     if (filterType) {
-      sources = sources.filter(s => s.type === filterType);
+      const allowed: string[] =
+        filterType === 'text'
+          ? ['text', 'date', 'number']
+          : [filterType];
+      sources = sources.filter(s => allowed.includes(s.type));
     }
 
     // Filter by search query
