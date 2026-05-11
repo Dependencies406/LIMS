@@ -277,6 +277,11 @@ export class PdfDataResolver {
       return this.getCertificateNumberFromEquipment(obj, equipmentIndex);
     }
 
+    // Handle certificate.date → equipment.calibrationDate (calibration date is the certificate issue date)
+    if (path === 'certificate.date') {
+      return this.getNestedValue(obj, 'equipment.calibrationDate', equipmentIndex);
+    }
+
     // Standard dot notation (for paths like measurements.data, this will access obj.measurements.data)
     const keys = path.split('.');
     let current = obj;

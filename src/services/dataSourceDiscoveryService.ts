@@ -65,15 +65,15 @@ class DataSourceDiscovery {
     });
     this.addLegacyDataSource({
       key: 'certificate.date',
-      label: 'Certificate Date',
-      description: 'Certificate issue date',
+      label: 'Certificate Date (Calibration Date)',
+      description: 'Certificate issue date — resolves to the selected equipment calibration date',
       category: 'Certificate',
       type: 'date',
     });
     this.addLegacyDataSource({
       key: 'certificate.valid_until',
       label: 'Valid Until',
-      description: 'Certificate expiry date',
+      description: 'Certificate expiry date (not currently mapped to job data)',
       category: 'Certificate',
       type: 'date',
     });
@@ -139,8 +139,29 @@ class DataSourceDiscovery {
     });
     this.addLegacyDataSource({
       key: 'job.date',
-      label: 'Job Date',
+      label: 'Job Date (Received)',
       description: 'Job received date (when job was received)',
+      category: 'Job',
+      type: 'date',
+    });
+    this.addLegacyDataSource({
+      key: 'job.startDate',
+      label: 'Start Date',
+      description: 'Date the job work was started',
+      category: 'Job',
+      type: 'date',
+    });
+    this.addLegacyDataSource({
+      key: 'job.completedDate',
+      label: 'Completion Date',
+      description: 'Date the job was completed',
+      category: 'Job',
+      type: 'date',
+    });
+    this.addLegacyDataSource({
+      key: 'job.expectedFinishDate',
+      label: 'Expected Finish Date',
+      description: 'Expected date for the job to be finished',
       category: 'Job',
       type: 'date',
     });

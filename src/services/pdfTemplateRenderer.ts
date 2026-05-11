@@ -3183,6 +3183,9 @@ export class PdfTemplateRenderer {
         customer: customerName,
         date: job.receivedDate, // Map to receivedDate from job module
         appointmentDate: job.appointmentDate || (job as any).scheduleDate || '',
+        startDate: job.startDate || '',
+        completedDate: job.completedDate || '',
+        expectedFinishDate: job.expectedFinishDate || '',
         assignedStaff: assignedStaffName || job.assignedStaff, // Use resolved name, fallback to ID
         assignedStaffId: job.assignedStaff, // Also provide ID if needed
         poNumber: job.poNumber || '',

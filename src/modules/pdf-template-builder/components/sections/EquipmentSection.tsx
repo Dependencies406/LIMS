@@ -126,6 +126,16 @@ export const equipmentSectionComponents: ComponentDefinition[] = [
   },
   {
     type: 'text',
+    name: 'Calibration Date',
+    icon: '📅',
+    section: 'equipment',
+    defaultProperties: {
+      ...textDefaults,
+      dataSource: { type: 'text', key: 'equipment.calibrationDate' },
+    },
+  },
+  {
+    type: 'text',
     name: 'Certificate Number',
     icon: '📄',
     section: 'equipment',
@@ -148,5 +158,6 @@ export const equipmentSectionDataSources = [
   { key: 'equipment.calibrationMethods', label: 'Calibration Methods', type: 'text' as const, category: 'Equipment' },
   { key: 'equipment.accessories', label: 'Accessories', type: 'text' as const, category: 'Equipment' },
   { key: 'equipment.remark', label: 'Remark', type: 'text' as const, category: 'Equipment' },
+  { key: 'equipment.calibrationDate', label: 'Calibration Date', type: 'date' as const, category: 'Equipment' },
   { key: 'certificate.number', label: 'Certificate Number', type: 'text' as const, category: 'Equipment' },
 ];
