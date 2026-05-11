@@ -116,22 +116,28 @@ export const SignatureCanvas: React.FC<SignatureCanvasProps> = ({
 
   const startDrawing = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     if (disabled || isLocked) return;
-    
+
     e.preventDefault();
     setIsDrawing(true);
-    
+
     const canvas = canvasRef.current;
     if (!canvas) return;
 
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
+    // On the very first stroke, wipe the placeholder text so it doesn't get
+    // baked into the captured signatureData PNG.
+    if (!hasSignature) {
+      ctx.clearRect(0, 0, 400, 150);
+    }
+
     const coords = getCanvasCoordinates(e.clientX, e.clientY);
     lastPointRef.current = coords;
-    
+
     ctx.beginPath();
     ctx.moveTo(coords.x, coords.y);
-  }, [disabled, isLocked, getCanvasCoordinates]);
+  }, [disabled, isLocked, hasSignature, getCanvasCoordinates]);
 
   const draw = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     if (!isDrawing || disabled || isLocked || !lastPointRef.current) return;
