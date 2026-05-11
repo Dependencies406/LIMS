@@ -613,8 +613,14 @@ export class PdfTemplateRenderer {
    */
   private formatDate(date: Date | string | undefined | null, format: string | undefined): string {
     if (!date) return '';
-    
-    const dateObj = date instanceof Date ? date : new Date(date);
+
+    // Handle Firestore Timestamp objects (have a toDate() method)
+    const rawDate: any = date;
+    if (rawDate && typeof rawDate.toDate === 'function') {
+      return this.formatDate(rawDate.toDate() as Date, format);
+    }
+
+    const dateObj = date instanceof Date ? date : new Date(date as string);
     if (isNaN(dateObj.getTime())) return String(date); // Invalid date, return as-is
 
     if (!format) {

@@ -267,8 +267,8 @@ class DataSourceDiscovery {
     });
     this.addLegacyDataSource({
       key: 'signature.date',
-      label: 'Signature Date',
-      description: 'Signature date',
+      label: 'Signature Date (Staff)',
+      description: 'Staff signature date — resolves to workAuthorization.staffSignature.signedDate',
       category: 'Signature',
       type: 'date',
     });
@@ -556,5 +556,18 @@ export function getDataSourceDiscovery(): DataSourceDiscovery {
     discoveryInstance = new DataSourceDiscovery();
   }
   return discoveryInstance;
+}
+
+/** Force-reset the singleton (used by HMR and tests). */
+export function resetDiscovery(): void {
+  discoveryInstance = null;
+}
+
+// Vite HMR: reset the singleton whenever this module or any section module is reloaded,
+// so the next getDataSourceDiscovery() call picks up updated section data sources.
+if (import.meta.hot) {
+  import.meta.hot.accept(() => {
+    resetDiscovery();
+  });
 }
 

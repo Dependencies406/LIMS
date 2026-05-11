@@ -282,6 +282,14 @@ export class PdfDataResolver {
       return this.getNestedValue(obj, 'equipment.calibrationDate', equipmentIndex);
     }
 
+    // Handle legacy signature.date → staff signature signed date
+    if (path === 'signature.date') {
+      const sig = obj?.workAuthorization?.staffSignature;
+      if (!sig) return undefined;
+      // Normalise Firestore Timestamp → JS Date so the renderer can format it
+      return typeof sig.signedDate?.toDate === 'function' ? sig.signedDate.toDate() : sig.signedDate;
+    }
+
     // Standard dot notation (for paths like measurements.data, this will access obj.measurements.data)
     const keys = path.split('.');
     let current = obj;
