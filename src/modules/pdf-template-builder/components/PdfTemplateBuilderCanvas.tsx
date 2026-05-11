@@ -17,6 +17,8 @@ export interface PdfTemplateBuilderCanvasProps {
   zoom?: number;
   onElementSelect?: (elementId: string | null, multiSelect?: boolean) => void;
   onElementMove?: (elementId: string, x: number, y: number) => void;
+  /** Batched move for multi-element drag — called instead of onElementMove when >1 element is selected */
+  onElementsMove?: (updates: Array<{ elementId: string; x: number; y: number }>) => void;
   onElementResize?: (elementId: string, width: number, height: number) => void;
   onElementAdd?: (element: PdfElement) => void;
   onElementDelete?: (elementId: string) => void;
@@ -54,6 +56,7 @@ export const PdfTemplateBuilderCanvas: React.FC<PdfTemplateBuilderCanvasProps> =
   zoom = 1,
   onElementSelect,
   onElementMove,
+  onElementsMove,
   onElementResize,
   onElementAdd,
   onElementDelete,
@@ -63,6 +66,7 @@ export const PdfTemplateBuilderCanvas: React.FC<PdfTemplateBuilderCanvasProps> =
   const canvasRef = useRef<HTMLDivElement>(null);
   // Store callbacks in refs to avoid dependency array issues
   const onElementMoveRef = useRef(onElementMove);
+  const onElementsMoveRef = useRef(onElementsMove);
   const onElementResizeRef = useRef(onElementResize);
   // Keep zoom and onZoomChange in refs so the wheel handler is never stale
   const zoomRef = useRef(zoom);
@@ -71,8 +75,9 @@ export const PdfTemplateBuilderCanvas: React.FC<PdfTemplateBuilderCanvasProps> =
   // Update refs when callbacks/values change
   useEffect(() => {
     onElementMoveRef.current = onElementMove;
+    onElementsMoveRef.current = onElementsMove;
     onElementResizeRef.current = onElementResize;
-  }, [onElementMove, onElementResize]);
+  }, [onElementMove, onElementsMove, onElementResize]);
 
   useEffect(() => { zoomRef.current = zoom; }, [zoom]);
   useEffect(() => { onZoomChangeRef.current = onZoomChange; }, [onZoomChange]);
@@ -80,6 +85,8 @@ export const PdfTemplateBuilderCanvas: React.FC<PdfTemplateBuilderCanvasProps> =
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState<{ x: number; y: number } | null>(null);
   const [draggedElement, setDraggedElement] = useState<string | null>(null);
+  /** Initial positions of every selected element captured at drag start — used for group move. */
+  const [multiDragData, setMultiDragData] = useState<Record<string, { x: number; y: number }> | null>(null);
   const [isResizing, setIsResizing] = useState(false);
   const [resizeStart, setResizeStart] = useState<{ 
     x: number; 
@@ -158,9 +165,32 @@ export const PdfTemplateBuilderCanvas: React.FC<PdfTemplateBuilderCanvasProps> =
     setIsDragging(true);
     setDragStart({ x: mouseXCanvas - elementX, y: mouseYCanvas - elementY });
     setDraggedElement(elementId);
-  }, [elements, zoom]);
 
-  // Handle mouse move for dragging
+    // If this element is part of a multi-selection, snapshot initial positions of
+    // all selected elements so they can all move together.
+    if (selectedElementIds.length > 1 && selectedElementIds.includes(elementId)) {
+      const positions: Record<string, { x: number; y: number }> = {};
+      for (const id of selectedElementIds) {
+        const el = elements.find(e => e.id === id);
+        if (!el) continue;
+        if (el.type === 'line') {
+          const le = el as any;
+          const lx1 = le.x1 ?? el.x;
+          const ly1 = le.y1 ?? el.y;
+          const lx2 = le.x2 ?? el.x + 200;
+          const ly2 = le.y2 ?? el.y;
+          positions[id] = { x: Math.min(lx1, lx2), y: Math.min(ly1, ly2) };
+        } else {
+          positions[id] = { x: el.x, y: el.y };
+        }
+      }
+      setMultiDragData(positions);
+    } else {
+      setMultiDragData(null);
+    }
+  }, [elements, zoom, selectedElementIds]);
+
+  // Handle mouse move for dragging (single or multi-element)
   useEffect(() => {
     if (!isDragging || !dragStart || !draggedElement) return;
 
@@ -168,48 +198,65 @@ export const PdfTemplateBuilderCanvas: React.FC<PdfTemplateBuilderCanvasProps> =
       const element = elements.find(el => el.id === draggedElement);
       if (!element || !dragStart) return;
 
-      // Get canvas content container position for coordinate conversion
+      // Canvas-coordinate mouse position
       const canvasContentRect = canvasRef.current?.querySelector('.canvas-content')?.getBoundingClientRect();
-      
-      // Calculate mouse position relative to canvas content in canvas coordinates
-      // Fallback to simple calculation if canvas rect not available
       let mouseXCanvas: number;
       let mouseYCanvas: number;
-      
       if (canvasContentRect) {
         mouseXCanvas = (e.clientX - canvasContentRect.left) / zoom;
         mouseYCanvas = (e.clientY - canvasContentRect.top) / zoom;
       } else {
-        // Fallback: assume canvas is at origin (less accurate but works)
         mouseXCanvas = e.clientX / zoom;
         mouseYCanvas = e.clientY / zoom;
       }
 
-      // Calculate new position using stored offset (both in canvas coordinates)
+      // New position of the primary dragged element
       const newX = mouseXCanvas - dragStart.x;
       const newY = mouseYCanvas - dragStart.y;
 
-      // Constrain to page bounds
-      // For line elements, use width/height from bounds
-      let elementWidth = element.width || 0;
-      let elementHeight = element.height || 0;
-      
+      // ── Multi-element group drag ──────────────────────────────────────────────
+      if (multiDragData && selectedElementIds.length > 1 && selectedElementIds.includes(draggedElement)) {
+        const primaryInit = multiDragData[draggedElement];
+        if (!primaryInit) return;
+
+        // Delta from the primary element's initial position
+        const deltaX = newX - primaryInit.x;
+        const deltaY = newY - primaryInit.y;
+
+        const updates = selectedElementIds
+          .map(id => {
+            const init = multiDragData[id];
+            if (!init) return null;
+            return {
+              elementId: id,
+              x: Math.max(0, init.x + deltaX),
+              y: Math.max(0, init.y + deltaY),
+            };
+          })
+          .filter((u): u is { elementId: string; x: number; y: number } => u !== null);
+
+        onElementsMoveRef.current?.(updates);
+        return;
+      }
+
+      // ── Single-element drag ───────────────────────────────────────────────────
+      let elementWidth: number;
+      let elementHeight: number;
       if (element.type === 'line') {
         const lineEl = element as any;
-        const x1 = lineEl.x1 !== undefined ? lineEl.x1 : element.x;
-        const y1 = lineEl.y1 !== undefined ? lineEl.y1 : element.y;
-        const x2 = lineEl.x2 !== undefined ? lineEl.x2 : element.x + 200;
-        const y2 = lineEl.y2 !== undefined ? lineEl.y2 : element.y;
+        const x1 = lineEl.x1 ?? element.x;
+        const y1 = lineEl.y1 ?? element.y;
+        const x2 = lineEl.x2 ?? element.x + 200;
+        const y2 = lineEl.y2 ?? element.y;
         elementWidth = Math.abs(x2 - x1);
         elementHeight = Math.abs(y2 - y1);
       } else {
-        elementWidth = element.width || (element.type === 'text' ? 150 : 200);
-        elementHeight = element.height || (element.type === 'text' ? 30 : 100);
+        elementWidth  = element.width  || (element.type === 'text' ? 150 : 200);
+        elementHeight = element.height || (element.type === 'text' ? 30  : 100);
       }
 
-      const constrainedX = Math.max(0, Math.min(newX, pageDimensions.width - elementWidth));
+      const constrainedX = Math.max(0, Math.min(newX, pageDimensions.width  - elementWidth));
       const constrainedY = Math.max(0, Math.min(newY, pageDimensions.height - elementHeight));
-
       onElementMoveRef.current?.(draggedElement, constrainedX, constrainedY);
     };
 
@@ -217,6 +264,7 @@ export const PdfTemplateBuilderCanvas: React.FC<PdfTemplateBuilderCanvasProps> =
       setIsDragging(false);
       setDragStart(null);
       setDraggedElement(null);
+      setMultiDragData(null);
     };
 
     window.addEventListener('mousemove', handleMouseMove);
@@ -226,7 +274,7 @@ export const PdfTemplateBuilderCanvas: React.FC<PdfTemplateBuilderCanvasProps> =
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [isDragging, dragStart, draggedElement, elements, zoom, pageDimensions]);
+  }, [isDragging, dragStart, draggedElement, multiDragData, selectedElementIds, elements, zoom, pageDimensions]);
 
   // Handle resize
   const handleResizeStart = useCallback((e: React.MouseEvent, elementId: string, handle: 'nw' | 'ne' | 'sw' | 'se' | 'n' | 's' | 'w' | 'e') => {

@@ -68,6 +68,12 @@ export const PdfTemplateBuilderModal: React.FC<PdfTemplateBuilderModalProps> = (
   const canvasAreaRef = useRef<HTMLDivElement>(null);
   /** Scroll container for the Layers list — used to bring selected element into view. */
   const layersScrollRef = useRef<HTMLDivElement>(null);
+  /**
+   * Anchor element for range-selection in the Layers panel.
+   * Set on every plain/ctrl click; unchanged on shift (range) clicks.
+   * Stored in a ref so it doesn't cause extra re-renders.
+   */
+  const selectionAnchorRef = useRef<string | null>(null);
   const counterDragRef = useRef<{
     startMouseX: number;
     startMouseY: number;
@@ -312,6 +318,7 @@ export const PdfTemplateBuilderModal: React.FC<PdfTemplateBuilderModalProps> = (
   const handleElementSelect = useCallback((elementId: string | null, multiSelect?: boolean) => {
     if (!elementId) {
       setSelectedElementIds([]);
+      selectionAnchorRef.current = null;
       return;
     }
 
@@ -322,7 +329,49 @@ export const PdfTemplateBuilderModal: React.FC<PdfTemplateBuilderModalProps> = (
     } else {
       setSelectedElementIds([elementId]);
     }
+    // Keep anchor in sync for canvas clicks (so range-select from layers panel is sensible)
+    selectionAnchorRef.current = elementId;
   }, []);
+
+  /**
+   * Click handler for layer rows in the Layers panel.
+   * Plain click  → single select  (anchor = clicked)
+   * Ctrl/Cmd     → toggle         (anchor = clicked)
+   * Shift        → range from anchor to clicked (anchor unchanged)
+   * Ctrl+Shift   → same as Shift
+   */
+  const handleLayerClick = useCallback((elementId: string, isShift: boolean, isCtrl: boolean) => {
+    if (isShift) {
+      const anchorId = selectionAnchorRef.current;
+      if (!anchorId) {
+        // No anchor yet — treat as single select and set anchor
+        setSelectedElementIds([elementId]);
+        selectionAnchorRef.current = elementId;
+        return;
+      }
+      const anchorIdx  = activeElements.findIndex(el => el.id === anchorId);
+      const clickedIdx = activeElements.findIndex(el => el.id === elementId);
+      if (anchorIdx === -1) {
+        setSelectedElementIds([elementId]);
+        selectionAnchorRef.current = elementId;
+        return;
+      }
+      const lo = Math.min(anchorIdx, clickedIdx);
+      const hi = Math.max(anchorIdx, clickedIdx);
+      setSelectedElementIds(activeElements.slice(lo, hi + 1).map(el => el.id));
+      // Anchor stays at the anchor element — do NOT update selectionAnchorRef
+    } else if (isCtrl) {
+      // Toggle single element
+      setSelectedElementIds(prev =>
+        prev.includes(elementId) ? prev.filter(id => id !== elementId) : [...prev, elementId]
+      );
+      selectionAnchorRef.current = elementId;
+    } else {
+      // Plain click — single select
+      setSelectedElementIds([elementId]);
+      selectionAnchorRef.current = elementId;
+    }
+  }, [activeElements]);
 
   // When an element is selected (from canvas or elsewhere), switch to the Layers
   // tab and scroll that element's row into view automatically.
@@ -1199,9 +1248,13 @@ export const PdfTemplateBuilderModal: React.FC<PdfTemplateBuilderModalProps> = (
                               {index + 1}
                             </span>
 
-                            {/* Element Button — Shift+Click adds to / removes from selection */}
+                            {/* Element Button
+                                Plain click       → single select
+                                Shift+Click       → range select from anchor
+                                Ctrl/Cmd+Click    → toggle
+                                Ctrl+Shift+Click  → range select (same as Shift) */}
                             <button
-                              onClick={(e) => handleElementSelect(element.id, e.shiftKey || e.ctrlKey || e.metaKey)}
+                              onClick={(e) => handleLayerClick(element.id, e.shiftKey, e.ctrlKey || e.metaKey)}
                               className={`flex-1 text-left px-3 py-2 rounded-md text-xs transition-colors flex items-center gap-2 ${
                                 selectedElementIds.includes(element.id)
                                   ? 'bg-blue-50 text-blue-900'
@@ -1245,6 +1298,7 @@ export const PdfTemplateBuilderModal: React.FC<PdfTemplateBuilderModalProps> = (
               zoom={zoom}
               onElementSelect={handleElementSelect}
               onElementMove={handleElementMove}
+              onElementsMove={handleElementsMove}
               onElementResize={handleElementResize}
               onElementDelete={handleElementDelete}
               onZoomChange={(newZoom) => setZoom(Math.min(3, Math.max(0.25, newZoom)))}
