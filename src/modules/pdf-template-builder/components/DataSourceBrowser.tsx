@@ -23,9 +23,11 @@ export const DataSourceBrowser: React.FC<DataSourceBrowserProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
+  // Re-read the singleton on every render so HMR-updated data sources are always current.
+  // getDataSourceDiscovery() returns the singleton (or builds a fresh one after resetDiscovery()).
   const discovery = getDataSourceDiscovery();
-  const categories = discovery.getCategories();
-  const dataSourcesByCategory = discovery.getDataSourcesByCategory();
+  const categories = useMemo(() => discovery.getCategories(), [discovery]);
+  const dataSourcesByCategory = useMemo(() => discovery.getDataSourcesByCategory(), [discovery]);
 
   // Filter data sources
   const filteredDataSources = useMemo(() => {

@@ -4,7 +4,7 @@
  */
 
 import type { DataSourceItem } from '../modules/pdf-template-builder/types';
-import { sections } from '../modules/pdf-template-builder/components/sections';
+import { getAllSections } from '../modules/pdf-template-builder/sectionRegistry';
 
 class DataSourceDiscovery {
   private dataSources: Map<string, DataSourceItem> = new Map();
@@ -35,7 +35,9 @@ class DataSourceDiscovery {
     }
 
     // Initialize from section definitions
-    sections.forEach(section => {
+    // Call getAllSections() at init time (not a pre-snapshotted import) so any
+    // HMR-triggered registry update is picked up when the singleton rebuilds.
+    getAllSections().forEach(section => {
       section.dataSources.forEach(ds => {
         this.addSectionDataSource(section.id, {
           key: ds.key,
@@ -519,17 +521,18 @@ class DataSourceDiscovery {
    */
   getDataSourcesBySection(): Map<string, DataSourceItem[]> {
     const bySection = new Map<string, DataSourceItem[]>();
-    
+
     for (const item of this.dataSources.values()) {
-      const sectionId = this.sectionMap.get(item.key);
-      if (sectionId) {
+      const sectionIds = this.sectionMap.get(item.key); // Set<string> | undefined
+      if (!sectionIds) continue;
+      for (const sectionId of sectionIds) {
         if (!bySection.has(sectionId)) {
           bySection.set(sectionId, []);
         }
         bySection.get(sectionId)!.push(item);
       }
     }
-    
+
     return bySection;
   }
 
@@ -537,7 +540,7 @@ class DataSourceDiscovery {
    * Get section information
    */
   getSections() {
-    return sections.map(s => ({
+    return getAllSections().map(s => ({
       id: s.id,
       name: s.name,
       icon: s.icon,
