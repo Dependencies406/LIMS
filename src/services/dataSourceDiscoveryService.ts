@@ -5,6 +5,10 @@
 
 import type { DataSourceItem } from '../modules/pdf-template-builder/types';
 import { getAllSections } from '../modules/pdf-template-builder/sectionRegistry';
+// Side-effect import: forces sections/index.ts to execute and call registerSection()
+// for every section before getAllSections() is first called in initializeDataSources().
+// Without this, the registry is empty and no data sources appear in the browser.
+import '../modules/pdf-template-builder/components/sections';
 
 class DataSourceDiscovery {
   private dataSources: Map<string, DataSourceItem> = new Map();
