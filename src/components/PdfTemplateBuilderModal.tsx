@@ -326,9 +326,11 @@ export const PdfTemplateBuilderModal: React.FC<PdfTemplateBuilderModalProps> = (
 
   // When an element is selected (from canvas or elsewhere), switch to the Layers
   // tab and scroll that element's row into view automatically.
+  // For multi-select we scroll to the last element in the array (most recently
+  // added / toggled) so the user sees the element they just interacted with.
   useEffect(() => {
     if (selectedElementIds.length === 0) return;
-    const firstId = selectedElementIds[0];
+    const targetId = selectedElementIds[selectedElementIds.length - 1];
 
     // Switch to layers tab so the user can see the row
     setActiveLeftSidebarTab('layers');
@@ -336,7 +338,7 @@ export const PdfTemplateBuilderModal: React.FC<PdfTemplateBuilderModalProps> = (
     // Defer scroll by one tick so the tab content has rendered
     requestAnimationFrame(() => {
       const row = layersScrollRef.current?.querySelector<HTMLElement>(
-        `[data-element-id="${firstId}"]`
+        `[data-element-id="${targetId}"]`
       );
       row?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     });
@@ -1197,9 +1199,9 @@ export const PdfTemplateBuilderModal: React.FC<PdfTemplateBuilderModalProps> = (
                               {index + 1}
                             </span>
 
-                            {/* Element Button */}
+                            {/* Element Button — Shift+Click adds to / removes from selection */}
                             <button
-                              onClick={() => handleElementSelect(element.id)}
+                              onClick={(e) => handleElementSelect(element.id, e.shiftKey || e.ctrlKey || e.metaKey)}
                               className={`flex-1 text-left px-3 py-2 rounded-md text-xs transition-colors flex items-center gap-2 ${
                                 selectedElementIds.includes(element.id)
                                   ? 'bg-blue-50 text-blue-900'

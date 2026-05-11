@@ -21,6 +21,8 @@ export interface PdfTemplateBuilderCanvasProps {
   onElementAdd?: (element: PdfElement) => void;
   onElementDelete?: (elementId: string) => void;
   onBackgroundPdfChange?: (pdfUrl: string | null) => void;
+  /** Called when the user Ctrl+Scrolls over the canvas so the parent can update zoom state */
+  onZoomChange?: (zoom: number) => void;
 }
 
 /**
@@ -56,17 +58,24 @@ export const PdfTemplateBuilderCanvas: React.FC<PdfTemplateBuilderCanvasProps> =
   onElementAdd,
   onElementDelete,
   onBackgroundPdfChange,
+  onZoomChange,
 }) => {
   const canvasRef = useRef<HTMLDivElement>(null);
   // Store callbacks in refs to avoid dependency array issues
   const onElementMoveRef = useRef(onElementMove);
   const onElementResizeRef = useRef(onElementResize);
-  
-  // Update refs when callbacks change
+  // Keep zoom and onZoomChange in refs so the wheel handler is never stale
+  const zoomRef = useRef(zoom);
+  const onZoomChangeRef = useRef(onZoomChange);
+
+  // Update refs when callbacks/values change
   useEffect(() => {
     onElementMoveRef.current = onElementMove;
     onElementResizeRef.current = onElementResize;
   }, [onElementMove, onElementResize]);
+
+  useEffect(() => { zoomRef.current = zoom; }, [zoom]);
+  useEffect(() => { onZoomChangeRef.current = onZoomChange; }, [onZoomChange]);
   
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState<{ x: number; y: number } | null>(null);
@@ -89,7 +98,8 @@ export const PdfTemplateBuilderCanvas: React.FC<PdfTemplateBuilderCanvasProps> =
   const handleElementClick = useCallback((e: React.MouseEvent, elementId: string) => {
     e.stopPropagation();
     // Don't preventDefault - we want normal mouse behavior for dragging
-    const multiSelect = e.ctrlKey || e.metaKey;
+    // Ctrl / Cmd / Shift all trigger multi-select (Shift is the primary UX)
+    const multiSelect = e.ctrlKey || e.metaKey || e.shiftKey;
     onElementSelect?.(elementId, multiSelect);
   }, [onElementSelect]);
 
@@ -301,6 +311,25 @@ export const PdfTemplateBuilderCanvas: React.FC<PdfTemplateBuilderCanvasProps> =
     };
   }, [isResizing, resizeStart, resizedElement, zoom]);
 
+  // Intercept Ctrl+Scroll over the canvas to zoom the canvas instead of the browser
+  useEffect(() => {
+    const el = canvasRef.current;
+    if (!el) return;
+
+    const handleWheel = (e: WheelEvent) => {
+      if (!e.ctrlKey) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const delta = -e.deltaY * 0.001;
+      const newZoom = Math.min(3, Math.max(0.25, zoomRef.current + delta));
+      const rounded = Math.round(newZoom * 100) / 100;
+      onZoomChangeRef.current?.(rounded);
+    };
+
+    el.addEventListener('wheel', handleWheel, { passive: false });
+    return () => el.removeEventListener('wheel', handleWheel);
+  }, []); // attach once — handler reads from refs
+
   // Handle keyboard delete
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -326,22 +355,53 @@ export const PdfTemplateBuilderCanvas: React.FC<PdfTemplateBuilderCanvasProps> =
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [selectedElementIds, isDragging, isResizing, onElementDelete]);
 
+  const CANVAS_PADDING = 48;
+  const scaledW = pageDimensions.width * zoom;
+  const scaledH = pageDimensions.height * zoom;
+
   return (
     <div
       ref={canvasRef}
-      className="pdf-template-canvas relative overflow-auto"
+      className="pdf-template-canvas overflow-auto"
       style={{ width: '100%', height: '100%', backgroundColor: '#F3F4F6' }}
       onClick={handleCanvasClick}
     >
-      {/* Canvas content container - Centered */}
-      <div className="flex items-center justify-center min-h-full p-8">
+      {/*
+        Outer wrapper: sets the true visual size so the scroll container knows
+        how big the scaled page really is. Using `top left` transform-origin
+        means the page grows toward bottom-right, matching the top-left anchor.
+      */}
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'flex-start',
+          minWidth: `${scaledW + CANVAS_PADDING * 2}px`,
+          minHeight: `${scaledH + CANVAS_PADDING * 2}px`,
+          padding: `${CANVAS_PADDING}px`,
+          boxSizing: 'border-box',
+        }}
+      >
+        {/* Size placeholder — occupies the scaled footprint so scroll is correct */}
         <div
-          className="canvas-content relative bg-white"
           style={{
+            width: `${scaledW}px`,
+            height: `${scaledH}px`,
+            position: 'relative',
+            flexShrink: 0,
+          }}
+        >
+        {/* Actual canvas content — lives at natural size, scaled with top-left origin */}
+        <div
+          className="canvas-content bg-white"
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
             width: `${pageDimensions.width}px`,
             height: `${pageDimensions.height}px`,
             transform: `scale(${zoom})`,
-            transformOrigin: 'center center',
+            transformOrigin: 'top left',
             boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
           }}
         >
@@ -601,7 +661,8 @@ export const PdfTemplateBuilderCanvas: React.FC<PdfTemplateBuilderCanvasProps> =
           );
         })}
         </div>
-      </div>
+        </div> {/* /size-placeholder */}
+      </div>   {/* /outer-wrapper */}
     </div>
   );
 };
