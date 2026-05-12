@@ -3145,6 +3145,8 @@ export class PdfTemplateRenderer {
         ...job.workAuthorization.technicalReviewerSignature,
         signerName: job.workAuthorization.technicalReviewerSignature.signerName || '',
       } : undefined,
+      // Flat name alias — resolves workAuthorization.technicalReviewerName
+      technicalReviewerName: job.workAuthorization.technicalReviewerSignature?.signerName || '',
       // ── Computed item-condition booleans ──────────────────────────────────────
       // itemsConditionOnReceipt is a string enum; these boolean aliases let
       // checkbox elements bind without a conditional expression.

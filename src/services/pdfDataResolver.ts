@@ -282,6 +282,11 @@ export class PdfDataResolver {
       return this.getNestedValue(obj, 'equipment.calibrationDate', equipmentIndex);
     }
 
+    // Handle workAuthorization.technicalReviewerName → signerName on the signature object
+    if (path === 'workAuthorization.technicalReviewerName') {
+      return obj?.workAuthorization?.technicalReviewerSignature?.signerName || '';
+    }
+
     // Handle legacy signature.date → staff signature signed date
     if (path === 'signature.date') {
       const sig = obj?.workAuthorization?.staffSignature;

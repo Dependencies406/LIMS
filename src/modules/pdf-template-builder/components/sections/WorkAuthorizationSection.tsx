@@ -187,4 +187,5 @@ export const workAuthorizationSectionDataSources = [
   { key: 'workAuthorization.staffSignature.signerName', label: 'Staff Signer Name', type: 'text', category: 'Authorization' },
   { key: 'workAuthorization.technicalReviewerSignature', label: 'Technical Reviewer Signature (Image)', type: 'image', category: 'Authorization' },
   { key: 'workAuthorization.technicalReviewerSignature.signedDate', label: 'Technical Reviewer Signature Date', type: 'date', category: 'Authorization' },
+  { key: 'workAuthorization.technicalReviewerName', label: 'Technical Reviewer Name', type: 'text', category: 'Authorization' },
 ];
