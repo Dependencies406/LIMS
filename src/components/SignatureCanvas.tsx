@@ -432,7 +432,7 @@ export const SignatureCanvas: React.FC<SignatureCanvasProps> = ({
               <img
                 src={value.signatureData}
                 alt="Uploaded signature"
-                className="w-full h-32 object-contain rounded"
+                className="block mx-auto max-w-full rounded"
               />
               {!disabled && (
                 <button
