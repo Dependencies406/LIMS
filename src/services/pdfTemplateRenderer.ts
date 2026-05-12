@@ -960,17 +960,33 @@ export class PdfTemplateRenderer {
       }
       
       // Calculate dimensions
-      let width = element.width || 100;
-      let height = element.height || 100;
+      const elW = element.width || 100;
+      const elH = element.height || 100;
 
-      // Maintain aspect ratio if specified
-      if (element.maintainAspect && imageData) {
-        // For now, use provided dimensions
-        // TODO: Calculate actual aspect ratio from image dimensions
+      // Maintain aspect ratio: scale the image to fit inside the element bounds
+      // (object-fit: contain) and centre it. Always applied for signature data
+      // (DigitalSignature objects) even if maintainAspect is not explicitly set.
+      const isSignature =
+        typeof imageValue === 'object' &&
+        imageValue !== null &&
+        (imageValue as any).signatureData;
+
+      if (element.maintainAspect || isSignature) {
+        const naturalDims = await this.getImageNaturalDimensions(imageData);
+        if (naturalDims) {
+          const scale = Math.min(elW / naturalDims.width, elH / naturalDims.height);
+          const scaledW = naturalDims.width * scale;
+          const scaledH = naturalDims.height * scale;
+          // Centre within the element bounding box
+          const offsetX = (elW - scaledW) / 2;
+          const offsetY = (elH - scaledH) / 2;
+          pdf.addImage(imageData, 'PNG', element.x + offsetX, element.y + offsetY, scaledW, scaledH);
+          return;
+        }
       }
 
-      // Add image to PDF
-      pdf.addImage(imageData, 'PNG', element.x, element.y, width, height);
+      // Default: fill the element bounds exactly
+      pdf.addImage(imageData, 'PNG', element.x, element.y, elW, elH);
     } catch (error) {
       console.error('Failed to render image:', error);
       if (options.showMissingDataAsNA) {
@@ -3294,6 +3310,21 @@ export class PdfTemplateRenderer {
       };
       
       img.src = url;
+    });
+  }
+
+  /**
+   * Return the natural (intrinsic) pixel dimensions of a base64/data-URL image.
+   * Returns null on failure so callers can fall back to element dimensions.
+   */
+  private getImageNaturalDimensions(
+    dataUrl: string
+  ): Promise<{ width: number; height: number } | null> {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight });
+      img.onerror = () => resolve(null);
+      img.src = dataUrl;
     });
   }
 
