@@ -1,18 +1,20 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { PdfSettingsProvider } from './contexts/PdfSettingsContext';
 import { CompanyInfoProvider } from './contexts/CompanyInfoContext';
 import { LoginPage } from './components/LoginPage';
 import { Layout } from './components/Layout';
 import { JobsPage } from './pages/JobsPage';
 import { CustomersPage } from './pages/CustomersPage';
 import { SettingsPage } from './pages/SettingsPage';
-import { PendingJobsPage } from './pages/PendingJobsPage';
-import { DocumentIndexPage } from './pages/DocumentIndexPage';
-import { StaffPerformanceDashboard } from './pages/StaffPerformanceDashboard';
-import { RecycleBinPage } from './pages/RecycleBinPage';
-import { PublicServiceRequestPage } from './pages/PublicServiceRequestPage';
-import JobDetailPage from './pages/JobDetailPage';
+import { EquipmentDashboardPage } from './pages/equipment/EquipmentDashboardPage';
+import { RegistrationWizardPage } from './pages/equipment/RegistrationWizardPage';
+import { EquipmentDetailPage } from './pages/equipment/EquipmentDetailPage';
+import { UsageLogNewPage } from './pages/equipment/UsageLogNewPage';
+import { UsageLogHistoryPage } from './pages/equipment/UsageLogHistoryPage';
+import { CalibrationPlanPage } from './pages/equipment/CalibrationPlanPage';
+import { RetirementPage } from './pages/equipment/RetirementPage';
 import { ToastContainer } from './components/Toast';
 import { useToast } from './hooks/useToast';
 import './index.css';
@@ -69,7 +71,6 @@ const AppContent: React.FC = () => {
       <Routes>
         {/* Public Routes */}
         <Route path="/login" element={<LoginPage />} />
-        <Route path="/request-service" element={<PublicServiceRequestPage />} />
 
         {/* Protected Routes with Layout */}
         <Route
@@ -85,22 +86,19 @@ const AppContent: React.FC = () => {
           
           {/* Jobs Page */}
           <Route path="jobs" element={<JobsPage />} />
-          <Route path="jobs/:jobId" element={<JobDetailPage />} />
-
-          {/* Pending Service Requests */}
-          <Route path="pending-jobs" element={<PendingJobsPage />} />
           
           {/* Customers Page */}
           <Route path="customers" element={<CustomersPage />} />
-
-          <Route path="staff-performance" element={<StaffPerformanceDashboard />} />
-
-          {/* Documents Index */}
-          <Route path="documents" element={<DocumentIndexPage />} />
-
-          {/* Recycle Bin */}
-          <Route path="recycle-bin" element={<RecycleBinPage />} />
           
+          {/* Equipment Control Module */}
+          <Route path="equipment" element={<EquipmentDashboardPage />} />
+          <Route path="equipment/new" element={<RegistrationWizardPage />} />
+          <Route path="equipment/calibration-plan" element={<CalibrationPlanPage />} />
+          <Route path="equipment/:id" element={<EquipmentDetailPage />} />
+          <Route path="equipment/:id/usage-log/new" element={<UsageLogNewPage />} />
+          <Route path="equipment/:id/usage-log" element={<UsageLogHistoryPage />} />
+          <Route path="equipment/:id/retire" element={<RetirementPage />} />
+
           {/* Settings Page (Admin Only) */}
           <Route
             path="settings"
@@ -124,9 +122,11 @@ function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <CompanyInfoProvider>
-          <AppContent />
-        </CompanyInfoProvider>
+        <PdfSettingsProvider>
+          <CompanyInfoProvider>
+            <AppContent />
+          </CompanyInfoProvider>
+        </PdfSettingsProvider>
       </AuthProvider>
     </BrowserRouter>
   );

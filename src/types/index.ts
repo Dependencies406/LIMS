@@ -30,6 +30,7 @@ export interface Role {
 
 export type RoleInput = Omit<Role, 'id' | 'createdAt' | 'updatedAt'>;
 
+
 export interface User {
   uid: string;
   email: string;
@@ -37,7 +38,7 @@ export interface User {
   firstName: string;
   lastName: string;
   position?: string;
-  role: string; // 'admin' | custom role id
+  role: 'admin' | 'staff';
   lastLogin?: Date;
   createdAt?: Date;
   updatedAt?: Date;
@@ -79,29 +80,21 @@ export interface EquipmentSpreadsheetData {
   [key: string]: unknown;
 }
 
+// Item Details Types
 export interface Equipment {
   no?: number;
   name: string;
   manufacturer: string;
   model: string;
   serialNumber: string;
-  /** Customer asset tag / internal ID (separate from serial number). */
-  assetTag?: string;
   calibrationPoint: string;
   calibrationMethods: string;
   accessories: string;
   machineLocation: string;
   remark: string;
-  calibrationDate?: string;
-  unit?: string;
-  resolution?: string;
-  certificateNumber?: string;
-  spreadsheetData?: EquipmentSpreadsheetData;
-  attachments?: EquipmentAttachment[];
 }
 
-// ─── Customer Types ───────────────────────────────────────────────────────────
-
+// Customer Types
 export interface Customer {
   id: string;
   customerCode: string;
@@ -115,8 +108,7 @@ export interface Customer {
   updatedAt: Date;
 }
 
-// ─── File Attachment Types ────────────────────────────────────────────────────
-
+// File Attachment Types
 export interface FileAttachment {
   id: string;
   name: string;
@@ -127,244 +119,275 @@ export interface FileAttachment {
   uploadedBy: string;
 }
 
-// ─── Service Information Types ────────────────────────────────────────────────
-
+// Service Information Types
 export interface ServiceInformation {
-  serviceRequested: 'Calibration' | string;
+  serviceRequested: 'Calibration' | string; // Allow for future services
+  reportingFormat: 'Standard' | 'Simplified Report' | 'Electronic File' | 'Other';
+  reportingFormatOther?: string; // Text input when "Other" is selected
   statementOfConformity: 'Required' | 'Not required';
-  statementOfConformityRequirements?: string;
-  /** Customer-specified decision rule (required when Statement of Conformity is Required). */
-  decisionRule?: string;
-  /** Optional uploaded PDF (e.g. signed paper or reference) for statement of conformity */
-  statementOfConformityReferencePdf?: FileAttachment;
+  statementOfConformityRequirements?: string; // Text input when "Required" is selected
 }
 
-// ─── Digital Signature Types ──────────────────────────────────────────────────
-
+// Digital Signature Types
 export interface DigitalSignature {
-  signatureData: string;
+  signatureData: string; // Base64 encoded signature image
   signerName: string;
   signedDate: Date;
 }
 
-// ─── Work Authorization Types ─────────────────────────────────────────────────
-
+// Work Authorization Types
 export interface WorkAuthorization {
-  workAuthorizationStatement: string;
+  // Customer Authorization
+  workAuthorizationStatement: string; // Editable text for authorization statement
   customerSignature?: DigitalSignature;
+  
+  // Request Review (Laboratory Use Only)
   itemsConditionOnReceipt: 'Acceptable' | 'Damaged or altered' | 'Improper storage/transportation conditions' | 'Insufficient quantity' | 'Other issues';
-  itemsConditionSpecification?: string;
+  itemsConditionSpecification?: string; // Text when specific conditions are selected
+  
   laboratoryCapabilityAssessment: 'Full capability' | 'Partial capability' | 'Lacks capability';
-  capabilitySpecification?: string;
-  /** Paper-style checklist (Laboratory use only) */
-  preWorkChecklist?: {
-    capabilityResourcesAvailable?: boolean;
-    methodAppropriateValidatedUpToDate?: boolean;
-    equipmentConditionChecked?: boolean;
-    customerRequirementsUnderstood?: boolean;
-  };
+  capabilitySpecification?: string; // Text when limitations are specified
+  
   staffSignature?: DigitalSignature;
-  /** Laboratory technical review (separate from received-by / staff intake signature) */
-  technicalReviewerSignature?: DigitalSignature;
 }
 
-// ─── Job Types ────────────────────────────────────────────────────────────────
-
-export type JobStatus = 'Pending' | 'Proceeding' | 'In Progress' | 'Completed' | 'Halt' | 'Superseded' | 'Void';
-
+// Job Types
 export interface Job {
   id: string;
   jobId: string;
   title: string;
-  status: JobStatus;
+  status: 'Pending' | 'In Progress' | 'Completed' | 'Halt';
   customerCode: string;
   customerName?: string;
   customerAddress?: string;
-  customerContact: string;
+  customerContact: string; // Contact person name (required)
   customerPhone?: string;
   customerEmail?: string;
   assignedStaff?: string;
   equipment: Equipment[];
   startDate?: string;
-  receivedDate?: string;
-  /** Scheduled/confirmed calibration appointment date (Service Request Form). */
-  appointmentDate?: string;
-  expectedFinishDate?: string;
-  completedDate?: string;
-  /** Purchase order number when the job is confirmed by PO instead of a signed request */
-  poNumber?: string;
+  scheduleDate?: string; // Renamed from dueDate
   comments?: string;
-  serviceInformation?: ServiceInformation;
-  workAuthorization?: WorkAuthorization;
+  serviceInformation?: ServiceInformation; // New service information section
+  workAuthorization?: WorkAuthorization; // Work authorization section
   attachments?: FileAttachment[];
-  signatures?: { customer?: string; staff?: string };
-  certificateNumber?: string;
-  parentJobId?: string;
-  isDeleted?: boolean;
-  deletedAt?: Date;
-  deletedBy?: string;
+  signatures?: {
+    customer?: string;
+    staff?: string;
+  };
   createdAt: Date;
   updatedAt: Date;
   createdBy: string;
 }
 
-export type JobInput = Omit<Job, 'id' | 'createdAt' | 'updatedAt'>;
+// ─── Equipment Control Module Types ────────────────────────────────────────
 
-// ─── Audit Trail Types ────────────────────────────────────────────────────────
+export type EquipmentStatus =
+  | 'active'
+  | 'due_soon'
+  | 'overdue'
+  | 'calibration'
+  | 'out_of_service'
+  | 'pending'
+  | 'retired';
 
-export interface AuditTrailEntry {
-  id: string;
-  action: string;
-  performedBy: string;
-  performedByName?: string;
-  timestamp: Date;
-  details?: Record<string, unknown>;
-}
-
-// ─── Job Logging Types ────────────────────────────────────────────────────────
-
-export interface JobActionLog {
-  id: string;
-  jobId: string;
-  action: string;
-  performedBy: string;
-  performedByName?: string;
-  timestamp: Date;
-  details?: Record<string, unknown>;
-}
-
-export interface JobAssignmentLog {
-  id: string;
-  jobId: string;
-  assignedTo: string;
-  assignedBy: string;
-  assignedAt: Date;
-  previousAssignee?: string;
-}
-
-// ─── Service Request Types ────────────────────────────────────────────────────
-
-/** One line item on the customer service request form (maps to job equipment on conversion). */
-export interface ServiceRequestEquipment {
+export interface EquipmentRecord {
+  id: string;                      // CAL-AAA-NNN
   name: string;
+  category: string;                // AAA code, e.g. FRC, TMP
   manufacturer: string;
   model: string;
-  capacity: string;
   serialNumber: string;
-  calibrationPoint: string;
-  note: string;
-  /** Calibration procedure / method(s) requested */
-  calibrationMethods?: string;
-  unit?: string;
-  resolution?: string;
-  /** Customer asset / ID tag number */
-  assetTag?: string;
-  /** Maps to job equipment `accessories` */
-  accessories?: string;
-  /** Maps to job equipment `machineLocation` */
-  machineLocation?: string;
-  /** Maps to job equipment `calibrationDate` (ISO yyyy-mm-dd) */
-  calibrationDate?: string;
-  /** Optional; lab may re-issue on the job */
+  location: string;
+  status: EquipmentStatus;
+  custodian: string;               // email
+  custodianName?: string;
+  authorizedUsers: string[];       // emails
+  requiresCalibration: boolean;
+  calibrationInterval?: number;    // months
+  calibrationProcedure?: string;
+  externalProvider: boolean;
+  usagePeriodStart?: string;
+  usagePeriodEnd?: string;
+  registrationDate: string;        // ISO date
+  lastCalibrationDate?: string;
+  nextCalibrationDate?: string;
+  notes?: string;
+  createdAt: Date;
+  updatedAt: Date;
+  createdBy: string;
+}
+
+export interface UsageLog {
+  id: string;
+  equipmentId: string;
+  date: string;                    // ISO date
+  operator: string;                // email
+  operatorName: string;
+  // Section B
+  visualInspection: 'pass' | 'fail';
+  functionalCheck: 'pass' | 'fail';
+  documentCheck: 'valid' | 'expired' | 'na';
+  refValuesVerified?: boolean;
+  correctionValue?: string;
+  // Section C
+  equipmentCondition: 'normal' | 'abnormal';
+  abnormalDetails?: string;
+  actionTaken?: string;
+  // Section D
+  notes?: string;
+  overallResult: 'pass' | 'fail';
+  createdAt: Date;
+}
+
+export interface CalibrationEvent {
+  id: string;
+  equipmentId: string;
+  sentDate: string;
+  receivedDate?: string;
+  calibrationLab: string;
   certificateNumber?: string;
-}
-
-/**
- * Customer service request (intake). Stored in Firestore `serviceRequests`.
- * Field set aligned with job `ServiceInformation` + equipment table on ISO-style forms.
- */
-export interface ServiceRequest {
-  id: string;
-  customerCompanyName: string;
-  /** Set when the customer is chosen from the directory (matches job `customerCode`) */
-  customerCode?: string;
-  /** @deprecated legacy field name */
-  customerName?: string;
-  address: string;
-  contactName: string;
-  email: string;
-  phoneNumber: string;
-  fax?: string;
-  equipment: ServiceRequestEquipment[];
-  /** Same structure as job service section (reporting format, statement of conformity, etc.) */
-  serviceInformation?: ServiceInformation;
-  /** Customer PO, work order, or reference */
-  customerReference?: string;
-  /**
-   * Request calibration date (ISO yyyy-mm-dd from date input).
-   * On convert to job, maps to job `appointmentDate`.
-   */
-  requestedCalibrationDate?: string;
-  /** @deprecated Legacy Firestore field; use `requestedCalibrationDate` when reading */
-  requestedCompletionDate?: string;
-  /** General remarks / special instructions */
-  generalRemarks?: string;
-  status: 'Pending' | 'Converted' | 'Cancelled';
-  /** Firestore field when converted to a job */
-  convertedToJobId?: string;
-  /** @deprecated use convertedToJobId — kept for older documents */
-  convertedJobId?: string;
-  cancelReason?: string;
-  submittedAt?: Date;
+  result?: 'pass' | 'fail';
+  conditionBeforeSend?: string;
+  conditionAfterReceive?: string;
+  notes?: string;
   createdAt: Date;
-  updatedAt: Date;
-  createdBy?: string;
+  createdBy: string;
 }
 
-export type ServiceRequestInput = Omit<ServiceRequest, 'id' | 'createdAt' | 'updatedAt' | 'status'>;
-
-// ─── Staff Performance Types ──────────────────────────────────────────────────
-
-export interface StaffPerformanceMetrics {
-  userId: string;
-  userName: string;
-  totalAssigned: number;
-  completed: number;
-  inProgress: number;
-  overdue: number;
-  onTimeCompletionRate: number;
-  averageCompletionDays?: number;
-  jobIds?: string[];
+export interface EquipmentDocument {
+  id: string;
+  equipmentId: string;
+  docType: 'verification' | 'registration' | 'spec_sheet' | 'certificate' | 'cal_plan' | 'retirement';
+  name: string;
+  size: number;
+  type: string;
+  url: string;
+  uploadedAt: Date;
+  uploadedBy: string;
 }
 
-// ─── ID Settings Types ────────────────────────────────────────────────────────
+// ─── end Equipment Control ──────────────────────────────────────────────────
 
+// PDF Settings Types
+export interface FieldVisibility {
+  [key: string]: {
+    visible: boolean;
+    label?: string;
+  };
+}
+
+export interface PdfSettings {
+  version?: number;
+  templateName: string;
+  pageSize: 'A4' | 'Letter';
+  orientation: 'portrait' | 'landscape';
+  layout: 'traditional' | 'grid';
+  fontSize: {
+    title: number;
+    heading: number;
+    body: number;
+    small: number;
+    header: number;
+    footer: number;
+  };
+  margin: {
+    top: number;
+    right: number;
+    bottom: number;
+    left: number;
+  };
+  fieldVisibility: FieldVisibility;
+  jobTableColumns: {
+    jobId: boolean;
+    title: boolean;
+    customer: boolean;
+    status: boolean;
+    equipment: boolean;
+    scheduleDate: boolean; // Renamed from dueDate
+    created: boolean;
+    assignedStaff: boolean;
+    startDate: boolean;
+  };
+  equipmentTableColumns: {
+    no: boolean;
+    name: boolean;
+    manufacturer: boolean;
+    model: boolean;
+    serialNumber: boolean;
+    calibrationPoint: boolean;
+    calibrationMethods: boolean;
+    accessories: boolean;
+    machineLocation: boolean;
+    remark: boolean;
+  };
+  serviceInformationVisibility: {
+    serviceRequested: boolean;
+    reportingFormat: boolean;
+    statementOfConformity: boolean;
+    statementOfConformityRequirements: boolean;
+  };
+  workAuthorizationVisibility: {
+    workAuthorizationStatement: boolean;
+    customerSignature: boolean;
+    itemsConditionOnReceipt: boolean;
+    laboratoryCapabilityAssessment: boolean;
+    staffSignature: boolean;
+  };
+  workAuthorizationStatement: string; // Editable authorization statement
+  sectionHeaders: {
+    jobInformation: string;
+    serviceInformation: string;
+    workAuthorization: string;
+    equipment: string;
+    comments: string;
+  };
+  showLogo: boolean;
+  showHeader: boolean;
+  showFooter: boolean;
+  showTableBorders: boolean;
+  logoSize: {
+    maxHeight: number;
+    maxWidth: number;
+  };
+  headerContent: {
+    left: string;
+    center: string;
+    right: string;
+  };
+  footerContent: {
+    left: string;
+    center: string;
+    right: string;
+  };
+}
+
+// Modal Types
+export type ModalType = 'JobFormModal' | 'CustomerModal' | 'CompleteJobModal' | 'SettingsModal';
+
+// Toast Types
+export interface Toast {
+  id: string;
+  message: string;
+  type: 'success' | 'error' | 'info' | 'warning';
+  duration?: number;
+}
+
+// Job ID Settings Types
 export interface JobIdSettings {
-  organizationPrefix: string;
-  jobTypePrefix: string;
-  currentYear: number;
-  currentSequence: number;
-  yearlyReset: boolean;
+  organizationPrefix: string;  // e.g., "CPN"
+  jobTypePrefix: string;       // e.g., "CAL"
+  currentYear: number;         // e.g., 2025 (will show as "25")
+  currentSequence: number;     // e.g., 1 (will show as "001")
+  yearlyReset: boolean;        // Reset sequence on year change
 }
 
-export interface CustomerIdSettings {
-  organizationPrefix: string;
-  idTypePrefix: string;
-  currentYear: number;
-  currentSequence: number;
-  yearlyReset: boolean;
-}
-
-export interface CertificateNumberConfig {
-  id: string;
-  equipmentType: string;
-  prefix: string;
-  currentSequence: number;
-  currentYear: number;
-  yearlyReset: boolean;
-  lastResetAt?: Date;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-// ─── Company Information Types ────────────────────────────────────────────────
-
+// Company Information Types
 export interface CompanyInfo {
   id: string;
   companyName: string;
   logoUrl?: string;
-  logoBase64?: string;
-  logoFile?: File;
+  logoFile?: File; // For file upload
   address: {
     street: string;
     city: string;
@@ -388,67 +411,3 @@ export interface CompanyInfo {
   updatedBy: string;
 }
 
-// ─── PDF Settings Types ───────────────────────────────────────────────────────
-
-export interface FieldVisibility {
-  [key: string]: { visible: boolean; label?: string };
-}
-
-export interface PdfSettings {
-  version?: number;
-  templateName: string;
-  pageSize: 'A4' | 'Letter';
-  orientation: 'portrait' | 'landscape';
-  layout: 'traditional' | 'grid';
-  fontSize: { title: number; heading: number; body: number; small: number; header: number; footer: number };
-  margin: { top: number; right: number; bottom: number; left: number };
-  fieldVisibility: FieldVisibility;
-  jobTableColumns: {
-    jobId: boolean; title: boolean; customer: boolean; status: boolean;
-    equipment: boolean; appointmentDate: boolean; created: boolean; assignedStaff: boolean; startDate: boolean;
-    poNumber: boolean;
-  };
-  equipmentTableColumns: {
-    no: boolean; name: boolean; manufacturer: boolean; model: boolean;
-    serialNumber: boolean; calibrationPoint: boolean; calibrationMethods: boolean;
-    accessories: boolean; machineLocation: boolean; remark: boolean;
-  };
-  serviceInformationVisibility: {
-    serviceRequested: boolean;
-    statementOfConformity: boolean;
-    statementOfConformityRequirements: boolean;
-    statementOfConformityReferencePdf: boolean;
-  };
-  workAuthorizationVisibility: {
-    workAuthorizationStatement: boolean; customerSignature: boolean;
-    itemsConditionOnReceipt: boolean; laboratoryCapabilityAssessment: boolean; staffSignature: boolean;
-  };
-  workAuthorizationStatement: string;
-  sectionHeaders: {
-    jobInformation: string; serviceInformation: string;
-    workAuthorization: string; equipment: string; comments: string;
-  };
-  showLogo: boolean;
-  showHeader: boolean;
-  showFooter: boolean;
-  showTableBorders: boolean;
-  logoSize: { maxHeight: number; maxWidth: number };
-  headerContent: { left: string; center: string; right: string };
-  footerContent: { left: string; center: string; right: string };
-}
-
-// ─── Misc Types ───────────────────────────────────────────────────────────────
-
-export type ModalType = 'JobFormModal' | 'CustomerModal' | 'CompleteJobModal' | 'SettingsModal';
-
-export interface Toast {
-  id: string;
-  message: string;
-  type: 'success' | 'error' | 'info' | 'warning';
-  duration?: number;
-}
-
-// ─── Re-exports ───────────────────────────────────────────────────────────────
-
-export * from './template';
-export type { DocumentIndexItem, DocumentIndexItemInput, DocumentIndexType, DocumentSource } from './documentIndex';
