@@ -255,3 +255,91 @@ export interface CompanyInfo {
   updatedBy: string;
 }
 
+// ─── Equipment Control Module Types ────────────────────────────────────────
+
+export type EquipmentStatus =
+  | 'active'
+  | 'due_soon'
+  | 'overdue'
+  | 'calibration'
+  | 'out_of_service'
+  | 'pending'
+  | 'retired';
+
+export interface EquipmentRecord {
+  id: string;                      // CAL-AAA-NNN
+  name: string;
+  category: string;                // AAA code, e.g. FRC, TMP
+  manufacturer: string;
+  model: string;
+  serialNumber: string;
+  location: string;
+  status: EquipmentStatus;
+  custodian: string;               // email
+  custodianName?: string;
+  authorizedUsers: string[];       // emails
+  requiresCalibration: boolean;
+  calibrationInterval?: number;    // months
+  calibrationProcedure?: string;
+  externalProvider: boolean;
+  usagePeriodStart?: string;
+  usagePeriodEnd?: string;
+  registrationDate: string;        // ISO date
+  lastCalibrationDate?: string;
+  nextCalibrationDate?: string;
+  notes?: string;
+  createdAt: Date;
+  updatedAt: Date;
+  createdBy: string;
+}
+
+export interface UsageLog {
+  id: string;
+  equipmentId: string;
+  date: string;                    // ISO date
+  operator: string;                // email
+  operatorName: string;
+  // Section B
+  visualInspection: 'pass' | 'fail';
+  functionalCheck: 'pass' | 'fail';
+  documentCheck: 'valid' | 'expired' | 'na';
+  refValuesVerified?: boolean;
+  correctionValue?: string;
+  // Section C
+  equipmentCondition: 'normal' | 'abnormal';
+  abnormalDetails?: string;
+  actionTaken?: string;
+  // Section D
+  notes?: string;
+  overallResult: 'pass' | 'fail';
+  createdAt: Date;
+}
+
+export interface CalibrationEvent {
+  id: string;
+  equipmentId: string;
+  sentDate: string;
+  receivedDate?: string;
+  calibrationLab: string;
+  certificateNumber?: string;
+  result?: 'pass' | 'fail';
+  conditionBeforeSend?: string;
+  conditionAfterReceive?: string;
+  notes?: string;
+  createdAt: Date;
+  createdBy: string;
+}
+
+export interface EquipmentDocument {
+  id: string;
+  equipmentId: string;
+  docType: 'verification' | 'registration' | 'spec_sheet' | 'certificate' | 'cal_plan' | 'retirement';
+  name: string;
+  size: number;
+  type: string;
+  url: string;
+  uploadedAt: Date;
+  uploadedBy: string;
+}
+
+// ─── end Equipment Control ──────────────────────────────────────────────────

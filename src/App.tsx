@@ -8,6 +8,13 @@ import { Layout } from './components/Layout';
 import { JobsPage } from './pages/JobsPage';
 import { CustomersPage } from './pages/CustomersPage';
 import { SettingsPage } from './pages/SettingsPage';
+import { EquipmentDashboardPage } from './pages/equipment/EquipmentDashboardPage';
+import { RegistrationWizardPage } from './pages/equipment/RegistrationWizardPage';
+import { EquipmentDetailPage } from './pages/equipment/EquipmentDetailPage';
+import { UsageLogNewPage } from './pages/equipment/UsageLogNewPage';
+import { UsageLogHistoryPage } from './pages/equipment/UsageLogHistoryPage';
+import { CalibrationPlanPage } from './pages/equipment/CalibrationPlanPage';
+import { RetirementPage } from './pages/equipment/RetirementPage';
 import { ToastContainer } from './components/Toast';
 import { useToast } from './hooks/useToast';
 import './index.css';
@@ -82,7 +89,16 @@ const AppContent: React.FC = () => {
           
           {/* Customers Page */}
           <Route path="customers" element={<CustomersPage />} />
-          
+
+          {/* Equipment Control Module */}
+          <Route path="equipment" element={<EquipmentDashboardPage />} />
+          <Route path="equipment/new" element={<RegistrationWizardPage />} />
+          <Route path="equipment/calibration-plan" element={<CalibrationPlanPage />} />
+          <Route path="equipment/:id" element={<EquipmentDetailPage />} />
+          <Route path="equipment/:id/usage-log/new" element={<UsageLogNewPage />} />
+          <Route path="equipment/:id/usage-log" element={<UsageLogHistoryPage />} />
+          <Route path="equipment/:id/retire" element={<RetirementPage />} />
+
           {/* Settings Page (Admin Only) */}
           <Route
             path="settings"

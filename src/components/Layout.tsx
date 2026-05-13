@@ -105,6 +105,18 @@ export const Layout: React.FC = () => {
             {!sidebarCollapsed && <span>Customers</span>}
           </Link>
 
+          <Link
+            to="/equipment"
+            className={`flex items-center ${sidebarCollapsed ? 'justify-center px-2' : 'space-x-3 px-4'} py-3 rounded-lg transition-colors ${
+              location.pathname.startsWith('/equipment')
+                ? 'bg-primary-100 text-primary-700 font-semibold'
+                : 'text-gray-700 hover:bg-gray-100'
+            }`}
+            title={sidebarCollapsed ? 'Equipment' : ''}
+          >
+            <span className="text-xl">🔧</span>
+            {!sidebarCollapsed && <span>Equipment</span>}
+          </Link>
 
           {isAdmin && (
             <Link
