@@ -1,0 +1,478 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Users collection - users can read/write their own data
+    // Authenticated users can read all users (needed for user management)
+    // Only admins can write other users' documents
+    match /users/{userId} {
+      // Helper function to get user role (with null check)
+      function getUserRole() {
+        let userDoc = get(/databases/$(database)/documents/users/$(request.auth.uid));
+        return userDoc != null && userDoc.data != null ? userDoc.data.role : null;
+      }
+      
+      // Users can read/write their own data
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+      // Authenticated users can read all users (for user management features)
+      allow read: if request.auth != null;
+      // Admins can write any user document
+      allow write: if request.auth != null && 
+        request.auth.uid != userId && 
+        getUserRole() == 'admin';
+      
+      // User notifications subcollection - users can read/write their own notifications; admins can manage for cleanup
+      match /notifications/{notificationId} {
+        allow read, write: if request.auth != null && (
+          request.auth.uid == userId ||
+          getUserRole() == 'admin'
+        );
+      }
+      
+      // User preferences subcollection - users can read/write their own preferences; admins can manage for cleanup
+      match /preferences/{preferenceId} {
+        allow read, write: if request.auth != null && (
+          request.auth.uid == userId ||
+          getUserRole() == 'admin'
+        );
+      }
+    }
+    
+    // Jobs collection and subcollections - handled below with explicit subcollection rules
+    
+    // Customers collection - allow public read for autocomplete, authenticated users can write
+    match /customers/{customerId} {
+      allow read: if true; // Public read for autocomplete in service request form
+      allow write: if request.auth != null;
+    }
+    
+    // Settings collection - authenticated users can read/write
+    match /settings/{settingId} {
+      allow read, write: if request.auth != null;
+    }
+    
+    // System collection - authenticated users can read, admins can write
+    match /system/{document} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    // Legacy: ISO/IEC 17025 Document Management (old app module; retained for existing data)
+    // Published documents: all authenticated users can read
+    // Draft/Review documents: only admins, staff, and assigned reviewers/approvers can read
+    // Write: only admins and staff can create/update
+    match /documents/{documentId} {
+      // Helper function to get user role
+      function getUserRole() {
+        return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+      }
+      
+      // Helper function to check if user is admin or staff
+      function isAdminOrStaff() {
+        return request.auth != null && (getUserRole() == 'admin' || getUserRole() == 'staff');
+      }
+      
+      // Helper function to check if user is assigned reviewer/approver
+      function isAssignedUser() {
+        let docData = resource.data;
+        return request.auth != null && (
+          docData.reviewerId == request.auth.uid || 
+          docData.approverId == request.auth.uid
+        );
+      }
+      
+      // Read rules
+      allow read: if request.auth != null && (
+        // Published documents: everyone can read
+        resource.data.state == 'Published' ||
+        // Obsolete documents: everyone can read (for reference)
+        resource.data.state == 'Obsolete' ||
+        // Draft/Review documents: only admins, staff, or assigned users
+        isAdminOrStaff() ||
+        isAssignedUser()
+      );
+      
+      // Write rules: only admins and staff can create/update
+      allow create: if isAdminOrStaff();
+      allow update: if isAdminOrStaff() || isAssignedUser();
+      allow delete: if isAdminOrStaff();
+    }
+
+    // Documents Index & Distributor (current app: /documents page)
+    // Read: any authenticated user. Write: admin or staff (aligns with documentIndex.manage in app).
+    match /document_index/{docId} {
+      function getUserRole() {
+        return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+      }
+
+      function isAdminOrStaff() {
+        return request.auth != null && (getUserRole() == 'admin' || getUserRole() == 'staff');
+      }
+
+      allow read: if request.auth != null;
+      allow create, update, delete: if isAdminOrStaff();
+    }
+    
+    // Notifications collection - users can read their own notifications
+    match /notifications/{notificationId} {
+      allow read: if request.auth != null && 
+        resource.data.userId == request.auth.uid;
+      allow create: if request.auth != null;
+      allow update: if request.auth != null && 
+        resource.data.userId == request.auth.uid;
+      allow delete: if request.auth != null && 
+        resource.data.userId == request.auth.uid;
+    }
+    
+    // Legacy: form templates and responses (Forms module removed from app; retained for existing data)
+    match /formTemplates/{templateId} {
+      allow read, write: if request.auth != null;
+    }
+    
+    match /formResponses/{responseId} {
+      allow read, write: if request.auth != null;
+    }
+    
+    // Equipment Report Numbers collection - stores report number sequences per equipment
+    // Authenticated users can read/write (numbers are auto-generated via transactions)
+    // Application logic prevents manual manipulation
+    match /equipmentReportNumbers/{equipmentId} {
+      allow read, write: if request.auth != null;
+    }
+    
+    // Certificate Number Configs collection - stores certificate number configurations
+    // Authenticated users can read, admins can write
+    match /certificate_number_configs/{configId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    // Manufacturer List collection - allow public read for autocomplete
+    match /manufacturerList/{manufacturerId} {
+      allow read: if true; // Public read for autocomplete
+      allow write: if request.auth != null;
+    }
+    
+    // Model List collection - allow public read for autocomplete
+    match /modelList/{modelId} {
+      allow read: if true; // Public read for autocomplete
+      allow write: if request.auth != null;
+    }
+    
+    // Calibration Method List collection - authenticated users can read/write
+    match /calibrationMethodList/{methodId} {
+      allow read, write: if request.auth != null;
+    }
+    
+    // Equipment collection - authenticated users can read/write
+    // Stores equipment records by serial number
+    match /equipment/{equipmentId} {
+      allow read, write: if request.auth != null;
+    }
+
+    // Equipment Control collection (ISO 17025 §6.4–6.5)
+    // Stores lab instruments managed under calibration protocol
+    match /equipmentControl/{equipmentId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null;
+
+      // Usage logs subcollection - any authenticated user can log usage
+      match /usageLogs/{logId} {
+        allow read, write: if request.auth != null;
+      }
+
+      // Calibration events subcollection - authenticated users can read/write
+      match /calibrationEvents/{eventId} {
+        allow read, write: if request.auth != null;
+      }
+
+      // Documents subcollection - authenticated users can read/write
+      match /documents/{documentId} {
+        allow read, write: if request.auth != null;
+      }
+    }
+    
+    // Service Requests collection - allow public writes for customer submissions
+    // Authenticated users can read/write, unauthenticated users can only create
+    // Stores customer service requests before conversion to jobs
+    match /serviceRequests/{requestId} {
+      // Allow anyone to create service requests (for public form)
+      allow create: if true;
+      // Only authenticated users can read/update/delete
+      allow read, update, delete: if request.auth != null;
+    }
+    
+    // Roles collection - authenticated users can read, admins can write
+    match /roles/{roleId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    // Templates collection (Spreadsheet Templates) - authenticated users can read/write
+    // Allow authenticated users to read all templates (filtering happens in application code)
+    // Users can create/update/delete their own templates
+    match /templates/{templateId} {
+      // Helper function to check if user owns the template
+      function isOwner() {
+        return request.auth != null && (
+          // For existing documents, check ownerId or createdBy
+          (resource != null && resource.data != null && (
+            resource.data.ownerId == request.auth.uid ||
+            resource.data.createdBy == request.auth.uid
+          )) ||
+          // For new documents, check if ownerId matches
+          (request.resource != null && request.resource.data != null && 
+           (request.resource.data.ownerId == request.auth.uid ||
+            request.resource.data.createdBy == request.auth.uid))
+        );
+      }
+      
+      // Helper function to get user role (with null check)
+      function getUserRole() {
+        let userDoc = get(/databases/$(database)/documents/users/$(request.auth.uid));
+        return userDoc != null && userDoc.data != null ? userDoc.data.role : null;
+      }
+      
+      // Read: allow all authenticated users to read templates
+      // Application code filters by ownerId/createdBy and isPublic
+      allow read: if request.auth != null;
+      
+      // Create: authenticated users can create templates
+      allow create: if request.auth != null;
+      
+      // Update/Delete: users can only modify their own templates, or admins can manage any
+      allow update, delete: if request.auth != null && (
+        isOwner() ||
+        getUserRole() == 'admin'
+      );
+      
+      // Template versions subcollection - allow owner/admin to manage
+      match /versions/{versionId} {
+        allow read: if request.auth != null;
+        allow write: if request.auth != null && (
+          get(/databases/$(database)/documents/templates/$(templateId)).data.ownerId == request.auth.uid ||
+          getUserRole() == 'admin'
+        );
+      }
+    }
+    
+    // Report Templates collection - authenticated users can read/write
+    // Allows users to save and share PDF report templates
+    match /report_templates/{templateId} {
+      // All authenticated users can read templates (for sharing)
+      allow read: if request.auth != null;
+      // All authenticated users can create templates
+      allow create: if request.auth != null;
+      // Users can update/delete their own templates, or admins can manage any
+      allow update, delete: if request.auth != null && (
+        resource.data.author == request.auth.token.email ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
+      );
+    }
+    
+    // Spreadsheets collection - authenticated users can read/write their own spreadsheets
+    // Users can create spreadsheets, read/update/delete their own, or admins can manage any
+    match /spreadsheets/{spreadsheetId} {
+      // Helper function to check if user owns the spreadsheet
+      function isOwner() {
+        return request.auth != null && (
+          // For existing documents, check createdBy or updatedBy
+          (resource != null && resource.data != null && (
+            resource.data.createdBy == request.auth.uid ||
+            resource.data.updatedBy == request.auth.uid
+          )) ||
+          // For new documents, check if createdBy matches
+          (request.resource != null && request.resource.data != null && 
+           request.resource.data.createdBy == request.auth.uid)
+        );
+      }
+      
+      // Helper function to get user role (with null check)
+      function getUserRole() {
+        let userDoc = get(/databases/$(database)/documents/users/$(request.auth.uid));
+        return userDoc != null && userDoc.data != null ? userDoc.data.role : null;
+      }
+      
+      // Read: all authenticated users can read spreadsheets (for sharing/collaboration)
+      // In practice, application code can filter by createdBy if needed
+      allow read: if request.auth != null;
+      
+      // Create: authenticated users can create spreadsheets
+      allow create: if request.auth != null;
+      
+      // Update/Delete: users can only modify their own spreadsheets, or admins can manage any
+      allow update, delete: if request.auth != null && (
+        isOwner() ||
+        getUserRole() == 'admin'
+      );
+    }
+    
+    // Jobs subcollections - allow access to job subcollections
+    match /jobs/{jobId} {
+      // Job document includes serviceInformation.statementOfConformityReferencePdf (FileAttachment map:
+      // id, name, size, type, url, uploadedAt, uploadedBy) for SoC reference PDFs; Storage path matches storage.rules.
+      // Allow authenticated users to read/write the job document itself
+      allow read, write: if request.auth != null;
+      
+      // Documents subcollection
+      match /documents/{documentId} {
+        allow read, write: if request.auth != null;
+      }
+      
+      // Spreadsheets subcollection
+      match /spreadsheets/{spreadsheetId} {
+        allow read, write: if request.auth != null;
+      }
+      
+      // Attachments subcollection
+      match /attachments/{attachmentId} {
+        allow read, write: if request.auth != null;
+      }
+      
+      // Equipment subcollection
+      match /equipment/{equipmentIndex} {
+        allow read, write: if request.auth != null;
+        
+        // Equipment subcollections (e.g., spreadsheets under equipment)
+        match /spreadsheets/{spreadsheetId} {
+          allow read, write: if request.auth != null;
+        }
+      }
+      
+      // Service requests subcollection
+      match /serviceRequests/{requestId} {
+        allow read, write: if request.auth != null;
+      }
+      
+      // Notifications subcollection
+      match /notifications/{notificationId} {
+        allow read, write: if request.auth != null;
+      }
+    }
+    
+    // PDF Templates collection - authenticated users can read/write their own templates
+    // Users can create templates, read/update/delete their own, or admins can manage any
+    match /pdf_templates/{templateId} {
+      // Helper function to check if user owns the template
+      function isOwner() {
+        return request.auth != null && resource != null && resource.data != null && (
+          resource.data.author == request.auth.uid ||
+          resource.data.metadata != null && resource.data.metadata.author == request.auth.uid
+        );
+      }
+      
+      // Helper function to get user role (with null check)
+      function getUserRole() {
+        let userDoc = get(/databases/$(database)/documents/users/$(request.auth.uid));
+        return userDoc != null && userDoc.data != null ? userDoc.data.role : null;
+      }
+      
+      // Read: all authenticated users can read templates (for sharing/reuse)
+      allow read: if request.auth != null;
+      
+      // Create: authenticated users can create templates
+      allow create: if request.auth != null;
+      
+      // Update/Delete: users can only modify their own templates, or admins can manage any
+      allow update, delete: if request.auth != null && (
+        isOwner() ||
+        getUserRole() == 'admin'
+      );
+    }
+
+    // Spreadsheet Templates collection - stores TREB-based reusable templates
+    // Any authenticated user can read (so they can apply shared templates).
+    // Users can create/update/delete their own templates; admins can manage any.
+    match /spreadsheet_templates/{templateId} {
+      function isOwner() {
+        return request.auth != null && (
+          (resource != null && resource.data != null &&
+            resource.data.ownerId == request.auth.uid) ||
+          (request.resource != null && request.resource.data != null &&
+            request.resource.data.ownerId == request.auth.uid)
+        );
+      }
+
+      function getUserRole() {
+        let userDoc = get(/databases/$(database)/documents/users/$(request.auth.uid));
+        return userDoc != null && userDoc.data != null ? userDoc.data.role : null;
+      }
+
+      // All authenticated users can read (for shared / public templates)
+      allow read: if request.auth != null;
+
+      // Any authenticated user can create a template
+      allow create: if request.auth != null;
+
+      // Update / delete: owner or admin only
+      allow update, delete: if request.auth != null && (
+        isOwner() || getUserRole() == 'admin'
+      );
+    }
+
+    // Job logs collection - authenticated users can read/write
+    match /jobLogs/{logId} {
+      allow read, create: if request.auth != null;
+    }
+
+    // Staff logs collection - staff can read their own logs, admins can read all
+    match /staffLogs/{staffId}/actions/{actionId} {
+      function getUserRole() {
+        let userDoc = get(/databases/$(database)/documents/users/$(request.auth.uid));
+        return userDoc != null && userDoc.data != null ? userDoc.data.role : null;
+      }
+
+      allow read: if request.auth != null && (
+        request.auth.uid == staffId || getUserRole() == 'admin'
+      );
+      allow create: if request.auth != null;
+    }
+    
+    // Shared Calibration Plan documents (LAB-FM-QP-05-007)
+    // Stores metadata for plan files uploaded to the common calibration plan page.
+    match /calPlanDocuments/{docId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null;
+    }
+
+    // Job Share Tokens — temporary customer-signing links
+    // Public read: the unauthenticated CustomerSignPage must be able to load the token.
+    // Authenticated create: only logged-in staff may generate signing links.
+    // Unauthenticated update: the customer-sign page (no auth) may set ONLY
+    //   `customerSignature` and `used` on a token that is not yet used and not expired.
+    // Authenticated delete: staff can clean up consumed tokens after importing.
+    match /jobShareTokens/{tokenId} {
+      // Anyone can read (needed for the public sign page)
+      allow read: if true;
+
+      // Only authenticated users can create tokens
+      allow create: if request.auth != null;
+
+      // Customers (unauthenticated) can update ONLY to record their signature
+      // Conditions:
+      //  1. Token is not yet used
+      //  2. Token has not expired (expiresAt > now)
+      //  3. Only the allowed fields are being changed
+      allow update: if (
+        // Unauthenticated signing — restrict to signature fields only
+        !resource.data.used &&
+        resource.data.expiresAt > request.time &&
+        request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['customerSignature', 'used'])
+      ) || (
+        // Authenticated staff can update freely (e.g. manual cleanup)
+        request.auth != null
+      );
+
+      // Only authenticated users can delete tokens
+      allow delete: if request.auth != null;
+    }
+
+    // Default rule: deny all other access
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

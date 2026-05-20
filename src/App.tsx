@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { PdfSettingsProvider } from './contexts/PdfSettingsContext';
 import { CompanyInfoProvider } from './contexts/CompanyInfoContext';
 import { LoginPage } from './components/LoginPage';
+import { CustomerSignPage } from './pages/CustomerSignPage';
 import { Layout } from './components/Layout';
 import { JobsPage } from './pages/JobsPage';
 import { CustomersPage } from './pages/CustomersPage';
@@ -71,6 +72,7 @@ const AppContent: React.FC = () => {
       <Routes>
         {/* Public Routes */}
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/customer-sign/:token" element={<CustomerSignPage />} />
 
         {/* Protected Routes with Layout */}
         <Route

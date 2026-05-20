@@ -37,3 +37,17 @@ out
 
 # OS files
 Thumbs.db
+
+# Sensitive credentials - never commit
+Backup-API-Gdrive-Key/
+
+# Claude worktree data
+.claude/
+
+# Desktop app generated output
+desktop-app/node_modules/
+desktop-app/dist-electron/
+desktop-app/release/
+
+# Firebase hosting cache
+.firebase/hosting.ZGlzdA.cache
