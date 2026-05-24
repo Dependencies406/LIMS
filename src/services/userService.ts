@@ -38,6 +38,46 @@ export interface UserInput {
  * Handles user CRUD, authentication tracking, and role management
  * Designed to be extensible for future features (training logs, documents, etc.)
  */
+/**
+ * Resolve a raw `assignedStaff` value (which may be a UID, email, or legacy
+ * display-name string) to a User object. Returns undefined if no match found.
+ *
+ * Match priority:
+ *  1. Exact UID match
+ *  2. Email match (case-insensitive)
+ *  3. Full name match: "<firstName> <lastName>" (case-insensitive)
+ *  4. displayName match (case-insensitive)
+ */
+export function matchUserFromAssignedStaffValue(
+  rawValue: string,
+  users: User[]
+): User | undefined {
+  const v = rawValue.trim();
+  if (!v) return undefined;
+
+  // 1. UID exact match
+  const byUid = users.find(u => u.uid === v);
+  if (byUid) return byUid;
+
+  const lower = v.toLowerCase();
+
+  // 2. Email match
+  const byEmail = users.find(u => u.email.toLowerCase() === lower);
+  if (byEmail) return byEmail;
+
+  // 3. Full name "<firstName> <lastName>"
+  const byFullName = users.find(
+    u => `${u.firstName} ${u.lastName}`.trim().toLowerCase() === lower
+  );
+  if (byFullName) return byFullName;
+
+  // 4. displayName
+  const byDisplay = users.find(
+    u => (u.displayName ?? '').trim().toLowerCase() === lower
+  );
+  return byDisplay;
+}
+
 export const userService = {
   /**
    * Subscribe to real-time user updates

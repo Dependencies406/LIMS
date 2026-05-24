@@ -32,6 +32,11 @@ export interface Equipment {
   accessories: string;
   machineLocation: string;
   remark: string;
+  // Extended fields used by Equipment modules
+  id?: string;
+  certificateNumber?: string;
+  spreadsheetData?: Record<string, unknown>;
+  attachments?: EquipmentAttachment[];
 }
 
 // Customer Types
@@ -118,6 +123,16 @@ export interface Job {
   createdAt: Date;
   updatedAt: Date;
   createdBy: string;
+  // Extended fields
+  appointmentDate?: string;
+  completedDate?: string;
+  expectedFinishDate?: string;
+  receivedDate?: string;
+  poNumber?: string;
+  certificateNumber?: string;
+  isDeleted?: boolean;
+  deletedAt?: Date;
+  deletedBy?: string;
 }
 
 // PDF Settings Types
@@ -237,7 +252,9 @@ export interface JobIdSettings {
 export interface CompanyInfo {
   id: string;
   companyName: string;
+  companyAbbreviation?: string;
   logoUrl?: string;
+  logoBase64?: string;
   logoFile?: File; // For file upload
   address: {
     street: string;
@@ -388,6 +405,9 @@ export interface EquipmentRecord {
   calibrationInterval?: number;    // months
   calibrationProcedure?: string;
   externalProvider: boolean;
+  capacity?: string;
+  usageRange?: string;
+  usageCriteria?: string;
   usagePeriodStart?: string;
   usagePeriodEnd?: string;
   registrationDate: string;        // ISO date
@@ -418,6 +438,11 @@ export interface UsageLog {
   // Section D
   notes?: string;
   overallResult: 'pass' | 'fail';
+  // Job linkage
+  linkedJobId?: string;
+  linkedJobRef?: string;
+  linkedJobTitle?: string;
+  linkedCustomerName?: string;
   createdAt: Date;
 }
 
@@ -426,6 +451,7 @@ export interface CalibrationEvent {
   equipmentId: string;
   sentDate: string;
   receivedDate?: string;
+  calibrationDate?: string;
   calibrationLab: string;
   certificateNumber?: string;
   result?: 'pass' | 'fail';
@@ -444,8 +470,175 @@ export interface EquipmentDocument {
   size: number;
   type: string;
   url: string;
+  storagePath?: string;
   uploadedAt: Date;
   uploadedBy: string;
 }
 
+// ─── Equipment Attachments (on Job Equipment items) ───────────────────────────
+
+export interface EquipmentAttachment {
+  id: string;
+  fileName: string;
+  fileType: string;
+  fileSize: number;
+  storagePath: string;
+  downloadURL: string;
+  uploadedBy: string;
+  uploadedAt: Date;
+}
+
 // ─── end Equipment Control ──────────────────────────────────────────────────
+
+// ─── Re-exports from documentIndex.ts ────────────────────────────────────────
+export type {
+  DocumentIndexType,
+  DocumentSource,
+  DocumentIndexItem,
+  DocumentIndexItemInput,
+} from './documentIndex';
+
+// ─── Certificate Number Configuration ─────────────────────────────────────────
+
+export interface CertificateNumberConfig {
+  id: string;
+  name: string;
+  prefix: string;
+  separator: string;
+  includeYear: boolean;
+  numberPadding: number;
+  currentNumber: number;
+  resetPolicy: 'never' | 'yearly' | 'monthly';
+  lastResetAt?: Date;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// ─── Customer ID Settings ─────────────────────────────────────────────────────
+
+export interface CustomerIdSettings {
+  prefix: string;
+  currentYear: number;
+  currentSequence: number;
+  yearlyReset: boolean;
+}
+
+// ─── Audit Trail ─────────────────────────────────────────────────────────────
+
+export interface AuditTrailEntry {
+  id: string;
+  action: 'created' | 'edited' | 'reviewed' | 'approved' | 'published' | 'obsoleted' | 'archived' | 'restored';
+  userId: string;
+  userName: string;
+  userEmail?: string;
+  timestamp: Date;
+  details?: string;
+}
+
+// ─── Job Logging ──────────────────────────────────────────────────────────────
+
+export interface JobActionLog {
+  id: string;
+  jobId: string;
+  action: string;
+  details?: string;
+  userId: string;
+  userName: string;
+  userEmail: string;
+  timestamp: Date;
+}
+
+export interface JobAssignmentLog {
+  id: string;
+  action: string;
+  details?: string;
+  userId: string;
+  userName: string;
+  userEmail: string;
+  timestamp: Date;
+}
+
+// ─── Job Share Token ──────────────────────────────────────────────────────────
+
+export interface JobShareToken {
+  id: string;
+  jobId: string;
+  jobNumber?: string;
+  jobSnapshot?: unknown;
+  expiresAt: Date;
+  createdAt: Date;
+  createdBy: string;
+  used?: boolean;
+  customerSignature?: DigitalSignature;
+}
+
+// ─── Service Requests ─────────────────────────────────────────────────────────
+
+export interface ServiceRequestEquipment {
+  name: string;
+  manufacturer?: string;
+  model?: string;
+  serialNumber?: string;
+  calibrationPoint?: string;
+  calibrationMethods?: string;
+  machineLocation?: string;
+  calibrationDate?: string;
+  certificateNumber?: string;
+  resolution?: string;
+  note?: string;
+  accessories?: string;
+  remark?: string;
+}
+
+export interface ServiceRequest {
+  id: string;
+  status: 'Pending' | 'Converted' | 'Cancelled';
+  customerCode?: string;
+  customerName?: string;
+  customerContact?: string;
+  customerPhone?: string;
+  customerEmail?: string;
+  customerAddress?: string;
+  equipment: ServiceRequestEquipment[];
+  serviceInformation?: ServiceInformation;
+  workAuthorization?: WorkAuthorization;
+  notes?: string;
+  createdAt: Date;
+  updatedAt: Date;
+  createdBy?: string;
+}
+
+export type ServiceRequestInput = Omit<ServiceRequest, 'id' | 'createdAt' | 'updatedAt'>;
+
+// ─── Staff Performance ────────────────────────────────────────────────────────
+
+export interface StaffPerformanceMetrics {
+  staffId: string;
+  staffName: string;
+  totalJobsAssigned: number;
+  jobsCompletedOnTime: number;
+  jobsCompletedOverdue: number;
+  jobsPending: number;
+  jobsInProgress: number;
+  onTimePercentage: number;
+  overduePercentage: number;
+  averageCompletionDays?: number;
+  lastUpdated: Date;
+}
+
+// ─── Equipment Spreadsheet Data ───────────────────────────────────────────────
+
+export interface EquipmentSpreadsheetData {
+  spreadsheetId?: string;
+  measurementResult?: string;
+  unit?: string;
+  method?: string;
+  analyst?: string;
+  calculatedAt?: string;
+  calculatedBy?: string;
+  trebDocument?: unknown;
+  computedGrids?: unknown;
+  spreadsheetModel?: unknown;
+  [key: string]: unknown;
+}
