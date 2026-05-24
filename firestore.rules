@@ -61,9 +61,15 @@ service cloud.firestore {
     }
     
     // System collection - authenticated users can read, admins can write
+    // Company info is publicly readable (shown on PDF reports shared with customers)
+    match /system/companyInfo {
+      allow read: if true;
+      allow write: if request.auth != null &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
     match /system/{document} {
       allow read: if request.auth != null;
-      allow write: if request.auth != null && 
+      allow write: if request.auth != null &&
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
     

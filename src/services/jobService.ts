@@ -20,6 +20,21 @@ import {
 } from './firebase';
 import { deleteJob as deleteJobLifecycle } from './firestoreDeletionService';
 
+/**
+ * Recursively removes undefined values from an object so Firestore can accept it.
+ * Firestore rejects documents that contain `undefined` as a field value.
+ */
+export function removeUndefinedForFirestore(value: unknown): unknown {
+  if (value === undefined) return null;
+  if (value === null || typeof value !== 'object') return value;
+  if (Array.isArray(value)) return value.map(removeUndefinedForFirestore);
+  return Object.fromEntries(
+    Object.entries(value as Record<string, unknown>)
+      .filter(([, v]) => v !== undefined)
+      .map(([k, v]) => [k, removeUndefinedForFirestore(v)])
+  );
+}
+
 export interface JobInput {
   jobId: string;
   requestNo?: string;

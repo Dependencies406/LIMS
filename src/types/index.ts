@@ -112,6 +112,7 @@ export interface Equipment {
   calibrationDate?: string;
   unit?: string;
   resolution?: string;
+  id?: string;
   certificateNumber?: string;
   spreadsheetData?: EquipmentSpreadsheetData;
   attachments?: EquipmentAttachment[];
@@ -223,6 +224,16 @@ export interface Job {
   createdAt: Date;
   updatedAt: Date;
   createdBy: string;
+  // Extended fields
+  appointmentDate?: string;
+  completedDate?: string;
+  expectedFinishDate?: string;
+  receivedDate?: string;
+  poNumber?: string;
+  certificateNumber?: string;
+  isDeleted?: boolean;
+  deletedAt?: Date;
+  deletedBy?: string;
 }
 
 export type JobInput = Omit<Job, 'id' | 'createdAt' | 'updatedAt'>;
@@ -232,8 +243,18 @@ export type JobInput = Omit<Job, 'id' | 'createdAt' | 'updatedAt'>;
 export interface AuditTrailEntry {
   id: string;
   action: string;
+  /** Firestore UID of the user who performed the action */
   performedBy: string;
   performedByName?: string;
+  /** For document-index audit: legacy field aliases */
+  userId?: string;
+  userName?: string;
+  userEmail?: string;
+  changeSummary?: string;
+  previousRevision?: number;
+  newRevision?: number;
+  previousState?: string;
+  newState?: string;
   timestamp: Date;
   details?: Record<string, unknown>;
 }
@@ -257,6 +278,20 @@ export interface JobAssignmentLog {
   assignedBy: string;
   assignedAt: Date;
   previousAssignee?: string;
+}
+
+// ─── Job Share Token ──────────────────────────────────────────────────────────
+
+export interface JobShareToken {
+  id: string;
+  jobId: string;
+  jobNumber?: string;
+  jobSnapshot?: unknown;
+  expiresAt: Date;
+  createdAt: Date;
+  createdBy: string;
+  used?: boolean;
+  customerSignature?: DigitalSignature;
 }
 
 // ─── Service Request Types ────────────────────────────────────────────────────
@@ -355,6 +390,7 @@ export interface JobIdSettings {
 }
 
 export interface CustomerIdSettings {
+  prefix: string;
   organizationPrefix: string;
   idTypePrefix: string;
   currentYear: number;
@@ -364,12 +400,19 @@ export interface CustomerIdSettings {
 
 export interface CertificateNumberConfig {
   id: string;
+  name: string;
   equipmentType: string;
   prefix: string;
+  separator: string;
+  includeYear: boolean;
+  numberPadding: number;
+  currentNumber: number;
   currentSequence: number;
   currentYear: number;
   yearlyReset: boolean;
+  resetPolicy: 'never' | 'yearly' | 'monthly';
   lastResetAt?: Date;
+  isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -379,6 +422,7 @@ export interface CertificateNumberConfig {
 export interface CompanyInfo {
   id: string;
   companyName: string;
+  companyAbbreviation?: string;
   logoUrl?: string;
   logoBase64?: string;
   logoFile?: File;
@@ -432,6 +476,9 @@ export interface EquipmentRecord {
   calibrationInterval?: number;    // months
   calibrationProcedure?: string;
   externalProvider: boolean;
+  capacity?: string;
+  usageRange?: string;
+  usageCriteria?: string;
   usagePeriodStart?: string;
   usagePeriodEnd?: string;
   registrationDate: string;        // ISO date
@@ -462,6 +509,11 @@ export interface UsageLog {
   // Section D
   notes?: string;
   overallResult: 'pass' | 'fail';
+  // Job linkage
+  linkedJobId?: string;
+  linkedJobRef?: string;
+  linkedJobTitle?: string;
+  linkedCustomerName?: string;
   createdAt: Date;
 }
 
@@ -470,6 +522,7 @@ export interface CalibrationEvent {
   equipmentId: string;
   sentDate: string;
   receivedDate?: string;
+  calibrationDate?: string;
   calibrationLab: string;
   certificateNumber?: string;
   result?: 'pass' | 'fail';
@@ -488,6 +541,7 @@ export interface EquipmentDocument {
   size: number;
   type: string;
   url: string;
+  storagePath?: string;
   uploadedAt: Date;
   uploadedBy: string;
 }

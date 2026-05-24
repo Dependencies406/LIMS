@@ -4,9 +4,15 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { PdfSettingsProvider } from './contexts/PdfSettingsContext';
 import { CompanyInfoProvider } from './contexts/CompanyInfoContext';
 import { LoginPage } from './components/LoginPage';
+import { PublicServiceRequestPage } from './pages/PublicServiceRequestPage';
 import { Layout } from './components/Layout';
 import { JobsPage } from './pages/JobsPage';
+import JobDetailPage from './pages/JobDetailPage';
 import { CustomersPage } from './pages/CustomersPage';
+import { PendingJobsPage } from './pages/PendingJobsPage';
+import { StaffPerformanceDashboard } from './pages/StaffPerformanceDashboard';
+import { DocumentIndexPage } from './pages/DocumentIndexPage';
+import { RecycleBinPage } from './pages/RecycleBinPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { EquipmentDashboardPage } from './pages/equipment/EquipmentDashboardPage';
 import { RegistrationWizardPage } from './pages/equipment/RegistrationWizardPage';
@@ -71,6 +77,7 @@ const AppContent: React.FC = () => {
       <Routes>
         {/* Public Routes */}
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/request-service" element={<PublicServiceRequestPage />} />
 
         {/* Protected Routes with Layout */}
         <Route
@@ -84,12 +91,27 @@ const AppContent: React.FC = () => {
           {/* Default redirect to jobs */}
           <Route index element={<Navigate to="/jobs" replace />} />
           
-          {/* Jobs Page */}
+          {/* Jobs */}
           <Route path="jobs" element={<JobsPage />} />
-          
-          {/* Customers Page */}
+          <Route path="jobs/:jobId" element={<JobDetailPage />} />
+
+          {/* Pending Requests */}
+          <Route path="pending-jobs" element={<PendingJobsPage />} />
+
+          {/* Customers */}
           <Route path="customers" element={<CustomersPage />} />
-          
+
+
+          {/* Staff Performance */}
+          <Route path="staff-performance" element={<StaffPerformanceDashboard />} />
+
+          {/* Documents */}
+          <Route path="documents" element={<DocumentIndexPage />} />
+
+          {/* Recycle Bin */}
+          <Route path="recycle-bin" element={<RecycleBinPage />} />
+
+
           {/* Equipment Control Module */}
           <Route path="equipment" element={<EquipmentDashboardPage />} />
           <Route path="equipment/new" element={<RegistrationWizardPage />} />
