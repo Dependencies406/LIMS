@@ -15,20 +15,30 @@ export type PermissionAction =
   | 'settings.view' | 'settings.jobIdConfig' | 'settings.customerIdConfig'
   | 'settings.companyInfo'
   | 'certificateNumbers.view' | 'certificateNumbers.edit'
-  | 'staffPerformance.view' | 'staffPerformance.viewOwn' | 'staffPerformance.exportLogs';
+  | 'staffPerformance.view' | 'staffPerformance.viewOwn' | 'staffPerformance.exportLogs'
+  | 'equipmentControl.view' | 'equipmentControl.register' | 'equipmentControl.edit'
+  | 'equipmentControl.approve' | 'equipmentControl.logUsage' | 'equipmentControl.calibrate'
+  | 'equipmentControl.uploadDocuments' | 'equipmentControl.deleteDocuments' | 'equipmentControl.retire';
 
+/** A role document as stored in Firestore `roles/{id}`. */
 export interface Role {
   id: string;
   name: string;
-  description?: string;
+  description: string;
   permissions: PermissionAction[];
-  isSystemRole?: boolean;
+  /** True for built-in roles (admin, staff) that cannot be deleted. */
+  isSystemRole: boolean;
   createdAt: Date;
   updatedAt: Date;
-  createdBy?: string;
+  createdBy: string;
 }
 
-export type RoleInput = Omit<Role, 'id' | 'createdAt' | 'updatedAt'>;
+/** Input shape for creating or updating a role. */
+export interface RoleInput {
+  name: string;
+  description?: string;
+  permissions: PermissionAction[];
+}
 
 export interface User {
   uid: string;
@@ -37,7 +47,14 @@ export interface User {
   firstName: string;
   lastName: string;
   position?: string;
-  role: string; // 'admin' | custom role id
+  /**
+   * The user's role identifier.
+   * Built-in values: 'admin' | 'staff'.
+   * Custom roles are stored as their Firestore `roles/{id}` document ID (any string).
+   * Use `isAdmin` from AuthContext for the privileged-admin fast-path check;
+   * use `usePermission(action)` for granular feature gating.
+   */
+  role: string;
   lastLogin?: Date;
   createdAt?: Date;
   updatedAt?: Date;

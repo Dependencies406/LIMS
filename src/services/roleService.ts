@@ -483,20 +483,7 @@ export const roleService = {
         }
       }
 
-      // If admin role doesn't exist in DB, create it first
-      if (roleId === 'admin' && !roleDoc.exists()) {
-        await setDoc(roleRef, {
-          name: 'Administrator',
-          description: updateData.description || 'Full system access with customizable permissions',
-          permissions: updateData.permissions || DEFAULT_ROLE_PERMISSIONS.admin,
-          isSystemRole: true,
-          createdAt: serverTimestamp(),
-          updatedAt: updateData.updatedAt,
-          createdBy: 'system',
-        });
-      } else {
-        await updateDoc(roleRef, updateData);
-      }
+      await updateDoc(roleRef, updateData);
     } catch (error: any) {
       console.error('Error updating role:', error);
       if (error.message) {
