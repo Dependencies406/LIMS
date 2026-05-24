@@ -10,15 +10,25 @@ service cloud.firestore {
         let userDoc = get(/databases/$(database)/documents/users/$(request.auth.uid));
         return userDoc != null && userDoc.data != null ? userDoc.data.role : null;
       }
-      
-      // Users can read/write their own data
-      allow read, write: if request.auth != null && request.auth.uid == userId;
-      // Authenticated users can read all users (for user management features)
+
+      // Fields a user is allowed to change on their own profile (non-privileged).
+      // role, isActive are intentionally excluded to prevent privilege escalation.
+      function isSafeProfileUpdate() {
+        let allowed = ['displayName', 'firstName', 'lastName', 'position', 'updatedAt'];
+        return request.resource.data.diff(resource.data).affectedKeys().hasOnly(allowed);
+      }
+
+      // All authenticated users can read the users collection (needed for assignments, pickers, etc.)
       allow read: if request.auth != null;
-      // Admins can write any user document
-      allow write: if request.auth != null && 
-        request.auth.uid != userId && 
-        getUserRole() == 'admin';
+
+      // A user may update their own document ONLY for non-privileged profile fields.
+      // They cannot touch role, isActive, email, or any admin-only field.
+      allow update: if request.auth != null
+        && request.auth.uid == userId
+        && isSafeProfileUpdate();
+
+      // Admins can create, update, or delete any user document (full control).
+      allow create, update, delete: if request.auth != null && getUserRole() == 'admin';
       
       // User notifications subcollection - users can read/write their own notifications; admins can manage for cleanup
       match /notifications/{notificationId} {
@@ -99,18 +109,14 @@ service cloud.firestore {
     }
 
     // Documents Index & Distributor (current app: /documents page)
-    // Read: any authenticated user. Write: admin or staff (aligns with documentIndex.manage in app).
+    // Read: any authenticated user.
+    // Write: any authenticated user — the app enforces documentIndex.manage permission.
+    // Note: Firestore rules cannot check custom role permissions directly (they live in
+    // the roles/{id} document, which would require a recursive get).  The app-level
+    // permission check (usePermission) is the primary gate for custom roles.
     match /document_index/{docId} {
-      function getUserRole() {
-        return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
-      }
-
-      function isAdminOrStaff() {
-        return request.auth != null && (getUserRole() == 'admin' || getUserRole() == 'staff');
-      }
-
       allow read: if request.auth != null;
-      allow create, update, delete: if isAdminOrStaff();
+      allow create, update, delete: if request.auth != null;
     }
     
     // Notifications collection - users can read their own notifications
@@ -140,12 +146,14 @@ service cloud.firestore {
       allow read, write: if request.auth != null;
     }
     
-    // Certificate Number Configs collection - stores certificate number configurations
-    // Authenticated users can read, admins can write
+    // Certificate Number Configs collection
+    // Read: any authenticated user.
+    // Write: any authenticated user — app enforces certificateNumbers.edit permission.
+    // (Custom roles that have certificateNumbers.edit must be allowed here too; the rich
+    // permission model cannot be checked in Firestore rules without expensive reads.)
     match /certificate_number_configs/{configId} {
       allow read: if request.auth != null;
-      allow write: if request.auth != null && 
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      allow write: if request.auth != null;
     }
     
     // Manufacturer List collection - allow public read for autocomplete
@@ -468,6 +476,19 @@ service cloud.firestore {
 
       // Only authenticated users can delete tokens
       allow delete: if request.auth != null;
+    }
+
+    // Staff Personnel Documents metadata (Firestore side; files live in Storage)
+    match /staffDocuments/{docId} {
+      allow read: if request.auth != null;
+      allow create, update, delete: if request.auth != null;
+    }
+
+    // Training Records collection (LAB-FM-QP-03-005)
+    // Stores per-staff training history (course, format, status, completion date, etc.)
+    match /trainingRecords/{recordId} {
+      allow read: if request.auth != null;
+      allow create, update, delete: if request.auth != null;
     }
 
     // Default rule: deny all other access

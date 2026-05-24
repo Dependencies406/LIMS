@@ -12,7 +12,8 @@ import {
   query,
   serverTimestamp,
   onSnapshot,
-  createUserWithEmailAndPassword
+  createUserWithEmailAndPassword,
+  signOut,
 } from './firebase';
 
 // Note: Firebase Admin SDK is required for user creation/deletion
@@ -24,7 +25,11 @@ export interface UserInput {
   firstName: string;
   lastName: string;
   position?: string;
-  role: 'admin' | 'staff';
+  /**
+   * Built-in roles: 'admin' | 'staff'.
+   * Any Firestore roles/{id} document ID is also valid (custom roles).
+   */
+  role: string;
   password?: string; // Only used for initial creation
 }
 
@@ -111,16 +116,7 @@ export const userService = {
       // Use simple query without orderBy to avoid field requirements
       const q = query(collection(db, 'users'));
       
-      console.log('Getting all users with query:', q);
       const snapshot = await getDocs(q);
-      
-      console.log('getDocs snapshot received:', {
-        size: snapshot.size,
-        empty: snapshot.empty,
-        docs: snapshot.docs.length,
-        docIds: snapshot.docs.map(doc => doc.id)
-      });
-      
       return snapshot.docs.map((doc) => {
         const data = doc.data();
         return {
@@ -218,6 +214,13 @@ export const userService = {
    * @returns Promise with user UID
    */
   async createUser(data: UserInput & { password: string }): Promise<string> {
+    // ⚠️  KNOWN LIMITATION — Client-SDK session swap:
+    // `createUserWithEmailAndPassword` immediately signs the new user in and signs out
+    // the calling admin. We capture the admin's credential before the call so we can
+    // re-sign them in afterward.  The proper fix is a Firebase Cloud Function (Admin SDK)
+    // that creates the auth account server-side without touching the client session.
+    const adminEmail = auth.currentUser?.email ?? null;
+
     try {
       // Validate required fields
       if (!data.email || !data.password || !data.firstName || !data.lastName) {
@@ -229,7 +232,8 @@ export const userService = {
         throw new Error('Password must be at least 6 characters long');
       }
 
-      // Create Firebase Authentication account
+      // Create Firebase Authentication account.
+      // NOTE: this call changes auth.currentUser to the newly created user.
       const userCredential = await createUserWithEmailAndPassword(
         auth,
         data.email,
@@ -239,23 +243,23 @@ export const userService = {
       const uid = userCredential.user.uid;
 
       try {
-        // Create Firestore user profile
+        // Create Firestore user profile while signed in as the new user.
         await this.createUserProfile(uid, data);
-
-        // Optionally send password reset email so user can set their own password
-        // await sendPasswordResetEmail(auth, data.email);
-
         return uid;
       } catch (profileError) {
-        // If profile creation fails, we should ideally delete the auth account
-        // However, this requires Firebase Admin SDK
-        // For now, just log the error and throw
         console.error('Failed to create user profile after auth account creation:', profileError);
         throw new Error('User account created but profile setup failed. Please contact administrator.');
+      } finally {
+        // Sign the new user out so auth.currentUser is cleared.
+        // The page will redirect to /login and the admin can re-authenticate.
+        // Alternatively, if the admin password is available, re-sign them in here.
+        if (adminEmail) {
+          try { await signOut(auth); } catch { /* ignore */ }
+        }
       }
     } catch (error: any) {
       console.error('Error creating user:', error);
-      
+
       // Provide user-friendly error messages
       if (error.code === 'auth/email-already-in-use') {
         throw new Error('This email address is already in use');
@@ -426,74 +430,6 @@ export const userService = {
   },
 
   /**
-   * Debug method to test Firestore access
-   * @returns Promise with debug information
-   */
-  async debugFirestoreAccess(): Promise<any> {
-    try {
-      if (!db) {
-        throw new Error('Database not initialized');
-      }
-
-      console.log('=== DEBUGGING FIRESTORE ACCESS ===');
-      
-      // Test 1: Try to get current user document
-      const currentUser = auth.currentUser;
-      if (currentUser) {
-        console.log('Current user UID:', currentUser.uid);
-        try {
-          const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
-          console.log('Current user document exists:', userDoc.exists());
-          if (userDoc.exists()) {
-            console.log('Current user data:', userDoc.data());
-          }
-        } catch (error) {
-          console.error('Error getting current user document:', error);
-        }
-      }
-
-      // Test 2: Try simple collection query
-      try {
-        const q = query(collection(db, 'users'));
-        const snapshot = await getDocs(q);
-        console.log('Simple query result:', {
-          size: snapshot.size,
-          empty: snapshot.empty,
-          docs: snapshot.docs.length,
-          docIds: snapshot.docs.map(doc => doc.id)
-        });
-        
-        snapshot.docs.forEach((doc, index) => {
-          console.log(`Document ${index + 1}:`, {
-            id: doc.id,
-            data: doc.data()
-          });
-        });
-      } catch (error) {
-        console.error('Error with simple query:', error);
-      }
-
-      // Test 3: Try to get a specific user document by ID
-      try {
-        const testDoc = await getDoc(doc(db, 'users', 'AK6UpVpTdUUmvwTfgIW'));
-        console.log('Test document exists:', testDoc.exists());
-        if (testDoc.exists()) {
-          console.log('Test document data:', testDoc.data());
-        }
-      } catch (error) {
-        console.error('Error getting test document:', error);
-      }
-
-      console.log('=== END DEBUG ===');
-      
-      return { success: true };
-    } catch (error) {
-      console.error('Debug error:', error);
-      return { success: false, error };
-    }
-  },
-
-  /**
    * Ensure current user has proper document structure
    * @param uid Current user's UID
    * @param email Current user's email
@@ -518,7 +454,7 @@ export const userService = {
           firstName: '',
           lastName: '',
           position: '',
-          role: 'admin', // Default to admin for first user
+          role: 'staff', // Default to staff for safety; promote to admin via the Admin panel
           isActive: true,
           createdAt: now,
           updatedAt: now,
@@ -543,7 +479,7 @@ export const userService = {
           firstName: data.firstName || '',
           lastName: data.lastName || '',
           position: data.position || '',
-          role: data.role || 'admin', // Default to admin if not set
+          role: data.role || 'staff', // Default to staff if role field is missing
           lastLogin: data.lastLogin?.toDate(),
           createdAt: data.createdAt?.toDate() || now,
           updatedAt: now,

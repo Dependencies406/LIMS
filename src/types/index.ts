@@ -6,7 +6,14 @@ export interface User {
   firstName: string;
   lastName: string;
   position?: string;
-  role: 'admin' | 'staff';
+  /**
+   * The user's role identifier.
+   * Built-in values: 'admin' | 'staff'.
+   * Custom roles are stored as their Firestore `roles/{id}` document ID (any string).
+   * Use `isAdmin` from AuthContext for the privileged-admin fast-path check;
+   * use `usePermission(action)` for granular feature gating.
+   */
+  role: string;
   lastLogin?: Date;
   createdAt?: Date;
   updatedAt?: Date;
@@ -253,6 +260,105 @@ export interface CompanyInfo {
   createdAt: Date;
   updatedAt: Date;
   updatedBy: string;
+}
+
+// ─── Roles & Permissions ───────────────────────────────────────────────────
+
+/**
+ * All valid permission action strings used across the application.
+ * Must stay in sync with ALL_PERMISSIONS in roleService.ts.
+ */
+export type PermissionAction =
+  // Service Requests
+  | 'serviceRequests.view'
+  | 'serviceRequests.convert'
+  | 'serviceRequests.cancel'
+  | 'serviceRequests.delete'
+  // Jobs
+  | 'jobs.view'
+  | 'jobs.create'
+  | 'jobs.edit'
+  | 'jobs.delete'
+  | 'jobs.assign'
+  | 'jobs.changeStatus'
+  | 'jobs.export'
+  | 'jobs.import'
+  | 'jobs.generatePdf'
+  | 'jobs.viewDeleted'
+  // Customers
+  | 'customers.view'
+  | 'customers.create'
+  | 'customers.edit'
+  | 'customers.delete'
+  | 'customers.export'
+  // Documents Index
+  | 'documentIndex.view'
+  | 'documentIndex.manage'
+  // Spreadsheet Templates
+  | 'spreadsheetTemplates.view'
+  | 'spreadsheetTemplates.create'
+  | 'spreadsheetTemplates.edit'
+  | 'spreadsheetTemplates.delete'
+  | 'spreadsheetTemplates.duplicate'
+  // PDF Templates
+  | 'pdfTemplates.view'
+  | 'pdfTemplates.create'
+  | 'pdfTemplates.edit'
+  | 'pdfTemplates.delete'
+  | 'pdfTemplates.duplicate'
+  // Users
+  | 'users.view'
+  | 'users.create'
+  | 'users.edit'
+  | 'users.delete'
+  | 'users.activate'
+  | 'users.deactivate'
+  // Roles
+  | 'roles.view'
+  | 'roles.create'
+  | 'roles.edit'
+  | 'roles.delete'
+  // Settings
+  | 'settings.view'
+  | 'settings.jobIdConfig'
+  | 'settings.customerIdConfig'
+  | 'settings.companyInfo'
+  // Certificate Numbers
+  | 'certificateNumbers.view'
+  | 'certificateNumbers.edit'
+  // Staff Performance
+  | 'staffPerformance.view'
+  | 'staffPerformance.viewOwn'
+  | 'staffPerformance.exportLogs'
+  // Equipment Control
+  | 'equipmentControl.view'
+  | 'equipmentControl.register'
+  | 'equipmentControl.edit'
+  | 'equipmentControl.approve'
+  | 'equipmentControl.logUsage'
+  | 'equipmentControl.calibrate'
+  | 'equipmentControl.uploadDocuments'
+  | 'equipmentControl.deleteDocuments'
+  | 'equipmentControl.retire';
+
+/** A role document as stored in Firestore `roles/{id}`. */
+export interface Role {
+  id: string;
+  name: string;
+  description: string;
+  permissions: PermissionAction[];
+  /** True for built-in roles (admin, staff) that cannot be deleted. */
+  isSystemRole: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+  createdBy: string;
+}
+
+/** Input shape for creating or updating a role. */
+export interface RoleInput {
+  name: string;
+  description?: string;
+  permissions: PermissionAction[];
 }
 
 // ─── Equipment Control Module Types ────────────────────────────────────────
