@@ -1,6 +1,6 @@
 import React from 'react';
 
-export type IconButtonVariant = 'primary' | 'secondary' | 'danger';
+export type IconButtonVariant = 'primary' | 'secondary' | 'danger' | 'ghost';
 export type IconButtonSize = 'sm' | 'md';
 
 export interface IconButtonProps extends Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, 'children'> {
@@ -30,12 +30,14 @@ export const IconButton: React.FC<IconButtonProps> = ({
     primary: 'border-primary-600 bg-primary-600 hover:bg-primary-700 text-white',
     secondary: 'border-gray-300 bg-white hover:bg-gray-50 text-gray-700',
     danger: 'border-red-600 bg-red-600 hover:bg-red-700 text-white',
+    ghost: 'border-transparent bg-transparent hover:bg-gray-100 text-gray-600',
   };
 
   const disabledVariantClass: Record<IconButtonVariant, string> = {
     primary: 'border-primary-300 bg-primary-100 text-primary-400',
     secondary: 'border-gray-300 bg-gray-50 text-gray-400',
     danger: 'border-red-200 bg-red-50 text-red-300',
+    ghost: 'border-transparent bg-transparent text-gray-300',
   };
 
   const classes = [

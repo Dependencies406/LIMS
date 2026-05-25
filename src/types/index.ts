@@ -218,22 +218,15 @@ export interface Job {
   signatures?: { customer?: string; staff?: string };
   certificateNumber?: string;
   parentJobId?: string;
+  /** ID of the PDF template linked to this job */
+  pdfTemplateId?: string;
+  requestNo?: string;
   isDeleted?: boolean;
   deletedAt?: Date;
   deletedBy?: string;
   createdAt: Date;
   updatedAt: Date;
   createdBy: string;
-  // Extended fields
-  appointmentDate?: string;
-  completedDate?: string;
-  expectedFinishDate?: string;
-  receivedDate?: string;
-  poNumber?: string;
-  certificateNumber?: string;
-  isDeleted?: boolean;
-  deletedAt?: Date;
-  deletedBy?: string;
 }
 
 export type JobInput = Omit<Job, 'id' | 'createdAt' | 'updatedAt'>;
@@ -365,14 +358,102 @@ export interface ServiceRequest {
 
 export type ServiceRequestInput = Omit<ServiceRequest, 'id' | 'createdAt' | 'updatedAt' | 'status'>;
 
+// ─── Training Records ─────────────────────────────────────────────────────────
+
+export type TrainingFormat =
+  | 'External Training'
+  | 'Internal Training'
+  | 'On-the-Job Training'
+  | 'e-Learning'
+  | 'Workshop'
+  | 'Seminar'
+  | 'Conference'
+  | 'Other';
+
+export type TrainingStatus =
+  | 'Completed'
+  | 'Planned'
+  | 'In Progress'
+  | 'Cancelled';
+
+export interface TrainingRecord {
+  id: string;
+  staffUid: string;
+  staffName: string;
+  /** ชื่อหลักสูตร / หัวข้อการอบรม */
+  courseName: string;
+  /** รูปแบบการอบรม */
+  trainingFormat: TrainingFormat;
+  /** ระยะเวลาอบรม e.g. "2 days", "8 hours" */
+  duration: string;
+  /** ผู้จัดการอบรม */
+  organizer: string;
+  /** สถานะดำเนินการ */
+  status: TrainingStatus;
+  /** อบรมแล้วเสร็จวันที่ – ISO date string YYYY-MM-DD */
+  completionDate?: string;
+  /** ใบรับรอง / เอกสารประเมินผล – URL */
+  certificateUrl?: string;
+  /** หมายเหตุ */
+  remarks?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// ─── Staff Personnel Documents ────────────────────────────────────────────────
+
+export type StaffDocumentCategory =
+  | 'Code of Conduct'
+  | 'Job Description'
+  | 'Employment Contract'
+  | 'Training Certificate'
+  | 'Performance Review'
+  | 'Medical Certificate'
+  | 'ID / Passport'
+  | 'Other';
+
+export const STAFF_DOCUMENT_CATEGORIES: StaffDocumentCategory[] = [
+  'Code of Conduct',
+  'Job Description',
+  'Employment Contract',
+  'Training Certificate',
+  'Performance Review',
+  'Medical Certificate',
+  'ID / Passport',
+  'Other',
+];
+
+/** A file (PDF, image, etc.) attached to a staff member's personnel record. */
+export interface StaffDocument {
+  id: string;
+  staffUid: string;
+  /** Original file name shown to users */
+  name: string;
+  category: StaffDocumentCategory;
+  /** File size in bytes */
+  size: number;
+  mimeType: string;
+  /** Firebase Storage download URL */
+  url: string;
+  /** Firebase Storage path used for deletion */
+  storagePath: string;
+  uploadedAt: Date;
+  uploadedBy: string;
+  uploadedByName: string;
+}
+
 // ─── Staff Performance Types ──────────────────────────────────────────────────
 
 export interface StaffPerformanceMetrics {
   userId: string;
   userName: string;
   totalAssigned: number;
+  /** Alias for totalAssigned (legacy field name) */
+  totalJobsAssigned?: number;
   completed: number;
   inProgress: number;
+  /** Alias for inProgress (legacy field name) */
+  jobsInProgress?: number;
   overdue: number;
   onTimeCompletionRate: number;
   averageCompletionDays?: number;
@@ -612,3 +693,6 @@ export interface Toast {
 
 export * from './template';
 export type { DocumentIndexItem, DocumentIndexItemInput, DocumentIndexType, DocumentSource } from './documentIndex';
+
+/** Alias for DocumentIndexItem — used by legacy PDF/notification services */
+export type { DocumentIndexItem as Document } from './documentIndex';

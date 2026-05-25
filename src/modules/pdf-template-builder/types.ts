@@ -15,6 +15,7 @@ export type PdfElementType =
   | 'chart'
   | 'equipment-table'
   | 'documents-table'
+  | 'training-table'
   | 'treb-table';
 
 /** How an element participates in template-page overflow / continuation pages. Default: tables behave as dynamic when omitted (see renderer). */
@@ -235,6 +236,32 @@ export interface DocumentsTableElement extends PdfElement {
   dataSource?: { type: string; key: string };
 }
 
+/** Training records table column definition */
+export interface TrainingTableColumnDef {
+  id: string;
+  label: string;
+  visible?: boolean;
+  width?: number;
+  align?: 'left' | 'center' | 'right';
+  order?: number;
+}
+
+/** Training records table element — renders staff training records */
+export interface TrainingTableElement extends PdfElement {
+  type: 'training-table';
+  width?: number;
+  height?: number;
+  columns: TrainingTableColumnDef[];
+  headerStyle?: CellStyle;
+  cellStyle?: CellStyle;
+  borderColor?: string;
+  borderWidth?: number;
+  fontSize?: number;
+  headerFontSize?: number;
+  dataSource?: { type: string; key: string };
+  staffUid?: string;
+}
+
 /**
  * TREB table element.
  * Renders data from a @trebco/treb spreadsheet tab; data is supplied via jobData.trebDataRegistry[sourceTabId].
@@ -285,7 +312,7 @@ export type PageOrientation = 'portrait' | 'landscape';
  * Templates in the selector are filtered to the calling module's scope.
  * 'global' means the template appears in all selectors (backward-compatible default).
  */
-export type PdfTemplateScope = 'jobs' | 'customers' | 'documents' | 'global';
+export type PdfTemplateScope = 'jobs' | 'customers' | 'documents' | 'global' | 'staff' | 'equipment';
 
 /**
  * PDF template structure
@@ -377,5 +404,15 @@ export const DOCUMENTS_TABLE_DEFAULT_COLUMNS: ReadonlyArray<{ id: string; label:
   { id: 'darNumber', label: 'DAR Number', defaultWidth: 52 },
   { id: 'source', label: 'Source', defaultWidth: 90 },
   { id: 'darSource', label: 'DAR Source', defaultWidth: 90 },
+];
+
+export const TRAINING_TABLE_DEFAULT_COLUMNS: ReadonlyArray<{ id: string; label: string; defaultWidth: number }> = [
+  { id: 'staffName', label: 'Staff Name', defaultWidth: 90 },
+  { id: 'courseName', label: 'Course / Training Topic', defaultWidth: 140 },
+  { id: 'trainingFormat', label: 'Format', defaultWidth: 70 },
+  { id: 'organizer', label: 'Organizer', defaultWidth: 90 },
+  { id: 'duration', label: 'Duration', defaultWidth: 50 },
+  { id: 'completionDate', label: 'Completion Date', defaultWidth: 70 },
+  { id: 'status', label: 'Status', defaultWidth: 55 },
 ];
 

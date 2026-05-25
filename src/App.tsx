@@ -1,15 +1,18 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { PermissionProvider } from './contexts/PermissionContext';
 import { PdfSettingsProvider } from './contexts/PdfSettingsContext';
 import { CompanyInfoProvider } from './contexts/CompanyInfoContext';
 import { LoginPage } from './components/LoginPage';
+import { CustomerSignPage } from './pages/CustomerSignPage';
 import { PublicServiceRequestPage } from './pages/PublicServiceRequestPage';
 import { Layout } from './components/Layout';
 import { JobsPage } from './pages/JobsPage';
 import JobDetailPage from './pages/JobDetailPage';
 import { CustomersPage } from './pages/CustomersPage';
 import { PendingJobsPage } from './pages/PendingJobsPage';
+import { StaffPage } from './pages/StaffPage';
 import { StaffPerformanceDashboard } from './pages/StaffPerformanceDashboard';
 import { DocumentIndexPage } from './pages/DocumentIndexPage';
 import { RecycleBinPage } from './pages/RecycleBinPage';
@@ -77,6 +80,7 @@ const AppContent: React.FC = () => {
       <Routes>
         {/* Public Routes */}
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/customer-sign/:token" element={<CustomerSignPage />} />
         <Route path="/request-service" element={<PublicServiceRequestPage />} />
 
         {/* Protected Routes with Layout */}
@@ -102,7 +106,9 @@ const AppContent: React.FC = () => {
           <Route path="customers" element={<CustomersPage />} />
 
 
-          {/* Staff Performance */}
+          {/* Staff (combined Training Records + Performance) */}
+          <Route path="staff" element={<StaffPage />} />
+          {/* Legacy route – redirect to the new combined Staff page */}
           <Route path="staff-performance" element={<StaffPerformanceDashboard />} />
 
           {/* Documents */}
@@ -144,11 +150,13 @@ function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <PdfSettingsProvider>
-          <CompanyInfoProvider>
-            <AppContent />
-          </CompanyInfoProvider>
-        </PdfSettingsProvider>
+        <PermissionProvider>
+          <PdfSettingsProvider>
+            <CompanyInfoProvider>
+              <AppContent />
+            </CompanyInfoProvider>
+          </PdfSettingsProvider>
+        </PermissionProvider>
       </AuthProvider>
     </BrowserRouter>
   );

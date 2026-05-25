@@ -24,6 +24,7 @@ import {
   storageRef,
   uploadBytesResumable,
   getDownloadURL,
+  deleteObject,
 } from './firebase';
 
 // ─── Helper ─────────────────────────────────────────────────────────────────
@@ -52,6 +53,9 @@ function mapEquipment(id: string, data: Record<string, unknown>): EquipmentRecor
     calibrationInterval: data.calibrationInterval as number | undefined,
     calibrationProcedure: data.calibrationProcedure as string | undefined,
     externalProvider: Boolean(data.externalProvider),
+    capacity: data.capacity as string | undefined,
+    usageRange: data.usageRange as string | undefined,
+    usageCriteria: data.usageCriteria as string | undefined,
     usagePeriodStart: data.usagePeriodStart as string | undefined,
     usagePeriodEnd: data.usagePeriodEnd as string | undefined,
     registrationDate: (data.registrationDate as string) || '',
@@ -81,6 +85,10 @@ function mapUsageLog(id: string, data: Record<string, unknown>): UsageLog {
     actionTaken: data.actionTaken as string | undefined,
     notes: data.notes as string | undefined,
     overallResult: (data.overallResult as 'pass' | 'fail') || 'pass',
+    linkedJobId: data.linkedJobId as string | undefined,
+    linkedJobRef: data.linkedJobRef as string | undefined,
+    linkedJobTitle: data.linkedJobTitle as string | undefined,
+    linkedCustomerName: data.linkedCustomerName as string | undefined,
     createdAt: toDate(data.createdAt),
   };
 }
@@ -98,7 +106,7 @@ export const EQUIPMENT_CATEGORIES: { code: string; label: string }[] = [
   { code: 'VBR', label: 'Vibration' },
 ];
 
-// ─── Equipment Service ───────────────────────────────────────────────────────
+// ─── Equipment Control Service ───────────────────────────────────────────────
 
 export interface EquipmentInput {
   id: string;
@@ -115,6 +123,9 @@ export interface EquipmentInput {
   calibrationInterval?: number;
   calibrationProcedure?: string;
   externalProvider: boolean;
+  capacity?: string;
+  usageRange?: string;
+  usageCriteria?: string;
   usagePeriodStart?: string;
   usagePeriodEnd?: string;
   registrationDate: string;
@@ -122,13 +133,13 @@ export interface EquipmentInput {
   createdBy: string;
 }
 
-export const equipmentService = {
+export const equipmentControlService = {
   // ── Subscriptions ─────────────────────────────────────────────────────────
 
   subscribeToEquipment(
     callback: (items: EquipmentRecord[], error?: Error) => void
   ): () => void {
-    const q = query(collection(db, 'equipment'), orderBy('createdAt', 'desc'));
+    const q = query(collection(db, 'equipmentControl'), orderBy('createdAt', 'desc'));
     return onSnapshot(
       q,
       (snap) => {
@@ -149,7 +160,7 @@ export const equipmentService = {
     callback: (logs: UsageLog[], error?: Error) => void
   ): () => void {
     const q = query(
-      collection(db, 'equipment', equipmentId, 'usageLogs'),
+      collection(db, 'equipmentControl', equipmentId, 'usageLogs'),
       orderBy('createdAt', 'desc')
     );
     return onSnapshot(
@@ -170,25 +181,23 @@ export const equipmentService = {
   // ── CRUD ──────────────────────────────────────────────────────────────────
 
   async getEquipmentById(id: string): Promise<EquipmentRecord | null> {
-    const snap = await getDoc(doc(db, 'equipment', id));
+    const snap = await getDoc(doc(db, 'equipmentControl', id));
     if (!snap.exists()) return null;
     return mapEquipment(snap.id, snap.data() as Record<string, unknown>);
   },
 
   async getAllEquipment(): Promise<EquipmentRecord[]> {
-    const q = query(collection(db, 'equipment'), orderBy('createdAt', 'desc'));
+    const q = query(collection(db, 'equipmentControl'), orderBy('createdAt', 'desc'));
     const snap = await getDocs(q);
     return snap.docs.map((d) => mapEquipment(d.id, d.data() as Record<string, unknown>));
   },
 
   async createEquipment(input: EquipmentInput): Promise<string> {
-    // Check ID uniqueness
-    const existing = await getDoc(doc(db, 'equipment', input.id));
+    const existing = await getDoc(doc(db, 'equipmentControl', input.id));
     if (existing.exists()) throw new Error(`Equipment ID ${input.id} already exists`);
 
-    // Check serial uniqueness
     const serialQ = query(
-      collection(db, 'equipment'),
+      collection(db, 'equipmentControl'),
       where('serialNumber', '==', input.serialNumber)
     );
     const serialSnap = await getDocs(serialQ);
@@ -211,6 +220,9 @@ export const equipmentService = {
       calibrationInterval: input.calibrationInterval || null,
       calibrationProcedure: input.calibrationProcedure || '',
       externalProvider: input.externalProvider,
+      capacity: input.capacity || '',
+      usageRange: input.usageRange || '',
+      usageCriteria: input.usageCriteria || '',
       usagePeriodStart: input.usagePeriodStart || null,
       usagePeriodEnd: input.usagePeriodEnd || null,
       registrationDate: input.registrationDate,
@@ -220,7 +232,7 @@ export const equipmentService = {
       createdBy: input.createdBy,
     };
 
-    await setDoc(doc(db, 'equipment', input.id), data);
+    await setDoc(doc(db, 'equipmentControl', input.id), data);
     return input.id;
   },
 
@@ -228,14 +240,14 @@ export const equipmentService = {
     id: string,
     data: Partial<Omit<EquipmentInput, 'id' | 'createdBy'>>
   ): Promise<void> {
-    await updateDoc(doc(db, 'equipment', id), {
+    await updateDoc(doc(db, 'equipmentControl', id), {
       ...data,
       updatedAt: serverTimestamp(),
     });
   },
 
   async updateStatus(id: string, status: EquipmentStatus): Promise<void> {
-    await updateDoc(doc(db, 'equipment', id), {
+    await updateDoc(doc(db, 'equipmentControl', id), {
       status,
       updatedAt: serverTimestamp(),
     });
@@ -245,7 +257,6 @@ export const equipmentService = {
     const eq = await this.getEquipmentById(id);
     if (!eq) throw new Error('Equipment not found');
 
-    // Compute initial status
     let status: EquipmentStatus = 'active';
     if (eq.requiresCalibration && eq.nextCalibrationDate) {
       const due = new Date(eq.nextCalibrationDate);
@@ -259,7 +270,7 @@ export const equipmentService = {
   },
 
   async rejectRegistration(id: string): Promise<void> {
-    await deleteDoc(doc(db, 'equipment', id));
+    await deleteDoc(doc(db, 'equipmentControl', id));
   },
 
   // ── ID generation ─────────────────────────────────────────────────────────
@@ -267,7 +278,7 @@ export const equipmentService = {
   async suggestEquipmentId(category: string): Promise<string> {
     const prefix = `CAL-${category}-`;
     const q = query(
-      collection(db, 'equipment'),
+      collection(db, 'equipmentControl'),
       where('category', '==', category)
     );
     const snap = await getDocs(q);
@@ -295,15 +306,15 @@ export const equipmentService = {
     equipmentId: string,
     log: Omit<UsageLog, 'id' | 'createdAt'>
   ): Promise<string> {
+    // Firestore rejects `undefined` field values — strip them before writing
+    const cleanLog = Object.fromEntries(
+      Object.entries(log).filter(([, v]) => v !== undefined)
+    );
     const ref = await addDoc(
-      collection(db, 'equipment', equipmentId, 'usageLogs'),
-      {
-        ...log,
-        createdAt: serverTimestamp(),
-      }
+      collection(db, 'equipmentControl', equipmentId, 'usageLogs'),
+      { ...cleanLog, createdAt: serverTimestamp() }
     );
 
-    // Auto-update equipment status based on log result
     if (log.overallResult === 'fail' || log.equipmentCondition === 'abnormal') {
       await this.updateStatus(equipmentId, 'out_of_service');
     } else if (log.documentCheck === 'expired') {
@@ -316,9 +327,30 @@ export const equipmentService = {
     return ref.id;
   },
 
+  async updateUsageLog(
+    equipmentId: string,
+    logId: string,
+    data: Partial<Omit<UsageLog, 'id' | 'createdAt'>>
+  ): Promise<void> {
+    // Firestore rejects `undefined` values — strip them before writing
+    const clean = Object.fromEntries(
+      Object.entries(data).filter(([, v]) => v !== undefined)
+    );
+    await updateDoc(
+      doc(db, 'equipmentControl', equipmentId, 'usageLogs', logId),
+      { ...clean, updatedAt: serverTimestamp() }
+    );
+  },
+
+  async deleteUsageLog(equipmentId: string, logId: string): Promise<void> {
+    await deleteDoc(
+      doc(db, 'equipmentControl', equipmentId, 'usageLogs', logId)
+    );
+  },
+
   async getUsageLogs(equipmentId: string): Promise<UsageLog[]> {
     const q = query(
-      collection(db, 'equipment', equipmentId, 'usageLogs'),
+      collection(db, 'equipmentControl', equipmentId, 'usageLogs'),
       orderBy('createdAt', 'desc')
     );
     const snap = await getDocs(q);
@@ -331,24 +363,27 @@ export const equipmentService = {
     equipmentId: string,
     event: Omit<CalibrationEvent, 'id' | 'createdAt'>
   ): Promise<string> {
+    // Firestore rejects undefined field values — strip them before writing
+    const payload = Object.fromEntries(
+      Object.entries({ ...event, createdAt: serverTimestamp() })
+        .filter(([, v]) => v !== undefined)
+    );
     const ref = await addDoc(
-      collection(db, 'equipment', equipmentId, 'calibrationEvents'),
-      {
-        ...event,
-        createdAt: serverTimestamp(),
-      }
+      collection(db, 'equipmentControl', equipmentId, 'calibrationEvents'),
+      payload
     );
 
-    // If received date provided, recalculate nextCalibrationDate
-    if (event.receivedDate) {
+    // Use calibrationDate (preferred) or receivedDate to compute the next due date
+    const basisDate = event.calibrationDate || event.receivedDate;
+    if (basisDate) {
       const eq = await this.getEquipmentById(equipmentId);
       if (eq?.calibrationInterval) {
-        const received = new Date(event.receivedDate);
-        received.setMonth(received.getMonth() + eq.calibrationInterval);
-        const nextDate = received.toISOString().split('T')[0];
+        const basis = new Date(basisDate);
+        basis.setMonth(basis.getMonth() + eq.calibrationInterval);
+        const nextDate = basis.toISOString().split('T')[0];
 
-        await updateDoc(doc(db, 'equipment', equipmentId), {
-          lastCalibrationDate: event.receivedDate,
+        await updateDoc(doc(db, 'equipmentControl', equipmentId), {
+          lastCalibrationDate: basisDate,
           nextCalibrationDate: nextDate,
           status: 'active',
           updatedAt: serverTimestamp(),
@@ -359,9 +394,23 @@ export const equipmentService = {
     return ref.id;
   },
 
+  async updateCalibrationEvent(
+    equipmentId: string,
+    eventId: string,
+    updates: Partial<Omit<CalibrationEvent, 'id' | 'createdAt' | 'createdBy' | 'equipmentId'>>
+  ): Promise<void> {
+    const clean = Object.fromEntries(
+      Object.entries(updates).filter(([, v]) => v !== undefined)
+    );
+    await updateDoc(
+      doc(db, 'equipmentControl', equipmentId, 'calibrationEvents', eventId),
+      clean
+    );
+  },
+
   async getCalibrationEvents(equipmentId: string): Promise<CalibrationEvent[]> {
     const q = query(
-      collection(db, 'equipment', equipmentId, 'calibrationEvents'),
+      collection(db, 'equipmentControl', equipmentId, 'calibrationEvents'),
       orderBy('createdAt', 'desc')
     );
     const snap = await getDocs(q);
@@ -372,6 +421,7 @@ export const equipmentService = {
         equipmentId: (data.equipmentId as string) || equipmentId,
         sentDate: (data.sentDate as string) || '',
         receivedDate: data.receivedDate as string | undefined,
+        calibrationDate: data.calibrationDate as string | undefined,
         calibrationLab: (data.calibrationLab as string) || '',
         certificateNumber: data.certificateNumber as string | undefined,
         result: data.result as 'pass' | 'fail' | undefined,
@@ -394,7 +444,7 @@ export const equipmentService = {
   ): Promise<EquipmentDocument> {
     const date = new Date().toISOString().split('T')[0];
     const sanitized = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-    const path = `equipment/${equipmentId}/${docType}/${date}_${sanitized}`;
+    const path = `equipmentControl/${equipmentId}/${docType}/${date}_${sanitized}`;
 
     const fileRef = storageRef(storage, path);
     const uploadTask = uploadBytesResumable(fileRef, file);
@@ -412,12 +462,13 @@ export const equipmentService = {
       size: file.size,
       type: file.type,
       url,
+      storagePath: path,
       uploadedAt: serverTimestamp(),
       uploadedBy,
     };
 
     const ref = await addDoc(
-      collection(db, 'equipment', equipmentId, 'documents'),
+      collection(db, 'equipmentControl', equipmentId, 'documents'),
       docData
     );
 
@@ -429,14 +480,36 @@ export const equipmentService = {
       size: file.size,
       type: file.type,
       url,
+      storagePath: path,
       uploadedAt: new Date(),
       uploadedBy,
     };
   },
 
+  async deleteDocument(
+    equipmentId: string,
+    documentId: string,
+    storagePath?: string
+  ): Promise<void> {
+    // Delete from Firestore
+    await deleteDoc(
+      doc(db, 'equipmentControl', equipmentId, 'documents', documentId)
+    );
+
+    // Delete from Storage if path is known
+    if (storagePath) {
+      try {
+        await deleteObject(storageRef(storage, storagePath));
+      } catch (err) {
+        // Log but don't throw — the Firestore record is already gone
+        console.warn('Storage delete failed (file may already be removed):', err);
+      }
+    }
+  },
+
   async getDocuments(equipmentId: string): Promise<EquipmentDocument[]> {
     const q = query(
-      collection(db, 'equipment', equipmentId, 'documents'),
+      collection(db, 'equipmentControl', equipmentId, 'documents'),
       orderBy('uploadedAt', 'desc')
     );
     const snap = await getDocs(q);
@@ -450,10 +523,89 @@ export const equipmentService = {
         size: data.size as number,
         type: data.type as string,
         url: data.url as string,
+        storagePath: (data.storagePath as string) || undefined,
         uploadedAt: toDate(data.uploadedAt),
         uploadedBy: (data.uploadedBy as string) || '',
       };
     });
+  },
+
+  // ── Shared Calibration Plan Documents (LAB-FM-QP-05-007) ─────────────────
+
+  async uploadPlanDocument(
+    file: File,
+    uploadedBy: string
+  ): Promise<EquipmentDocument> {
+    const date = new Date().toISOString().split('T')[0];
+    const sanitized = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+    const path = `equipmentControl/_common/cal_plan/${date}_${sanitized}`;
+
+    const fileRef = storageRef(storage, path);
+    const uploadTask = uploadBytesResumable(fileRef, file);
+    await new Promise<void>((resolve, reject) => {
+      uploadTask.on('state_changed', null, reject, resolve);
+    });
+    const url = await getDownloadURL(fileRef);
+
+    const docData = {
+      docType: 'cal_plan' as const,
+      name: file.name,
+      size: file.size,
+      type: file.type,
+      url,
+      storagePath: path,
+      uploadedAt: serverTimestamp(),
+      uploadedBy,
+    };
+
+    const ref = await addDoc(collection(db, 'calPlanDocuments'), docData);
+
+    return {
+      id: ref.id,
+      equipmentId: '_common',
+      docType: 'cal_plan',
+      name: file.name,
+      size: file.size,
+      type: file.type,
+      url,
+      storagePath: path,
+      uploadedAt: new Date(),
+      uploadedBy,
+    };
+  },
+
+  async getPlanDocuments(): Promise<EquipmentDocument[]> {
+    const q = query(
+      collection(db, 'calPlanDocuments'),
+      orderBy('uploadedAt', 'desc')
+    );
+    const snap = await getDocs(q);
+    return snap.docs.map((d) => {
+      const data = d.data();
+      return {
+        id: d.id,
+        equipmentId: '_common',
+        docType: 'cal_plan' as const,
+        name: data.name as string,
+        size: data.size as number,
+        type: data.type as string,
+        url: data.url as string,
+        storagePath: (data.storagePath as string) || undefined,
+        uploadedAt: toDate(data.uploadedAt),
+        uploadedBy: (data.uploadedBy as string) || '',
+      };
+    });
+  },
+
+  async deletePlanDocument(documentId: string, storagePath?: string): Promise<void> {
+    await deleteDoc(doc(db, 'calPlanDocuments', documentId));
+    if (storagePath) {
+      try {
+        await deleteObject(storageRef(storage, storagePath));
+      } catch (err) {
+        console.warn('Storage delete failed:', err);
+      }
+    }
   },
 
   // ── Status helpers ────────────────────────────────────────────────────────
@@ -464,9 +616,7 @@ export const equipmentService = {
     }
     if (equipment.status === 'pending') return 'pending';
     if (equipment.status === 'calibration') return 'calibration';
-
     if (!equipment.requiresCalibration) return 'active';
-
     if (!equipment.nextCalibrationDate) return 'active';
 
     const due = new Date(equipment.nextCalibrationDate);
@@ -505,16 +655,9 @@ export const equipmentService = {
     return map[status] || 'bg-gray-100 text-gray-600';
   },
 
-  // ── Filters / Search ──────────────────────────────────────────────────────
-
   filterEquipment(
     items: EquipmentRecord[],
-    opts: {
-      search?: string;
-      status?: string;
-      category?: string;
-      custodian?: string;
-    }
+    opts: { search?: string; status?: string; category?: string; custodian?: string }
   ): EquipmentRecord[] {
     let result = items;
 
@@ -544,46 +687,7 @@ export const equipmentService = {
 
     return result;
   },
-
-  /**
-   * Find a piece of equipment by serial number (one-time fetch).
-   */
-  async getEquipmentBySerialNumber(serialNumber: string): Promise<EquipmentRecord | null> {
-    try {
-      const allItems = await this.getAllEquipment();
-      return allItems.find((e) => e.serialNumber === serialNumber) ?? null;
-    } catch (error) {
-      console.error('Error getting equipment by serial number:', error);
-      return null;
-    }
-  },
-
-  /**
-   * Create a new equipment record or update an existing one matching the same serialNumber.
-   * If a matching record exists, merge the provided fields.
-   */
-  async createOrUpdateEquipment(data: Partial<EquipmentRecord> & { serialNumber: string }): Promise<string> {
-    const existing = await this.getEquipmentBySerialNumber(data.serialNumber);
-    if (existing) {
-      await this.updateEquipment(existing.id, data);
-      return existing.id;
-    }
-    // Build a minimal record for creation
-    const newRecord: Omit<EquipmentRecord, 'id'> = {
-      name: data.name ?? data.serialNumber,
-      serialNumber: data.serialNumber,
-      manufacturer: data.manufacturer ?? '',
-      model: data.model ?? '',
-      category: (data as any).category ?? 'General',
-      status: data.status ?? 'Active',
-      custodian: data.custodian ?? '',
-      location: data.location ?? '',
-      purchaseDate: data.purchaseDate ?? '',
-      nextCalibrationDate: data.nextCalibrationDate ?? '',
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      createdBy: data.createdBy ?? '',
-    };
-    return this.createEquipment(newRecord as EquipmentRecord);
-  },
 };
+
+// Alias so pages can import { equipmentService } from this module
+export { equipmentControlService as equipmentService };

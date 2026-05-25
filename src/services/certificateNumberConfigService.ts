@@ -30,11 +30,15 @@ const documentToConfig = (docData: any, docId: string): CertificateNumberConfig 
   return {
     id: docId,
     name: docData.name || '',
+    equipmentType: docData.equipmentType || '',
     prefix: docData.prefix || '',
     separator: docData.separator || '-',
-    includeYear: docData.includeYear !== false, // Default to true for backward compatibility
+    includeYear: docData.includeYear !== false,
     numberPadding: docData.numberPadding || 3,
     currentNumber: docData.currentNumber || 0,
+    currentSequence: docData.currentSequence ?? docData.currentNumber ?? 0,
+    currentYear: docData.currentYear ?? new Date().getFullYear(),
+    yearlyReset: docData.yearlyReset ?? (docData.resetPolicy === 'yearly'),
     resetPolicy: docData.resetPolicy || 'never',
     lastResetAt: docData.lastResetAt?.toDate() || undefined,
     isActive: docData.isActive !== false,

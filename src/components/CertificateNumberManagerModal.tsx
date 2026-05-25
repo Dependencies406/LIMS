@@ -22,7 +22,7 @@ interface ConfigFormData {
   includeYear: boolean;
   numberPadding: number;
   currentNumber: number;
-  resetPolicy: 'never' | 'yearly';
+  resetPolicy: 'never' | 'yearly' | 'monthly';
   isActive: boolean;
 }
 
@@ -146,11 +146,15 @@ export const CertificateNumberManagerModal: React.FC<CertificateNumberManagerMod
     try {
       const configData: Omit<CertificateNumberConfig, 'id' | 'createdAt' | 'updatedAt'> = {
         name: formData.name.trim(),
+        equipmentType: (formData as any).equipmentType ?? '',
         prefix: formData.prefix.trim(),
         separator: formData.separator,
         includeYear: formData.includeYear,
         numberPadding: formData.numberPadding,
         currentNumber: formData.currentNumber,
+        currentSequence: (formData as any).currentSequence ?? formData.currentNumber,
+        currentYear: (formData as any).currentYear ?? new Date().getFullYear(),
+        yearlyReset: formData.resetPolicy === 'yearly',
         resetPolicy: formData.resetPolicy,
         isActive: formData.isActive,
         lastResetAt: undefined,
@@ -432,7 +436,7 @@ export const CertificateNumberManagerModal: React.FC<CertificateNumberManagerMod
                   <label className="block text-sm font-medium text-gray-700 mb-1">Reset Policy</label>
                   <select
                     value={formData.resetPolicy}
-                    onChange={(e) => setFormData({ ...formData, resetPolicy: e.target.value as 'never' | 'yearly' })}
+                    onChange={(e) => setFormData({ ...formData, resetPolicy: e.target.value as 'never' | 'yearly' | 'monthly' })}
                     className="input w-full"
                   >
                     <option value="never">Never</option>

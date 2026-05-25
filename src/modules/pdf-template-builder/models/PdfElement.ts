@@ -18,7 +18,7 @@ import type {
   TrebTableElement,
   PdfElementType,
 } from '../types';
-import { DOCUMENTS_TABLE_DEFAULT_COLUMNS, EQUIPMENT_TABLE_DEFAULT_COLUMNS, assertNever } from '../types';
+import { DOCUMENTS_TABLE_DEFAULT_COLUMNS, EQUIPMENT_TABLE_DEFAULT_COLUMNS, TRAINING_TABLE_DEFAULT_COLUMNS, assertNever } from '../types';
 
 /**
  * Create a new PDF element
@@ -155,6 +155,35 @@ export function createPdfElement(
         cellStyle: docOpts?.cellStyle ?? {},
         dataSource: docOpts?.dataSource ?? { type: 'documentIndex', key: 'documentIndex.list' },
       } as DocumentsTableElement;
+    }
+
+    case 'training-table': {
+      const trainingOpts = options as any;
+      const defaultTrainingCols = TRAINING_TABLE_DEFAULT_COLUMNS?.map((def: any, idx: number) => ({
+        id: def.id,
+        label: def.label,
+        visible: true,
+        width: def.defaultWidth,
+        align: 'left' as const,
+        order: idx,
+      })) ?? [];
+      return {
+        ...baseElement,
+        type: 'training-table',
+        paginationMode: trainingOpts?.paginationMode ?? 'dynamic',
+        repeatOnOverflowPages: trainingOpts?.repeatOnOverflowPages ?? true,
+        overflowRole: trainingOpts?.overflowRole ?? 'dynamic',
+        width: trainingOpts?.width ?? 500,
+        height: trainingOpts?.height ?? 200,
+        columns: trainingOpts?.columns && trainingOpts.columns.length > 0 ? trainingOpts.columns : defaultTrainingCols,
+        borderColor: trainingOpts?.borderColor ?? '#000000',
+        borderWidth: trainingOpts?.borderWidth ?? 1,
+        fontSize: trainingOpts?.fontSize ?? 9,
+        headerFontSize: trainingOpts?.headerFontSize ?? 10,
+        headerStyle: trainingOpts?.headerStyle ?? { bold: true, backgroundColor: '#f0f0f0' },
+        cellStyle: trainingOpts?.cellStyle ?? {},
+        dataSource: trainingOpts?.dataSource ?? { type: 'trainingRecords', key: 'trainingRecords.list' },
+      } as any;
     }
 
     case 'checkbox': {
@@ -330,6 +359,12 @@ export function getElementLabel(element: PdfElement): string {
       const docTable = element as DocumentsTableElement;
       const docVisible = docTable.columns?.filter((c) => c.visible !== false).length ?? 0;
       return `📑 Documents Table (${docVisible} columns)`;
+    }
+
+    case 'training-table': {
+      const ttEl = element as any;
+      const ttVisible = ttEl.columns?.filter((c: any) => c.visible !== false).length ?? 0;
+      return `📋 Training Records Table (${ttVisible} columns)`;
     }
 
     case 'chart':

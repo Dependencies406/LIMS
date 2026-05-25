@@ -408,9 +408,10 @@ export const ServiceRequestModal: React.FC<ServiceRequestModalProps> = ({
           const { getNextCustomerId, incrementCustomerIdSequence } = await import('../services/customerIdService');
           const customerId = await getNextCustomerId();
           await customerService.createCustomer({
-            customerId,
+            customerCode: customerId,
             name: form.customerCompanyName,
-            address: form.address,
+            contact: '',
+            address: form.address || '',
           });
           // Increment customer ID sequence
           await incrementCustomerIdSequence();

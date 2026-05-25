@@ -6,6 +6,8 @@ const CUSTOMER_ID_SETTINGS_DOC = 'system/customerIdSettings';
 // Default settings
 export const DEFAULT_CUSTOMER_ID_SETTINGS: CustomerIdSettings = {
   prefix: 'CUS',
+  organizationPrefix: 'CUS',
+  idTypePrefix: '',
   currentYear: new Date().getFullYear(),
   currentSequence: 1,
   yearlyReset: true
@@ -28,6 +30,8 @@ export const loadCustomerIdSettings = async (): Promise<CustomerIdSettings> => {
         // Old structure: use customerTypePrefix as the new prefix (or combine if needed)
         settings = {
           prefix: data.customerTypePrefix || 'CUS',
+          organizationPrefix: data.organizationPrefix || data.customerTypePrefix || 'CUS',
+          idTypePrefix: data.idTypePrefix || '',
           currentYear: data.currentYear || new Date().getFullYear(),
           currentSequence: data.currentSequence || 1,
           yearlyReset: data.yearlyReset !== undefined ? data.yearlyReset : true

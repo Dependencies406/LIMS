@@ -1,55 +1,20 @@
-import { useState, useEffect } from 'react';
-import { useAuth } from '../contexts/AuthContext';
-import { roleService } from '../services/roleService';
+﻿/**
+ * usePermission.tsx
+ *
+ * Thin wrapper around PermissionContext.
+ * Returns the same { hasPermission, loading } shape as before so all existing
+ * call-sites continue to work without changes.
+ *
+ * Unlike the previous implementation this hook does NOT make a Firestore call â€”
+ * the context has already loaded the role document once via onSnapshot.
+ */
+import { usePermissions } from '../contexts/PermissionContext';
 import type { PermissionAction } from '../types';
 
-/**
- * Hook to check if user has a specific permission
- * @param permission The permission to check
- * @returns Object with hasPermission boolean and loading state
- */
 export const usePermission = (permission: PermissionAction) => {
-  const { currentUser, isAdmin } = useAuth();
-  const [hasPermission, setHasPermission] = useState(false);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const checkPermission = async () => {
-      if (!currentUser) {
-        setHasPermission(false);
-        setLoading(false);
-        return;
-      }
-
-      // Admins always have all permissions
-      if (isAdmin) {
-        setHasPermission(true);
-        setLoading(false);
-        return;
-      }
-
-      try {
-        // Get user's role
-        const roleId = currentUser.role;
-        if (!roleId) {
-          setHasPermission(false);
-          setLoading(false);
-          return;
-        }
-
-        // Check permission using roleService
-        const hasPerm = await roleService.hasPermission(roleId, permission);
-        setHasPermission(hasPerm);
-      } catch (error) {
-        console.error('Error checking permission:', error);
-        setHasPermission(false);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    checkPermission();
-  }, [currentUser, isAdmin, permission]);
-
-  return { hasPermission, loading };
+  const { can, loading } = usePermissions();
+  return {
+    hasPermission: can(permission),
+    loading,
+  };
 };

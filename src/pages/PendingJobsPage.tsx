@@ -67,7 +67,7 @@ export const PendingJobsPage: React.FC = () => {
             c => c.name.toLowerCase() === (request.customerCompanyName || request.customerName || '').toLowerCase()
           );
           if (customer) {
-            customerCode = customer.customerCode || customer.customerId || '';
+            customerCode = customer.customerCode || (customer as any).customerId || '';
           }
         } catch (err) {
           console.error('Error finding customer:', err);

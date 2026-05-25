@@ -78,11 +78,15 @@ export const generateCertificateNumber = async (configId: string): Promise<strin
       const config: CertificateNumberConfig = {
         id: configDoc.id,
         name: configData.name || '',
+        equipmentType: configData.equipmentType || '',
         prefix: configData.prefix || '',
         separator: configData.separator || '-',
-        includeYear: configData.includeYear !== false, // Default to true for backward compatibility
+        includeYear: configData.includeYear !== false,
         numberPadding: configData.numberPadding || 3,
         currentNumber: configData.currentNumber || 0,
+        currentSequence: configData.currentSequence ?? configData.currentNumber ?? 0,
+        currentYear: configData.currentYear ?? new Date().getFullYear(),
+        yearlyReset: configData.yearlyReset ?? (configData.resetPolicy === 'yearly'),
         resetPolicy: configData.resetPolicy || 'never',
         lastResetAt: configData.lastResetAt?.toDate() || undefined,
         isActive: configData.isActive !== false,

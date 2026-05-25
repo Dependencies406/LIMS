@@ -48,6 +48,35 @@ body {
   background-color: #b91c1c;
 }
 
+.btn-success {
+  background-color: #16a34a;
+  color: white;
+}
+
+.btn-success:hover {
+  background-color: #15803d;
+}
+
+.btn-ghost {
+  background-color: transparent;
+  color: #374151;
+  border: 1px solid #d1d5db;
+}
+
+.btn-ghost:hover {
+  background-color: #f3f4f6;
+}
+
+.btn-sm {
+  font-size: 0.875rem;
+  padding: 0.25rem 0.75rem;
+}
+
+.btn-lg {
+  font-size: 1.125rem;
+  padding: 0.75rem 1.5rem;
+}
+
 .input {
   width: 100%;
   padding: 0.5rem 0.75rem;

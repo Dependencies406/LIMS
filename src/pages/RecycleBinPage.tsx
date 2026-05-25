@@ -89,16 +89,16 @@ export const RecycleBinPage: React.FC = () => {
 
         // Load deleted customers
         try {
-          const customers = await customerService.getAllCustomers(true);
+          const customers = await customerService.getAllCustomers();
           const deletedCustomers = customers.filter((c: any) => c.isDeleted);
           deletedCustomers.forEach(customer => {
             deletedItems.push({
               id: customer.id!,
               type: 'customer',
-              name: customer.name || customer.customerId || 'Untitled Customer',
+              name: customer.name || customer.customerCode || 'Untitled Customer',
               deletedAt: (customer as any).deletedAt,
               deletedBy: (customer as any).deletedBy,
-              customerId: customer.customerId || customer.customerCode,
+              customerId: customer.customerCode || (customer as any).customerId,
             });
           });
         } catch (err) {

@@ -11,6 +11,8 @@ interface SignatureCanvasProps {
   required?: boolean;
   /** When false, hide the "Signer Name" input (parent UI can provide it). */
   showSignerNameInput?: boolean;
+  /** Skip the consent/disclaimer section */
+  skipConsent?: boolean;
 }
 
 type SignatureMode = 'draw' | 'upload';

@@ -4,6 +4,9 @@ export interface LoadingSpinnerProps {
   size?: 'sm' | 'md' | 'lg';
   message?: string;
   fullScreen?: boolean;
+  /** Render as an inline element (no centering wrapper) */
+  inline?: boolean;
+  className?: string;
 }
 
 /**
@@ -13,6 +16,8 @@ export const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
   size = 'md',
   message = 'Loading...',
   fullScreen = false,
+  inline = false,
+  className = '',
 }) => {
   const sizeClasses = {
     sm: 'h-8 w-8',
@@ -29,6 +34,15 @@ export const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
     </>
   );
 
+  if (inline) {
+    return (
+      <div className={`inline-flex items-center gap-2 ${className}`}>
+        <div className={`animate-spin rounded-full border-b-2 border-primary-600 ${sizeClasses[size]}`} />
+        {message && <span className="text-gray-600 text-sm">{message}</span>}
+      </div>
+    );
+  }
+
   if (fullScreen) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -37,6 +51,6 @@ export const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
     );
   }
 
-  return <div className="text-center py-12">{spinner}</div>;
+  return <div className={`text-center py-12 ${className}`}>{spinner}</div>;
 };
 
