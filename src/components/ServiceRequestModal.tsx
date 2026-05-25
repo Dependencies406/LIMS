@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import type { ServiceRequestInput, ServiceRequestEquipment, Customer, ServiceInformation } from '../types';
+import { DuplicateIcon } from './common';
 import { serviceRequestService } from '../services/serviceRequestService';
 import { customerService } from '../services/customerService';
 import { equipmentService } from '../services/equipmentService';
@@ -339,6 +340,33 @@ export const ServiceRequestModal: React.FC<ServiceRequestModalProps> = ({
         equipment: prev.equipment.filter((_, i) => i !== index),
       }));
     }
+  };
+
+  // Duplicate equipment row (all fields except certificateNumber)
+  const handleDuplicateEquipment = (index: number) => {
+    setForm(prev => {
+      const source = prev.equipment[index];
+      const duplicate: ServiceRequestEquipment = {
+        name: source.name,
+        manufacturer: source.manufacturer,
+        model: source.model,
+        capacity: source.capacity,
+        serialNumber: source.serialNumber,
+        calibrationPoint: source.calibrationPoint,
+        note: source.note,
+        calibrationMethods: source.calibrationMethods,
+        unit: source.unit,
+        resolution: source.resolution,
+        assetTag: source.assetTag,
+        accessories: source.accessories,
+        machineLocation: source.machineLocation,
+        calibrationDate: source.calibrationDate,
+        // certificateNumber intentionally omitted
+      };
+      const newEquipment = [...prev.equipment];
+      newEquipment.splice(index + 1, 0, duplicate);
+      return { ...prev, equipment: newEquipment };
+    });
   };
 
   // Handle form submission
@@ -764,15 +792,26 @@ export const ServiceRequestModal: React.FC<ServiceRequestModalProps> = ({
               <div key={index} className="border border-gray-200 rounded-lg p-4 space-y-4">
                 <div className="flex items-center justify-between mb-2">
                   <h4 className="font-medium text-gray-700">Equipment #{index + 1}</h4>
-                  {form.equipment.length > 1 && (
+                  <div className="flex items-center gap-2">
                     <button
                       type="button"
-                      onClick={() => handleRemoveEquipment(index)}
-                      className="text-red-600 hover:text-red-800 text-sm"
+                      onClick={() => handleDuplicateEquipment(index)}
+                      className="flex items-center gap-1 text-sm font-medium text-blue-600 hover:text-blue-800 px-2 py-1 rounded hover:bg-blue-50"
+                      title="Duplicate this item (without certificate number)"
                     >
-                      Remove
+                      <DuplicateIcon className="w-3.5 h-3.5" />
+                      Duplicate
                     </button>
-                  )}
+                    {form.equipment.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveEquipment(index)}
+                        className="text-red-600 hover:text-red-800 text-sm"
+                      >
+                        Remove
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

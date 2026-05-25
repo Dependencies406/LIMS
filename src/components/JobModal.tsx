@@ -18,7 +18,7 @@ import { TemplateBasedPdfPreviewModal } from './TemplateBasedPdfPreviewModal';
 import { StatementOfConformityPdfUpload } from './StatementOfConformityPdfUpload';
 import { matchUserFromAssignedStaffValue } from '../services/userService';
 import { jobService } from '../services/jobService';
-import { IconButton, PlusIcon } from './common';
+import { IconButton, PlusIcon, DuplicateIcon } from './common';
 
 interface JobModalProps {
   job: Job | null;
@@ -942,6 +942,36 @@ export const JobModal: React.FC<JobModalProps> = ({
       setEquipment(equipment.filter((_, i) => i !== index));
       setItemExpanded((prev) => prev.filter((_, i) => i !== index));
     }
+  };
+
+  const duplicateEquipment = (index: number) => {
+    const source = equipment[index];
+    const duplicate: typeof source = {
+      name: source.name,
+      manufacturer: source.manufacturer,
+      model: source.model,
+      serialNumber: source.serialNumber,
+      assetTag: (source as any).assetTag,
+      calibrationPoint: source.calibrationPoint,
+      calibrationMethods: source.calibrationMethods,
+      accessories: source.accessories,
+      machineLocation: source.machineLocation,
+      remark: source.remark,
+      calibrationDate: (source as any).calibrationDate,
+      unit: (source as any).unit,
+      resolution: (source as any).resolution,
+      spreadsheetData: undefined,
+      attachments: undefined,
+      // certificateNumber intentionally omitted
+    };
+    const newEquipment = [...equipment];
+    newEquipment.splice(index + 1, 0, duplicate);
+    setEquipment(newEquipment);
+    setItemExpanded((prev) => {
+      const next = [...prev];
+      next.splice(index + 1, 0, true);
+      return next;
+    });
   };
 
   const toggleItemPanel = (index: number) => {
@@ -2297,6 +2327,15 @@ export const JobModal: React.FC<JobModalProps> = ({
                     >
                       {excelCopiedRow === index ? 'Copied!' : 'Copy (Excel)'}
                     </button>
+                    <button
+                      type="button"
+                      onClick={() => duplicateEquipment(index)}
+                      className="shrink-0 flex items-center gap-1 text-sm font-medium text-blue-600 hover:text-blue-800 px-2 py-1.5 rounded hover:bg-blue-50"
+                      title="Duplicate this item (without certificate number)"
+                    >
+                      <DuplicateIcon className="w-3.5 h-3.5" />
+                      Duplicate
+                    </button>
                     {equipment.length > 1 ? (
                       <button
                         type="button"
@@ -2506,6 +2545,22 @@ export const JobModal: React.FC<JobModalProps> = ({
                           onChange={(e) => handleEquipmentChange(index, 'serialNumber', e.target.value)}
                           className="input text-sm w-full min-w-0"
                           placeholder="Serial number"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col gap-2 py-2 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+                      <div className="w-full min-w-0 sm:flex-1">
+                        <label className="text-sm font-medium text-gray-700">Resolution</label>
+                        <p className="text-xs text-gray-500">e.g. 0.01 g, 0.1°C</p>
+                      </div>
+                      <div className="w-full min-w-0 sm:w-96 sm:max-w-md sm:flex-shrink-0">
+                        <input
+                          type="text"
+                          value={(eq as any).resolution ?? ''}
+                          onChange={(e) => handleEquipmentChange(index, 'resolution' as any, e.target.value)}
+                          className="input text-sm w-full min-w-0"
+                          placeholder="Optional"
                         />
                       </div>
                     </div>
