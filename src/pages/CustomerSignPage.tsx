@@ -1,4 +1,4 @@
-/**
+﻿/**
  * CustomerSignPage.tsx
  *
  * Public page (no authentication required) that lets a customer review
@@ -107,48 +107,30 @@ const SignaturePad: React.FC<SignaturePadProps> = ({ onSign, disabled }) => {
 };
 
 // ---------------------------------------------------------------------------
-// Countdown banner — ISOLATED component so its 1-second setState never
-// propagates up and re-renders the signature pad or input fields.
+// Countdown timer hook
 // ---------------------------------------------------------------------------
 
-function formatCountdown(ms: number): string {
-  if (ms <= 0) return '0:00';
-  const totalSec = Math.ceil(ms / 1000);
-  const h = Math.floor(totalSec / 3600);
-  const m = Math.floor((totalSec % 3600) / 60);
-  const s = totalSec % 60;
-  if (h > 0) return `${h}h ${m.toString().padStart(2, '0')}m`;
-  return `${m}:${s.toString().padStart(2, '0')}`;
-}
-
-const CountdownBanner: React.FC<{ expiresAt: Date }> = ({ expiresAt }) => {
-  const [remaining, setRemaining] = useState(() =>
-    Math.max(0, expiresAt.getTime() - Date.now())
-  );
+function useCountdown(expiresAt: Date | null): number {
+  const [remaining, setRemaining] = useState(0);
 
   useEffect(() => {
+    if (!expiresAt) return;
     const tick = () => setRemaining(Math.max(0, expiresAt.getTime() - Date.now()));
+    tick();
     const id = setInterval(tick, 1000);
     return () => clearInterval(id);
   }, [expiresAt]);
 
-  const isUrgent = remaining < 60 * 60 * 1000; // last 1 hour
+  return remaining;
+}
 
-  return (
-    <div className={`rounded-lg px-4 py-3 flex items-center gap-3 text-sm font-medium ${
-      isUrgent
-        ? 'bg-red-50 border border-red-200 text-red-700'
-        : 'bg-blue-50 border border-blue-200 text-blue-700'
-    }`}>
-      <span>{isUrgent ? '⏰' : '🔗'}</span>
-      <span>
-        {isUrgent
-          ? `This link expires in ${formatCountdown(remaining)} — please sign now!`
-          : `This signing link is valid for ${formatCountdown(remaining)}`}
-      </span>
-    </div>
-  );
-};
+function formatCountdown(ms: number): string {
+  if (ms <= 0) return '0:00';
+  const totalSec = Math.ceil(ms / 1000);
+  const m = Math.floor(totalSec / 60);
+  const s = totalSec % 60;
+  return `${m}:${s.toString().padStart(2, '0')}`;
+}
 
 // ---------------------------------------------------------------------------
 // Main page
@@ -167,6 +149,8 @@ export const CustomerSignPage: React.FC = () => {
   const [signerName, setSignerName] = useState('');
   const [signatureData, setSignatureData] = useState('');
   const [submitting, setSubmitting] = useState(false);
+
+  const remaining = useCountdown(tokenData?.expiresAt ?? null);
 
   // Load the token
   useEffect(() => {
@@ -196,18 +180,12 @@ export const CustomerSignPage: React.FC = () => {
     })();
   }, [token]);
 
-  // Real-time expiry — checked every second via its own interval, completely
-  // independent of the `remaining` countdown state so there is no race condition
-  // between useState(0) initialisation and the first countdown tick.
+  // Expire in real-time
   useEffect(() => {
-    if (pageState !== 'valid' || !tokenData) return;
-    const id = setInterval(() => {
-      if (Date.now() >= tokenData.expiresAt.getTime()) {
-        setPageState('expired');
-      }
-    }, 1000);
-    return () => clearInterval(id);
-  }, [pageState, tokenData]);
+    if (pageState === 'valid' && remaining === 0) {
+      setPageState('expired');
+    }
+  }, [remaining, pageState]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -234,7 +212,7 @@ export const CustomerSignPage: React.FC = () => {
     }
   };
 
-  // ─── Render helpers ────────────────────────────────────────────────────────
+  // â”€â”€â”€ Render helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   const Shell: React.FC<{ children: React.ReactNode }> = ({ children }) => (
     <div className="min-h-screen bg-gray-50">
@@ -246,7 +224,7 @@ export const CustomerSignPage: React.FC = () => {
           </div>
           <div>
             <p className="font-semibold text-gray-900 text-sm leading-tight">Laboratory Management System</p>
-            <p className="text-xs text-gray-500">Work Authorization — Customer Signing</p>
+            <p className="text-xs text-gray-500">Work Authorization â€” Customer Signing</p>
           </div>
         </div>
       </div>
@@ -263,7 +241,7 @@ export const CustomerSignPage: React.FC = () => {
         <div className="flex items-center justify-center py-24">
           <div className="text-center">
             <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mx-auto mb-4" />
-            <p className="text-gray-500 text-sm">Loading signing form…</p>
+            <p className="text-gray-500 text-sm">Loading signing formâ€¦</p>
           </div>
         </div>
       </Shell>
@@ -275,7 +253,7 @@ export const CustomerSignPage: React.FC = () => {
     return (
       <Shell>
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 text-center">
-          <div className="text-5xl mb-4">🔍</div>
+          <div className="text-5xl mb-4">ðŸ”</div>
           <h2 className="text-xl font-semibold text-gray-900 mb-2">Link not found</h2>
           <p className="text-gray-500 text-sm">
             This signing link doesn't exist. Please check the link or contact the laboratory.
@@ -290,10 +268,10 @@ export const CustomerSignPage: React.FC = () => {
     return (
       <Shell>
         <div className="bg-white rounded-xl shadow-sm border border-orange-200 p-8 text-center">
-          <div className="text-5xl mb-4">⏰</div>
+          <div className="text-5xl mb-4">â°</div>
           <h2 className="text-xl font-semibold text-gray-900 mb-2">Link expired</h2>
           <p className="text-gray-500 text-sm">
-            This signing link has expired (links are valid for {TOKEN_TTL_MS / 3600000} hours).
+            This signing link has expired (links are valid for {TOKEN_TTL_MS / 60000} minutes).
             Please ask the laboratory to generate a new link.
           </p>
         </div>
@@ -306,7 +284,7 @@ export const CustomerSignPage: React.FC = () => {
     return (
       <Shell>
         <div className="bg-white rounded-xl shadow-sm border border-green-200 p-8 text-center">
-          <div className="text-5xl mb-4">✅</div>
+          <div className="text-5xl mb-4">âœ…</div>
           <h2 className="text-xl font-semibold text-gray-900 mb-2">Already signed</h2>
           <p className="text-gray-500 text-sm">
             Your signature has already been submitted for this job. Thank you!
@@ -321,7 +299,7 @@ export const CustomerSignPage: React.FC = () => {
     return (
       <Shell>
         <div className="bg-white rounded-xl shadow-sm border border-green-200 p-8 text-center">
-          <div className="text-5xl mb-4">🎉</div>
+          <div className="text-5xl mb-4">ðŸŽ‰</div>
           <h2 className="text-xl font-semibold text-gray-900 mb-2">Signature submitted!</h2>
           <p className="text-gray-500 text-sm">
             Thank you, <strong>{signerName}</strong>. Your work authorization signature has been
@@ -337,7 +315,7 @@ export const CustomerSignPage: React.FC = () => {
     return (
       <Shell>
         <div className="bg-white rounded-xl shadow-sm border border-red-200 p-8 text-center">
-          <div className="text-5xl mb-4">⚠️</div>
+          <div className="text-5xl mb-4">âš ï¸</div>
           <h2 className="text-xl font-semibold text-gray-900 mb-2">Something went wrong</h2>
           <p className="text-gray-500 text-sm">{errorMsg}</p>
         </div>
@@ -345,15 +323,27 @@ export const CustomerSignPage: React.FC = () => {
     );
   }
 
-  // ─── Valid token — show form ───────────────────────────────────────────────
+  // â”€â”€â”€ Valid token â€” show form â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   const snap = tokenData!.jobSnapshot;
+  const isUrgent = remaining < 120_000; // last 2 minutes
 
   return (
     <Shell>
       <div className="space-y-6">
-        {/* Countdown banner — isolated component, its 1s ticks never re-render the form */}
-        <CountdownBanner expiresAt={tokenData!.expiresAt} />
+        {/* Countdown banner */}
+        <div className={`rounded-lg px-4 py-3 flex items-center gap-3 text-sm font-medium ${
+          isUrgent
+            ? 'bg-red-50 border border-red-200 text-red-700'
+            : 'bg-blue-50 border border-blue-200 text-blue-700'
+        }`}>
+          <span>{isUrgent ? 'â°' : 'ðŸ”—'}</span>
+          <span>
+            {isUrgent
+              ? `This link expires in ${formatCountdown(remaining)} â€” please sign now!`
+              : `This signing link is valid for ${formatCountdown(remaining)}`}
+          </span>
+        </div>
 
         {/* Job summary card */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 space-y-4">
@@ -405,8 +395,8 @@ export const CustomerSignPage: React.FC = () => {
                   <div key={i} className="flex items-start gap-2 text-sm">
                     <span className="text-gray-400 font-mono text-xs mt-0.5">{i + 1}.</span>
                     <span className="text-gray-900">
-                      {eq.name || '—'}
-                      {eq.manufacturer && <span className="text-gray-500"> · {eq.manufacturer}</span>}
+                      {eq.name || 'â€”'}
+                      {eq.manufacturer && <span className="text-gray-500"> Â· {eq.manufacturer}</span>}
                       {eq.model && <span className="text-gray-500"> {eq.model}</span>}
                       {eq.serialNumber && (
                         <span className="text-gray-400 text-xs"> (S/N: {eq.serialNumber})</span>
@@ -507,7 +497,7 @@ export const CustomerSignPage: React.FC = () => {
             disabled={submitting || !signatureData || !signerName.trim()}
             className="w-full bg-blue-600 text-white font-semibold rounded-lg px-4 py-3 text-sm hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            {submitting ? 'Submitting…' : 'Submit Work Authorization'}
+            {submitting ? 'Submittingâ€¦' : 'Submit Work Authorization'}
           </button>
 
           <p className="text-xs text-gray-400 text-center">

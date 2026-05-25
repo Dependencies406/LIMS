@@ -2,7 +2,7 @@
  * PDF Template Builder — Section Index
  *
  * HOW TO ADD A NEW SECTION
- * ─────────────────────────
+ * â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
  * 1. Create a new file in this folder, e.g. MySection.tsx.
  *    Export two arrays: `mySectionComponents` and `mySectionDataSources`.
  *
@@ -17,19 +17,13 @@
 
 import {
   registerSection,
-  clearRegistry,
   getAllSections,
   getSectionById as _getSectionById,
 } from '../../sectionRegistry';
-
-// Clear the registry before re-registering sections.
-// This ensures HMR reloads of any section file always produce a fresh registry
-// without stale section definitions from a previous module evaluation.
-clearRegistry();
 import type { SectionDefinition } from './types';
 import { createUniversalDocumentsTableComponent } from './DocumentsTableComponent';
 
-// ─── Section data imports ─────────────────────────────────────────────────────
+// â”€â”€â”€ Section data imports â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 import { headerSectionComponents, headerSectionDataSources } from './HeaderSection';
 import { jobInformationSectionComponents, jobInformationSectionDataSources } from './JobInformationSection';
 import { serviceInformationSectionComponents, serviceInformationSectionDataSources } from './ServiceInformationSection';
@@ -38,9 +32,9 @@ import { spreadsheetSectionComponents, spreadsheetSectionDataSources } from './S
 import { workAuthorizationSectionComponents, workAuthorizationSectionDataSources } from './WorkAuthorizationSection';
 import { commentsSectionComponents, commentsSectionDataSources } from './CommentsSection';
 import { footerSectionComponents, footerSectionDataSources } from './FooterSection';
-import { formControlsSectionComponents, formControlsSectionDataSources } from './FormControlsSection';
+import { staffSectionComponents, staffSectionDataSources } from './StaffSection';
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 /**
  * Append the universal Documents Index Table to a component list.
@@ -54,7 +48,7 @@ function withUniversalDocumentsTable(
   return [...withoutDocuments, createUniversalDocumentsTableComponent(sectionId)];
 }
 
-// ─── Register all sections ────────────────────────────────────────────────────
+// â”€â”€â”€ Register all sections â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // To add a new section: add one registerSection() block here and import its data above.
 
 registerSection({
@@ -130,15 +124,15 @@ registerSection({
 });
 
 registerSection({
-  id: 'form-controls',
-  name: 'Form Controls',
-  icon: '☑',
-  description: 'Checkboxes for forms, checklists, and conformity statements',
-  components: formControlsSectionComponents,
-  dataSources: formControlsSectionDataSources as SectionDefinition['dataSources'],
+  id: 'staff',
+  name: 'Staff & Training',
+  icon: '👤',
+  description: 'Training records and staff information',
+  components: withUniversalDocumentsTable('staff', staffSectionComponents),
+  dataSources: staffSectionDataSources as SectionDefinition['dataSources'],
 });
 
-// ─── Public API ───────────────────────────────────────────────────────────────
+// ─── Public API ─────────────────────────────────────────────────────────────────────────────────
 
 /** All registered sections in registration order (backward-compatible array). */
 export const sections: SectionDefinition[] = getAllSections();
@@ -163,7 +157,7 @@ export function getComponentDefinition(type: string, sectionId: string) {
   return getSectionById(sectionId)?.components.find((c) => c.type === type);
 }
 
-// ─── Individual section exports (kept for direct imports) ─────────────────────
+// â”€â”€â”€ Individual section exports (kept for direct imports) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export { headerSectionComponents, headerSectionDataSources } from './HeaderSection';
 export { footerSectionComponents, footerSectionDataSources } from './FooterSection';
 export { jobInformationSectionComponents, jobInformationSectionDataSources } from './JobInformationSection';
@@ -172,6 +166,5 @@ export { equipmentSectionComponents, equipmentSectionDataSources } from './Equip
 export { spreadsheetSectionComponents, spreadsheetSectionDataSources } from './SpreadsheetSection';
 export { workAuthorizationSectionComponents, workAuthorizationSectionDataSources } from './WorkAuthorizationSection';
 export { commentsSectionComponents, commentsSectionDataSources } from './CommentsSection';
-export { formControlsSectionComponents, formControlsSectionDataSources } from './FormControlsSection';
 
 export type { SectionDefinition, ComponentDefinition } from './types';

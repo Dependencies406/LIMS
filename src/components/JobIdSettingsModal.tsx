@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import type { JobIdSettings } from '../types';
 import { previewJobId, validateJobIdSettings } from '../services/jobIdService';
+import { HashIcon, InfoIcon, AlertTriangleIcon, XIcon, CheckIcon } from './common';
 
 interface JobIdSettingsModalProps {
   isOpen: boolean;
@@ -13,13 +14,12 @@ export const JobIdSettingsModal: React.FC<JobIdSettingsModalProps> = ({
   isOpen,
   onClose,
   currentSettings,
-  onSave
+  onSave,
 }) => {
   const [settings, setSettings] = useState<JobIdSettings>(currentSettings);
   const [errors, setErrors] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
 
-  // Update local state when modal opens
   useEffect(() => {
     if (isOpen) {
       setSettings(currentSettings);
@@ -28,31 +28,18 @@ export const JobIdSettingsModal: React.FC<JobIdSettingsModalProps> = ({
   }, [isOpen, currentSettings]);
 
   const handleChange = (field: keyof JobIdSettings, value: string | number | boolean) => {
-    const updatedSettings = { ...settings, [field]: value };
-    setSettings(updatedSettings);
-    
-    // Validate on change
-    const validationErrors = validateJobIdSettings(updatedSettings);
-    setErrors(validationErrors);
+    const updated = { ...settings, [field]: value };
+    setSettings(updated);
+    setErrors(validateJobIdSettings(updated));
   };
 
   const handleSave = async () => {
-    // Final validation
-    const validationErrors = validateJobIdSettings(settings);
-    if (validationErrors.length > 0) {
-      setErrors(validationErrors);
-      return;
-    }
-
+    const errs = validateJobIdSettings(settings);
+    if (errs.length > 0) { setErrors(errs); return; }
     setSaving(true);
-    try {
-      await onSave(settings);
-      onClose();
-    } catch (error) {
-      console.error('Error saving job ID settings:', error);
-    } finally {
-      setSaving(false);
-    }
+    try { await onSave(settings); onClose(); }
+    catch (e) { console.error(e); }
+    finally { setSaving(false); }
   };
 
   const handleCancel = () => {
@@ -61,251 +48,238 @@ export const JobIdSettingsModal: React.FC<JobIdSettingsModalProps> = ({
     onClose();
   };
 
-  // Generate preview IDs
-  const currentPreviewId = previewJobId(settings);
-  const nextPreviewId = previewJobId({
-    ...settings,
-    currentSequence: settings.currentSequence + 1
-  });
+  const previewCurrent = previewJobId(settings);
+  const previewNext    = previewJobId({ ...settings, currentSequence: settings.currentSequence + 1 });
 
   if (!isOpen) return null;
 
   return (
     <div className="modal" onClick={handleCancel}>
-      <div className="modal-content max-w-4xl" onClick={e => e.stopPropagation()}>
-        {/* Header with action buttons */}
-        <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center">
-          <h2 className="text-2xl font-bold text-gray-900">Request Number Configuration</h2>
-          <div className="flex items-center space-x-3">
-            {/* Cancel Button */}
+      <div
+        className="modal-content max-w-4xl"
+        onClick={e => e.stopPropagation()}
+      >
+        {/* ── Header ─────────────────────────────────────────────────────────── */}
+        <div className="sticky top-0 z-10 bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-10 h-10 bg-primary-100 rounded-xl flex items-center justify-center flex-shrink-0">
+              <HashIcon className="w-5 h-5 text-primary-600" />
+            </div>
+            <div className="min-w-0">
+              <h2 className="text-lg font-semibold text-gray-900 leading-tight">Request Number Configuration</h2>
+              <p className="text-xs text-gray-400 mt-0.5">Configure the auto-generated job ID format</p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 flex-shrink-0">
             <button
               type="button"
               onClick={handleCancel}
-              className="flex items-center justify-center w-10 h-10 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 transition-all duration-200 hover:border-gray-500 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500 disabled:opacity-50 disabled:cursor-not-allowed"
               disabled={saving}
-              title="Cancel"
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-200 bg-white text-sm text-gray-600 hover:bg-gray-50 hover:border-gray-300 transition-colors disabled:opacity-50"
             >
-              <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
+              <XIcon className="w-3.5 h-3.5" />
+              Cancel
             </button>
-            
-            {/* Save Button */}
             <button
               type="button"
               onClick={handleSave}
-              className="flex items-center justify-center w-10 h-10 rounded-lg border border-primary-500 bg-primary-600 hover:bg-primary-700 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 disabled:opacity-50 disabled:cursor-not-allowed"
               disabled={saving || errors.length > 0}
-              title={saving ? 'Saving...' : 'Save Settings'}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary-600 text-white text-sm font-medium hover:bg-primary-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
               {saving ? (
-                <svg className="w-5 h-5 text-white animate-spin" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                 </svg>
               ) : (
-                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
+                <CheckIcon className="w-3.5 h-3.5" />
               )}
+              {saving ? 'Saving…' : 'Save Changes'}
             </button>
           </div>
         </div>
 
+        {/* ── Body ────────────────────────────────────────────────────────────── */}
         <div className="p-6">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-[600px]">
-            {/* Settings Panel */}
-            <div className="space-y-6 overflow-y-auto pr-2">
-              {/* Errors */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+
+            {/* ── Left: Form fields ── */}
+            <div className="space-y-5">
+
+              {/* Validation banner */}
               {errors.length > 0 && (
-                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                  <h4 className="text-red-800 font-semibold mb-2">⚠️ Validation Errors:</h4>
-                  <ul className="list-disc list-inside space-y-1">
-                    {errors.map((error, index) => (
-                      <li key={index} className="text-red-700 text-sm">{error}</li>
-                    ))}
-                  </ul>
+                <div className="flex items-start gap-3 bg-red-50 border border-red-200 rounded-xl p-4">
+                  <AlertTriangleIcon className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-semibold text-red-800 mb-1">Validation Errors</p>
+                    <ul className="space-y-0.5">
+                      {errors.map((err, i) => <li key={i} className="text-xs text-red-700">{err}</li>)}
+                    </ul>
+                  </div>
                 </div>
               )}
 
-              {/* Configuration Settings */}
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold text-gray-900 flex items-center">
-                  <span className="w-6 h-6 bg-blue-100 rounded-lg flex items-center justify-center mr-3">
-                    <span className="text-blue-600 text-sm">🔧</span>
-                  </span>
-                  Request Number Configuration
-                </h3>
-                
-                {/* Organization Prefix */}
-                <div className="flex items-center justify-between py-2">
-                  <div className="flex-1">
-                    <label className="text-sm font-medium text-gray-700">Organization Prefix <span className="text-red-500">*</span></label>
-                    <p className="text-xs text-gray-500">Short abbreviation for your organization (max 10 chars)</p>
-                  </div>
-                  <div className="w-48">
-                    <input
-                      type="text"
-                      value={settings.organizationPrefix}
-                      onChange={(e) => handleChange('organizationPrefix', e.target.value)}
-                      className="input text-sm"
-                      placeholder="e.g., SCS"
-                      maxLength={10}
-                    />
-                  </div>
+              {/* Prefix row */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Organization Prefix <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={settings.organizationPrefix}
+                    onChange={e => handleChange('organizationPrefix', e.target.value)}
+                    className="input w-full font-mono tracking-widest uppercase"
+                    placeholder="SCS"
+                    maxLength={10}
+                  />
+                  <p className="text-xs text-gray-400">Max 10 chars</p>
                 </div>
-
-                {/* Job Type Prefix */}
-                <div className="flex items-center justify-between py-2">
-                  <div className="flex-1">
-                    <label className="text-sm font-medium text-gray-700">Request Type Prefix <span className="text-red-500">*</span></label>
-                    <p className="text-xs text-gray-500">Short abbreviation for request type (max 10 chars)</p>
-                  </div>
-                  <div className="w-48">
-                    <input
-                      type="text"
-                      value={settings.jobTypePrefix}
-                      onChange={(e) => handleChange('jobTypePrefix', e.target.value)}
-                      className="input text-sm"
-                      placeholder="e.g., CAL"
-                      maxLength={10}
-                    />
-                  </div>
-                </div>
-
-                {/* Current Year */}
-                <div className="flex items-center justify-between py-2">
-                  <div className="flex-1">
-                    <label className="text-sm font-medium text-gray-700">Current Year <span className="text-red-500">*</span></label>
-                    <p className="text-xs text-gray-500">Year for request number (last 2 digits used)</p>
-                  </div>
-                  <div className="w-48">
-                    <input
-                      type="number"
-                      value={settings.currentYear}
-                      onChange={(e) => handleChange('currentYear', parseInt(e.target.value) || 0)}
-                      className="input text-sm"
-                      min="2000"
-                      max="2099"
-                    />
-                  </div>
-                </div>
-
-                {/* Current Sequence */}
-                <div className="flex items-center justify-between py-2">
-                  <div className="flex-1">
-                    <label className="text-sm font-medium text-gray-700">Next Request Sequence <span className="text-red-500">*</span></label>
-                    <p className="text-xs text-gray-500">Number for the NEXT request to be created (1-999)</p>
-                  </div>
-                  <div className="w-48">
-                    <input
-                      type="number"
-                      value={settings.currentSequence}
-                      onChange={(e) => handleChange('currentSequence', parseInt(e.target.value) || 0)}
-                      className="input text-sm"
-                      min="1"
-                      max="999"
-                    />
-                  </div>
-                </div>
-
-                {/* Yearly Reset Option */}
-                <div className="flex items-center justify-between py-2">
-                  <div className="flex-1">
-                    <label className="text-sm font-medium text-gray-700">Automatic Yearly Reset</label>
-                    <p className="text-xs text-gray-500">Reset sequence to 1 when year changes</p>
-                  </div>
-                  <div className="w-48">
-                    <label className="flex items-center justify-end">
-                      <input
-                        type="checkbox"
-                        checked={settings.yearlyReset}
-                        onChange={(e) => handleChange('yearlyReset', e.target.checked)}
-                        className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-                      />
-                    </label>
-                  </div>
+                <div className="space-y-1.5">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Job Type Prefix <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={settings.jobTypePrefix}
+                    onChange={e => handleChange('jobTypePrefix', e.target.value)}
+                    className="input w-full font-mono tracking-widest uppercase"
+                    placeholder="CAL"
+                    maxLength={10}
+                  />
+                  <p className="text-xs text-gray-400">Max 10 chars</p>
                 </div>
               </div>
 
-              {/* Important Notes */}
-              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                <div className="flex items-start">
-                  <span className="text-xl mr-3">⚠️</span>
-                  <div>
-                    <h4 className="font-semibold text-yellow-900 mb-2">Important Notes</h4>
-                    <ul className="text-xs text-yellow-800 space-y-1">
-                      <li>• Changes affect new jobs only (existing IDs unchanged)</li>
-                      <li>• Sequence increments automatically with each job</li>
-                      <li>• Be cautious to avoid duplicate IDs</li>
-                    </ul>
-                  </div>
+              {/* Year & Sequence row */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Current Year <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    value={settings.currentYear}
+                    onChange={e => handleChange('currentYear', parseInt(e.target.value) || 0)}
+                    className="input w-full font-mono"
+                    min="2000"
+                    max="2099"
+                  />
+                  <p className="text-xs text-gray-400">Last 2 digits used in ID</p>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Next Sequence <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    value={settings.currentSequence}
+                    onChange={e => handleChange('currentSequence', parseInt(e.target.value) || 0)}
+                    className="input w-full font-mono"
+                    min="1"
+                    max="999"
+                  />
+                  <p className="text-xs text-gray-400">Range 1 – 999</p>
+                </div>
+              </div>
+
+              {/* Yearly Reset toggle */}
+              <div className="flex items-center justify-between px-4 py-3.5 bg-gray-50 rounded-xl border border-gray-100">
+                <div>
+                  <p className="text-sm font-medium text-gray-700">Automatic Yearly Reset</p>
+                  <p className="text-xs text-gray-400 mt-0.5">Resets sequence to 1 on new year</p>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={settings.yearlyReset}
+                  onClick={() => handleChange('yearlyReset', !settings.yearlyReset)}
+                  className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 ${
+                    settings.yearlyReset ? 'bg-primary-600' : 'bg-gray-200'
+                  }`}
+                >
+                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform duration-200 ${
+                    settings.yearlyReset ? 'translate-x-6' : 'translate-x-1'
+                  }`} />
+                </button>
+              </div>
+
+              {/* Warning note */}
+              <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-xl p-4">
+                <AlertTriangleIcon className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-semibold text-amber-900 mb-1">Heads Up</p>
+                  <ul className="text-xs text-amber-800 space-y-1">
+                    <li>• Changes only apply to new jobs – existing IDs are never modified</li>
+                    <li>• The sequence counter increments automatically after each job</li>
+                    <li>• Avoid gaps in the sequence to prevent duplicate IDs</li>
+                  </ul>
                 </div>
               </div>
             </div>
 
-            {/* Preview Panel */}
+            {/* ── Right: Live preview ── */}
             <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold text-gray-900">Preview</h3>
+
+              {/* Live label */}
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+                <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Live Preview</span>
               </div>
-              
-              {/* Format Info */}
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <div className="flex items-start">
-                  <span className="text-xl mr-3">💡</span>
-                  <div>
-                    <h4 className="font-semibold text-blue-900 mb-2">Job ID Format</h4>
-                    <p className="text-sm text-blue-800">
-                      <code className="bg-blue-100 px-2 py-1 rounded font-mono">[ORG]-[TYPE]-[YY][XXX]</code>
-                    </p>
-                  </div>
+
+              {/* Format card */}
+              <div className="flex items-start gap-3 bg-blue-50 border border-blue-100 rounded-xl p-4">
+                <InfoIcon className="w-4 h-4 text-blue-500 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-xs font-semibold text-blue-700 mb-1.5">ID Format</p>
+                  <code className="text-xs font-mono bg-blue-100 text-blue-800 px-2.5 py-1 rounded-lg">
+                    [ORG]-[TYPE]-[YY][XXX]
+                  </code>
                 </div>
               </div>
 
-              {/* Preview Examples */}
-              <div className="bg-white border border-gray-300 rounded-lg p-5 space-y-4">
-                <div>
-                  <p className="text-sm font-medium text-gray-600 mb-2">Next Job Will Be:</p>
-                  <div className="bg-gradient-to-r from-primary-50 to-primary-100 border-2 border-primary-300 rounded-lg p-4">
-                    <code className="font-mono text-2xl font-bold text-primary-700">
-                      {currentPreviewId}
+              {/* Current ID */}
+              <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+                <div className="px-5 pt-4 pb-1">
+                  <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Next Job Will Be</p>
+                </div>
+                <div className="px-5 pb-4">
+                  <div className="mt-2 rounded-lg bg-primary-50 border border-primary-200 px-5 py-4 flex items-center justify-between">
+                    <code className="font-mono text-2xl font-bold text-primary-700 tracking-wider">
+                      {previewCurrent}
                     </code>
+                    <span className="w-2 h-2 rounded-full bg-primary-400 animate-pulse flex-shrink-0" />
                   </div>
                 </div>
-                
-                <div>
-                  <p className="text-sm font-medium text-gray-600 mb-2">Job After That:</p>
-                  <div className="bg-gray-50 border border-gray-300 rounded-lg p-4">
-                    <code className="font-mono text-xl text-gray-700">
-                      {nextPreviewId}
-                    </code>
-                  </div>
+                <div className="border-t border-gray-100 px-5 py-3.5 flex items-center justify-between">
+                  <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Job After That</p>
+                  <code className="font-mono text-base text-gray-500">{previewNext}</code>
                 </div>
               </div>
 
-              {/* Visual Breakdown */}
-              <div className="bg-white border border-gray-300 rounded-lg p-5">
-                <h4 className="text-sm font-semibold text-gray-800 mb-3">Format Breakdown</h4>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between items-center py-2 border-b border-gray-200">
-                    <span className="text-gray-600">Organization:</span>
-                    <code className="bg-gray-100 px-2 py-1 rounded font-mono text-primary-600">{settings.organizationPrefix || 'ORG'}</code>
-                  </div>
-                  <div className="flex justify-between items-center py-2 border-b border-gray-200">
-                    <span className="text-gray-600">Job Type:</span>
-                    <code className="bg-gray-100 px-2 py-1 rounded font-mono text-primary-600">{settings.jobTypePrefix || 'TYPE'}</code>
-                  </div>
-                  <div className="flex justify-between items-center py-2 border-b border-gray-200">
-                    <span className="text-gray-600">Year:</span>
-                    <code className="bg-gray-100 px-2 py-1 rounded font-mono text-primary-600">{settings.currentYear.toString().slice(-2)}</code>
-                  </div>
-                  <div className="flex justify-between items-center py-2">
-                    <span className="text-gray-600">Sequence:</span>
-                    <code className="bg-gray-100 px-2 py-1 rounded font-mono text-primary-600">{settings.currentSequence.toString().padStart(3, '0')}</code>
-                  </div>
+              {/* Format breakdown */}
+              <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+                <div className="px-5 py-3 border-b border-gray-100">
+                  <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Format Breakdown</p>
+                </div>
+                <div className="divide-y divide-gray-100">
+                  {[
+                    { label: 'Organization', value: settings.organizationPrefix || 'ORG' },
+                    { label: 'Job Type',     value: settings.jobTypePrefix || 'TYPE' },
+                    { label: 'Year (2 digits)', value: settings.currentYear.toString().slice(-2) },
+                    { label: 'Sequence',     value: settings.currentSequence.toString().padStart(3, '0') },
+                  ].map(({ label, value }) => (
+                    <div key={label} className="flex items-center justify-between px-5 py-2.5">
+                      <span className="text-xs text-gray-500">{label}</span>
+                      <code className="text-xs font-mono font-semibold text-primary-600 bg-primary-50 px-2 py-0.5 rounded">
+                        {value}
+                      </code>
+                    </div>
+                  ))}
                 </div>
               </div>
+
             </div>
           </div>
         </div>

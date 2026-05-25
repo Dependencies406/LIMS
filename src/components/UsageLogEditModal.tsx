@@ -1,5 +1,5 @@
 ﻿/**
- * UsageLogEditModal — shared edit modal for usage log records.
+ * UsageLogEditModal â€” shared edit modal for usage log records.
  * Used on both EquipmentDetailPage (Usage Logs tab) and UsageLogHistoryPage.
  *
  * Layout: fixed-height modal (max 90 vh) with a sticky header + footer and
@@ -7,10 +7,6 @@
  */
 import React, { useState, useEffect, useCallback } from 'react';
 import type { UsageLog } from '../types';
-import { JobSelector } from './JobSelector';
-import { DateInput } from './common/DateInput';
-import type { SelectedJob } from './JobSelector';
-import { useUsers } from '../hooks/useUsers';
 
 // â”€â”€â”€ Toggle button group (replaces plain <input type="radio">) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
@@ -70,23 +66,9 @@ interface Props {
 
 export const UsageLogEditModal: React.FC<Props> = ({ log, onSave, onClose }) => {
   const today = new Date().toISOString().split('T')[0];
-  const { users } = useUsers();
-
-  const [linkedJob, setLinkedJob] = useState<SelectedJob | null>(
-    log.linkedJobId
-      ? {
-          id: log.linkedJobId,
-          jobId: log.linkedJobRef ?? '',
-          title: log.linkedJobTitle ?? '',
-          customerName: log.linkedCustomerName ?? '',
-          status: '',
-        }
-      : null
-  );
 
   const [form, setForm] = useState({
     date: log.date,
-    operatorEmail: log.operator ?? '',
     visualInspection: log.visualInspection as 'pass' | 'fail',
     functionalCheck: log.functionalCheck as 'pass' | 'fail',
     documentCheck: log.documentCheck as 'valid' | 'expired' | 'na',
@@ -123,14 +105,8 @@ export const UsageLogEditModal: React.FC<Props> = ({ log, onSave, onClose }) => 
   async function handleSave() {
     setSaving(true);
     try {
-      const selectedUser = users.find((u) => u.email === form.operatorEmail);
-      const operatorName = selectedUser
-        ? `${selectedUser.firstName || ''} ${selectedUser.lastName || ''}`.trim() || selectedUser.email
-        : form.operatorEmail;
       await onSave({
         date: form.date,
-        operator: form.operatorEmail,
-        operatorName,
         visualInspection: form.visualInspection,
         functionalCheck: form.functionalCheck,
         documentCheck: form.documentCheck,
@@ -141,10 +117,6 @@ export const UsageLogEditModal: React.FC<Props> = ({ log, onSave, onClose }) => 
         actionTaken: form.actionTaken || undefined,
         notes: form.notes || undefined,
         overallResult,
-        linkedJobId: linkedJob?.id || undefined,
-        linkedJobRef: linkedJob?.jobId || undefined,
-        linkedJobTitle: linkedJob?.title || undefined,
-        linkedCustomerName: linkedJob?.customerName || undefined,
       });
       onClose();
     } finally {
@@ -153,14 +125,14 @@ export const UsageLogEditModal: React.FC<Props> = ({ log, onSave, onClose }) => 
   }
 
   return (
-    /* Backdrop — clicking outside closes */
+    /* Backdrop â€” clicking outside closes */
     <div
       className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
       onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
       {/*
         Modal card:
-          - max-h-[90vh] + flex flex-col  → card never taller than viewport
+          - max-h-[90vh] + flex flex-col  â†’ card never taller than viewport
           - header / footer are sticky; body is the only scrolling region
       */}
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg flex flex-col max-h-[90vh]">
@@ -170,8 +142,8 @@ export const UsageLogEditModal: React.FC<Props> = ({ log, onSave, onClose }) => 
           <div>
             <h2 className="text-base font-bold text-gray-900">Edit Usage Log</h2>
             <p className="text-xs text-gray-400 mt-0.5">
-              {new Date(log.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-              {' · '}
+              {new Date(log.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+              {' Â· '}
               {log.operatorName || log.operator}
             </p>
           </div>
@@ -180,7 +152,7 @@ export const UsageLogEditModal: React.FC<Props> = ({ log, onSave, onClose }) => 
             className="ml-4 flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-full text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors text-lg leading-none"
             aria-label="Close"
           >
-            ×
+            Ã—
           </button>
         </div>
 
@@ -192,8 +164,8 @@ export const UsageLogEditModal: React.FC<Props> = ({ log, onSave, onClose }) => 
             <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide mb-1.5">
               Date of Use
             </label>
-            <DateInput
-              
+            <input
+              type="date"
               value={form.date}
               max={today}
               onChange={(e) => set('date', e.target.value)}
@@ -201,50 +173,17 @@ export const UsageLogEditModal: React.FC<Props> = ({ log, onSave, onClose }) => 
             />
           </div>
 
-          {/* Operator */}
-          <div>
-            <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide mb-1.5">
-              Operator
-            </label>
-            <select
-              value={form.operatorEmail}
-              onChange={(e) => set('operatorEmail', e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white"
-            >
-              {users.filter((u) => u.isActive !== false).map((u) => (
-                <option key={u.uid} value={u.email}>
-                  {`${u.firstName || ''} ${u.lastName || ''}`.trim() || u.email}
-                </option>
-              ))}
-              {/* Keep current operator if not in active users list */}
-              {form.operatorEmail && !users.some((u) => u.email === form.operatorEmail) && (
-                <option value={form.operatorEmail}>{log.operatorName || form.operatorEmail}</option>
-              )}
-            </select>
-          </div>
-
-          {/* Linked Job */}
-          <div>
-            <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide mb-1.5">
-              Linked Job <span className="text-gray-400 normal-case font-normal tracking-normal">(optional)</span>
-            </label>
-            <JobSelector
-              value={linkedJob?.id ?? ''}
-              onChange={(job) => setLinkedJob(job)}
-            />
-          </div>
-
-          {/* Section B — Pre-use Checks */}
+          {/* Section B â€” Pre-use Checks */}
           <div className="space-y-3">
             <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Pre-use Checks</p>
 
             <div className="bg-gray-50 rounded-xl border border-gray-200 p-4 space-y-4">
               <ToggleGroup
                 label="Visual Inspection"
-                sublabel="Physical condition — no cracks, damage or contamination"
+                sublabel="Physical condition â€” no cracks, damage or contamination"
                 options={[
-                  { value: 'pass', label: '✓ Pass', activeClass: 'bg-green-100 text-green-800' },
-                  { value: 'fail', label: '✗ Fail', activeClass: 'bg-red-100 text-red-800' },
+                  { value: 'pass', label: 'âœ“ Pass', activeClass: 'bg-green-100 text-green-800' },
+                  { value: 'fail', label: 'âœ— Fail', activeClass: 'bg-red-100 text-red-800' },
                 ]}
                 value={form.visualInspection}
                 onChange={(v) => set('visualInspection', v)}
@@ -256,8 +195,8 @@ export const UsageLogEditModal: React.FC<Props> = ({ log, onSave, onClose }) => 
                 label="Functional & Stability Check"
                 sublabel="Measurement function and reading stability within expected range"
                 options={[
-                  { value: 'pass', label: '✓ Pass', activeClass: 'bg-green-100 text-green-800' },
-                  { value: 'fail', label: '✗ Fail', activeClass: 'bg-red-100 text-red-800' },
+                  { value: 'pass', label: 'âœ“ Pass', activeClass: 'bg-green-100 text-green-800' },
+                  { value: 'fail', label: 'âœ— Fail', activeClass: 'bg-red-100 text-red-800' },
                 ]}
                 value={form.functionalCheck}
                 onChange={(v) => set('functionalCheck', v)}
@@ -269,8 +208,8 @@ export const UsageLogEditModal: React.FC<Props> = ({ log, onSave, onClose }) => 
                 label="Calibration Documentation"
                 sublabel="Certificate current status"
                 options={[
-                  { value: 'valid', label: '✓ Valid', activeClass: 'bg-green-100 text-green-800' },
-                  { value: 'expired', label: '✗ Expired', activeClass: 'bg-red-100 text-red-800' },
+                  { value: 'valid', label: 'âœ“ Valid', activeClass: 'bg-green-100 text-green-800' },
+                  { value: 'expired', label: 'âœ— Expired', activeClass: 'bg-red-100 text-red-800' },
                   { value: 'na', label: 'N/A', activeClass: 'bg-gray-200 text-gray-700' },
                 ]}
                 value={form.documentCheck}
@@ -279,7 +218,7 @@ export const UsageLogEditModal: React.FC<Props> = ({ log, onSave, onClose }) => 
             </div>
           </div>
 
-          {/* Section C — Equipment Condition */}
+          {/* Section C â€” Equipment Condition */}
           <div className="space-y-3">
             <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Equipment Condition</p>
 
@@ -288,7 +227,7 @@ export const UsageLogEditModal: React.FC<Props> = ({ log, onSave, onClose }) => 
                 label="Overall Condition"
                 sublabel="After completing checks above"
                 options={[
-                  { value: 'normal', label: '✓ Normal', activeClass: 'bg-green-100 text-green-800' },
+                  { value: 'normal', label: 'âœ“ Normal', activeClass: 'bg-green-100 text-green-800' },
                   { value: 'abnormal', label: 'âš  Abnormal', activeClass: 'bg-amber-100 text-amber-800' },
                 ]}
                 value={form.equipmentCondition}
@@ -307,7 +246,7 @@ export const UsageLogEditModal: React.FC<Props> = ({ log, onSave, onClose }) => 
                         value={form.abnormalDetails}
                         onChange={(e) => set('abnormalDetails', e.target.value)}
                         rows={3}
-                        placeholder="Describe the issue…"
+                        placeholder="Describe the issueâ€¦"
                         className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 resize-none"
                       />
                     </div>
@@ -320,7 +259,7 @@ export const UsageLogEditModal: React.FC<Props> = ({ log, onSave, onClose }) => 
                         onChange={(e) => set('actionTaken', e.target.value)}
                         className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
                       >
-                        <option value="">— Select action —</option>
+                        <option value="">â€” Select action â€”</option>
                         <option value="Tagged Out of Service">Tagged Out of Service</option>
                         <option value="Repair Requested">Repair Requested</option>
                         <option value="Sent for Verification">Sent for Verification</option>
@@ -342,7 +281,7 @@ export const UsageLogEditModal: React.FC<Props> = ({ log, onSave, onClose }) => 
               value={form.notes}
               onChange={(e) => set('notes', e.target.value)}
               rows={3}
-              placeholder="Any additional observations…"
+              placeholder="Any additional observationsâ€¦"
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 resize-none"
             />
           </div>
@@ -366,7 +305,7 @@ export const UsageLogEditModal: React.FC<Props> = ({ log, onSave, onClose }) => 
                   : 'bg-red-100 text-red-800'
               }`}
             >
-              {overallResult === 'pass' ? '✓ PASS' : '✗ FAIL'}
+              {overallResult === 'pass' ? 'âœ“ PASS' : 'âœ— FAIL'}
             </span>
           </div>
         </div>
@@ -376,7 +315,7 @@ export const UsageLogEditModal: React.FC<Props> = ({ log, onSave, onClose }) => 
           <p className="text-xs text-gray-400">
             {hasFailure
               ? 'âš  Saving with FAIL will mark equipment Out of Service'
-              : 'All checks pass — result will be recorded as PASS'}
+              : 'All checks pass â€” result will be recorded as PASS'}
           </p>
           <div className="flex gap-2 flex-shrink-0">
             <button
@@ -394,7 +333,7 @@ export const UsageLogEditModal: React.FC<Props> = ({ log, onSave, onClose }) => 
                   : 'bg-primary-600 hover:bg-primary-700 text-white'
               }`}
             >
-              {saving ? 'Saving…' : 'Save Changes'}
+              {saving ? 'Savingâ€¦' : 'Save Changes'}
             </button>
           </div>
         </div>

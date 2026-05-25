@@ -1,9 +1,9 @@
-/**
- * JobSelector — searchable dropdown that lets users link a usage log to a job.
+﻿/**
+ * JobSelector â€” searchable dropdown that lets users link a usage log to a job.
  *
  * Props:
- *   value      – currently selected Firestore doc ID (or '' for none)
- *   onChange   – called with { id, jobId, title, customerName } | null
+ *   value      â€“ currently selected Firestore doc ID (or '' for none)
+ *   onChange   â€“ called with { id, jobId, title, customerName } | null
  */
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { jobService } from '../services/jobService';
@@ -118,7 +118,7 @@ export const JobSelector: React.FC<Props> = ({ value, onChange }) => {
           }`}
       >
         {loading ? (
-          <span className="text-gray-400">Loading jobs…</span>
+          <span className="text-gray-400">Loading jobsâ€¦</span>
         ) : selected ? (
           <div className="flex items-center gap-2 min-w-0">
             <span className="font-mono text-xs font-semibold text-primary-700 flex-shrink-0">
@@ -128,7 +128,7 @@ export const JobSelector: React.FC<Props> = ({ value, onChange }) => {
             {statusBadge(selected.status)}
           </div>
         ) : (
-          <span className="text-gray-400">No job linked — select to link</span>
+          <span className="text-gray-400">No job linked â€” select to link</span>
         )}
         <svg
           className={`w-4 h-4 text-gray-400 flex-shrink-0 transition-transform ${open ? 'rotate-180' : ''}`}
@@ -146,7 +146,7 @@ export const JobSelector: React.FC<Props> = ({ value, onChange }) => {
           className="absolute right-8 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-500 text-base leading-none"
           title="Remove job link"
         >
-          ×
+          Ã—
         </button>
       )}
 
@@ -164,7 +164,7 @@ export const JobSelector: React.FC<Props> = ({ value, onChange }) => {
                 type="text"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search by job number, title or customer…"
+                placeholder="Search by job number, title or customerâ€¦"
                 className="w-full pl-8 pr-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
               />
             </div>

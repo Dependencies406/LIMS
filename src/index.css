@@ -125,3 +125,89 @@ body {
   overflow-x: hidden;
 }
 
+/* Mobile / Touch improvements */
+
+/* iOS safe-area inset for bottom navigation bar */
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* Prevent overscroll bounce on iOS within scrollable containers */
+.overflow-auto,
+.overflow-y-auto,
+.overflow-x-auto {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Larger tap target helper */
+.tap-target {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+/* Prevent text selection on interactive elements during touch */
+button, a, [role="button"] {
+  -webkit-tap-highlight-color: transparent;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Allow text selection in inputs and content areas */
+input, textarea, p, h1, h2, h3, h4, h5, h6, td, th {
+  -webkit-user-select: auto;
+  user-select: auto;
+}
+
+/* Smooth scroll for page areas */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Better focus styles for touch keyboards */
+.input:focus,
+input:focus,
+select:focus,
+textarea:focus {
+  outline: 2px solid #c73636;
+  outline-offset: 1px;
+  border-color: #c73636;
+}
+
+/* Line clamp utility */
+.line-clamp-1 {
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Table horizontal scroll on mobile */
+.table-responsive {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Mobile card styles for table/card switch */
+.mobile-card {
+  background: white;
+  border-radius: 0.75rem;
+  border: 1px solid #e5e7eb;
+  padding: 1rem;
+}
+
+/* Smooth active state on mobile buttons */
+@media (hover: none) {
+  .btn:active {
+    transform: scale(0.97);
+  }
+  button:active {
+    opacity: 0.8;
+  }
+}
+

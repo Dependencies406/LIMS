@@ -15,6 +15,14 @@ import { CertificateNumberManagerModal } from '../components/CertificateNumberMa
 import { MasterListsManagementModal } from '../components/MasterListsManagementModal';
 import { SettingsCardHelpTooltip } from '../components/SettingsCardHelpTooltip';
 import { DriveBackupModal } from '../components/DriveBackupModal';
+import {
+  HashIcon,
+  BuildingIcon,
+  UsersIcon,
+  MailIcon,
+  BarChartIcon,
+  ShieldIcon,
+} from '../components/common';
 
 export const SettingsPage: React.FC = () => {
   const { error: showError } = useToast();
@@ -173,7 +181,7 @@ export const SettingsPage: React.FC = () => {
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-4 flex-1 min-w-0">
                   <div className="w-14 h-14 bg-gradient-to-br from-primary-100 to-primary-200 rounded-xl flex items-center justify-center flex-shrink-0">
-                    <span className="text-2xl">🔢</span>
+                    <HashIcon className="w-7 h-7 text-primary-600" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <h3 className="text-lg font-semibold text-gray-900 truncate">Request Number Configuration</h3>
@@ -259,7 +267,7 @@ export const SettingsPage: React.FC = () => {
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-4 flex-1 min-w-0">
                   <div className="w-14 h-14 bg-gradient-to-br from-blue-100 to-blue-200 rounded-xl flex items-center justify-center flex-shrink-0">
-                    <span className="text-2xl">🏢</span>
+                    <BuildingIcon className="w-7 h-7 text-blue-600" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <h3 className="text-lg font-semibold text-gray-900 truncate">Company Information</h3>
@@ -303,9 +311,7 @@ export const SettingsPage: React.FC = () => {
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-4 flex-1 min-w-0">
                   <div className="w-14 h-14 bg-gradient-to-br from-indigo-100 to-violet-200 rounded-xl flex items-center justify-center flex-shrink-0">
-                    <span className="text-2xl" aria-hidden>
-                      👥
-                    </span>
+                    <UsersIcon className="w-7 h-7 text-indigo-600" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <h3 className="text-lg font-semibold text-gray-900 truncate">Users & roles</h3>
@@ -489,7 +495,7 @@ export const SettingsPage: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             <div className="p-6 bg-gray-50 border border-gray-200 rounded-xl text-center hover:bg-gray-100 transition-colors duration-200">
               <div className="w-12 h-12 bg-gradient-to-br from-gray-200 to-gray-300 rounded-xl flex items-center justify-center mx-auto mb-3">
-                <span className="text-xl">📧</span>
+                <MailIcon className="w-6 h-6 text-gray-400" />
               </div>
               <h3 className="text-sm font-medium text-gray-500">Email Alerts</h3>
             </div>
@@ -501,7 +507,7 @@ export const SettingsPage: React.FC = () => {
             </div>
             <div className="p-6 bg-gray-50 border border-gray-200 rounded-xl text-center hover:bg-gray-100 transition-colors duration-200">
               <div className="w-12 h-12 bg-gradient-to-br from-gray-200 to-gray-300 rounded-xl flex items-center justify-center mx-auto mb-3">
-                <span className="text-xl">📊</span>
+                <BarChartIcon className="w-6 h-6 text-gray-400" />
               </div>
               <h3 className="text-sm font-medium text-gray-500">Analytics & Reports</h3>
             </div>
@@ -511,7 +517,7 @@ export const SettingsPage: React.FC = () => {
         {/* Info Box */}
         <div className="mt-8 bg-blue-50 border border-blue-200 rounded-lg p-4">
           <div className="flex items-start">
-            <span className="text-2xl mr-3">💡</span>
+            <ShieldIcon className="w-6 h-6 text-blue-600 mr-3 flex-shrink-0 mt-0.5" />
             <div>
               <h3 className="font-semibold text-blue-900 mb-1">Admin Settings</h3>
               <p className="text-sm text-blue-800">

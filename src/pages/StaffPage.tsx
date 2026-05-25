@@ -1,11 +1,11 @@
-﻿/**
+/**
  * StaffPage.tsx
- * Personnel management â€” list of staff members with drill-down detail view.
+ * Personnel management — list of staff members with drill-down detail view.
  *
  * Detail view has three tabs:
- *   1. Training Records  â€” per LAB-FM-QP-03-005
- *   2. Documents         â€” file uploads (code of conduct, job description, etc.)
- *   3. Performance       â€” job completion metrics
+ *   1. Training Records  — per LAB-FM-QP-03-005
+ *   2. Documents         — file uploads (code of conduct, job description, etc.)
+ *   3. Performance       — job completion metrics
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
@@ -105,7 +105,7 @@ const RecordModal: React.FC<RecordModalProps> = ({ staffName, record, onClose, o
             <h3 className="text-lg font-semibold text-gray-900">{record ? 'Edit Training Record' : 'Add Training Record'}</h3>
             <p className="text-sm text-gray-500">Staff: <span className="font-medium text-gray-700">{staffName}</span></p>
           </div>
-          <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-600 text-2xl">Ã—</button>
+          <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-600 text-2xl">×</button>
         </div>
 
         <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
@@ -153,7 +153,7 @@ const RecordModal: React.FC<RecordModalProps> = ({ staffName, record, onClose, o
         <div className="flex justify-end gap-3 px-6 py-4 border-t border-gray-200">
           <button type="button" onClick={onClose} className="btn btn-secondary">Cancel</button>
           <button type="button" onClick={handleSubmit} disabled={saving || !form.courseName.trim()} className="btn btn-primary disabled:opacity-50">
-            {saving ? 'Savingâ€¦' : record ? 'Save Changes' : 'Add Record'}
+            {saving ? 'Saving…' : record ? 'Save Changes' : 'Add Record'}
           </button>
         </div>
       </div>
@@ -219,7 +219,7 @@ const TrainingTab: React.FC<{
   };
 
   const fmtDate = (iso?: string) => {
-    if (!iso) return 'â€”';
+    if (!iso) return '—';
     try { return new Date(iso + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }); }
     catch { return iso; }
   };
@@ -228,7 +228,7 @@ const TrainingTab: React.FC<{
     <div className="space-y-4">
       {/* Toolbar */}
       <div className="flex items-center justify-between">
-        <p className="text-xs text-gray-500">LAB-FM-QP-03-005 Â· à¸šà¸±à¸™à¸—à¸¶à¸à¸à¸²à¸£à¸­à¸šà¸£à¸¡à¸šà¸¸à¸„à¸¥à¸²à¸à¸£</p>
+        <p className="text-xs text-gray-500">LAB-FM-QP-03-005 · บันทึกการอบรมบุคลากร</p>
         {(isAdmin || canManage) && (
           <button type="button" onClick={() => { setEditingRecord(null); setModalOpen(true); }} className="btn btn-primary text-sm">
             + Add Training Record
@@ -244,11 +244,11 @@ const TrainingTab: React.FC<{
         </div>
 
         {loading ? (
-          <div className="py-14 text-center text-sm text-gray-400">Loadingâ€¦</div>
+          <div className="py-14 text-center text-sm text-gray-400">Loading…</div>
         ) : records.length === 0 ? (
           <div className="py-14 text-center">
-            <div className="text-4xl mb-2">ðŸ“‹</div>
-            <p className="text-sm text-gray-500">{(isAdmin || canManage) ? 'No records yet â€” click "Add Training Record".' : 'No training records.'}</p>
+            <div className="text-4xl mb-2">📋</div>
+            <p className="text-sm text-gray-500">{(isAdmin || canManage) ? 'No records yet — click "Add Training Record".' : 'No training records.'}</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -271,18 +271,18 @@ const TrainingTab: React.FC<{
                   <tr key={r.id} className="hover:bg-gray-50 align-top">
                     <td className="px-4 py-3 font-medium text-gray-900">{r.courseName}</td>
                     <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{r.trainingFormat}</td>
-                    <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{r.duration || 'â€”'}</td>
-                    <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{r.organizer || 'â€”'}</td>
+                    <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{r.duration || '—'}</td>
+                    <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{r.organizer || '—'}</td>
                     <td className="px-4 py-3">
                       <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${STATUS_STYLES[r.status]}`}>{r.status}</span>
                     </td>
                     <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{fmtDate(r.completionDate)}</td>
                     <td className="px-4 py-3">
                       {r.certificateUrl
-                        ? <a href={r.certificateUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline text-xs">ðŸ”— View</a>
-                        : <span className="text-gray-400">â€”</span>}
+                        ? <a href={r.certificateUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline text-xs">🔗 View</a>
+                        : <span className="text-gray-400">—</span>}
                     </td>
-                    <td className="px-4 py-3 text-gray-500 text-xs">{r.remarks || 'â€”'}</td>
+                    <td className="px-4 py-3 text-gray-500 text-xs">{r.remarks || '—'}</td>
                     {(isAdmin || canManage) && (
                       <td className="px-4 py-3 text-right whitespace-nowrap">
                         <button type="button" onClick={() => { setEditingRecord(r); setModalOpen(true); }} className="text-gray-400 hover:text-blue-600 p-1" title="Edit">
@@ -316,7 +316,7 @@ const TrainingTab: React.FC<{
               <button type="button" onClick={() => setConfirmDelete(null)} className="btn btn-secondary">Cancel</button>
               <button type="button" onClick={() => handleDelete(confirmDelete)} disabled={deletingId === confirmDelete.id}
                 className="btn bg-red-600 text-white hover:bg-red-700 border-red-600 disabled:opacity-50">
-                {deletingId === confirmDelete.id ? 'Deletingâ€¦' : 'Delete'}
+                {deletingId === confirmDelete.id ? 'Deleting…' : 'Delete'}
               </button>
             </div>
           </div>
@@ -385,9 +385,9 @@ const DocumentsTab: React.FC<{
   };
 
   const categoryIcon: Record<StaffDocumentCategory, string> = {
-    'Code of Conduct': 'ðŸ“œ', 'Job Description': 'ðŸ“„', 'Employment Contract': 'ðŸ¤',
-    'Training Certificate': 'ðŸ†', 'Performance Review': 'ðŸ“Š', 'Medical Certificate': 'ðŸ¥',
-    'ID / Passport': 'ðŸªª', 'Other': 'ðŸ“Ž',
+    'Code of Conduct': '📜', 'Job Description': '📄', 'Employment Contract': '🤝',
+    'Training Certificate': '🏆', 'Performance Review': '📊', 'Medical Certificate': '🏥',
+    'ID / Passport': '🪪', 'Other': '🔎',
   };
 
   return (
@@ -424,7 +424,7 @@ const DocumentsTab: React.FC<{
           {uploading && (
             <div className="space-y-1">
               <div className="flex items-center justify-between text-xs text-blue-700">
-                <span>Uploadingâ€¦</span><span>{uploadProgress}%</span>
+                <span>Uploading…</span><span>{uploadProgress}%</span>
               </div>
               <div className="w-full bg-blue-200 rounded-full h-1.5">
                 <div className="bg-blue-600 h-1.5 rounded-full transition-all" style={{ width: `${uploadProgress}%` }} />
@@ -442,21 +442,21 @@ const DocumentsTab: React.FC<{
         </div>
 
         {loading ? (
-          <div className="py-14 text-center text-sm text-gray-400">Loadingâ€¦</div>
+          <div className="py-14 text-center text-sm text-gray-400">Loading…</div>
         ) : documents.length === 0 ? (
           <div className="py-14 text-center">
-            <div className="text-4xl mb-2">ðŸ“</div>
-            <p className="text-sm text-gray-500">{(isAdmin || canManage) ? 'No documents yet â€” click "Upload Document" to attach files.' : 'No documents attached.'}</p>
+            <div className="text-4xl mb-2">📁</div>
+            <p className="text-sm text-gray-500">{(isAdmin || canManage) ? 'No documents yet — click "Upload Document" to attach files.' : 'No documents attached.'}</p>
           </div>
         ) : (
           <ul className="divide-y divide-gray-100">
             {documents.map((d) => (
               <li key={d.id} className="flex items-center gap-3 px-5 py-3.5 hover:bg-gray-50">
-                <span className="text-2xl flex-shrink-0" title={d.category}>{categoryIcon[d.category] ?? 'ðŸ“Ž'}</span>
+                <span className="text-2xl flex-shrink-0" title={d.category}>{categoryIcon[d.category] ?? '🔎'}</span>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-gray-900 truncate">{d.name}</p>
                   <p className="text-xs text-gray-500 mt-0.5">
-                    {d.category} Â· {formatBytes(d.size)} Â· Uploaded {d.uploadedAt.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })} by {d.uploadedByName}
+                    {d.category} · {formatBytes(d.size)} · Uploaded {d.uploadedAt.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })} by {d.uploadedByName}
                   </p>
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
@@ -489,7 +489,7 @@ const DocumentsTab: React.FC<{
               <button type="button" onClick={() => setConfirmDelete(null)} className="btn btn-secondary">Cancel</button>
               <button type="button" onClick={() => handleDelete(confirmDelete)} disabled={deletingId === confirmDelete.id}
                 className="btn bg-red-600 text-white hover:bg-red-700 border-red-600 disabled:opacity-50">
-                {deletingId === confirmDelete.id ? 'Deletingâ€¦' : 'Delete'}
+                {deletingId === confirmDelete.id ? 'Deleting…' : 'Delete'}
               </button>
             </div>
           </div>
@@ -534,11 +534,11 @@ const PerformanceTab: React.FC<{ staff: User; isAdmin: boolean; canExportLogs: b
     finally { setExporting(false); }
   };
 
-  if (loading) return <div className="py-14 text-center text-sm text-gray-400">Loading performance dataâ€¦</div>;
+  if (loading) return <div className="py-14 text-center text-sm text-gray-400">Loading performance data…</div>;
 
   if (!metrics) return (
     <div className="py-14 text-center">
-      <div className="text-4xl mb-2">ðŸ“Š</div>
+      <div className="text-4xl mb-2">📊</div>
       <p className="text-sm text-gray-500">No job performance data found for this staff member.</p>
     </div>
   );
@@ -558,7 +558,7 @@ const PerformanceTab: React.FC<{ staff: User; isAdmin: boolean; canExportLogs: b
         <p className="text-xs text-gray-500">Job completion performance metrics</p>
         {(isAdmin || canExportLogs) && (
           <button type="button" onClick={handleExport} disabled={exporting} className="btn btn-secondary text-sm disabled:opacity-50">
-            {exporting ? 'Exportingâ€¦' : 'Export Logs'}
+            {exporting ? 'Exporting…' : 'Export Logs'}
           </button>
         )}
       </div>
@@ -598,9 +598,9 @@ const StaffDetailView: React.FC<{
   const [activeTab, setActiveTab] = useState<DetailTab>('training');
 
   const tabs: { id: DetailTab; label: string; icon: string }[] = [
-    { id: 'training', label: 'Training Records', icon: 'ðŸ“‹' },
-    { id: 'documents', label: 'Documents', icon: 'ðŸ“' },
-    { id: 'performance', label: 'Performance', icon: 'ðŸ“Š' },
+    { id: 'training', label: 'Training Records', icon: '📋' },
+    { id: 'documents', label: 'Documents', icon: '📁' },
+    { id: 'performance', label: 'Performance', icon: '📊' },
   ];
 
   return (
@@ -680,7 +680,7 @@ const StaffListView: React.FC<{
   });
 
   if (loading) {
-    return <div className="py-20 text-center text-sm text-gray-400">Loading staffâ€¦</div>;
+    return <div className="py-20 text-center text-sm text-gray-400">Loading staff…</div>;
   }
 
   return (
@@ -690,7 +690,7 @@ const StaffListView: React.FC<{
         <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 11A6 6 0 105 11a6 6 0 0012 0z" />
         </svg>
-        <input type="text" placeholder="Search by name, position, or emailâ€¦"
+        <input type="text" placeholder="Search by name, position, or email…"
           value={search} onChange={(e) => setSearch(e.target.value)}
           className="input pl-9 w-full sm:max-w-xs" />
       </div>
@@ -701,7 +701,7 @@ const StaffListView: React.FC<{
       {/* List */}
       {filtered.length === 0 ? (
         <div className="py-20 text-center">
-          <div className="text-4xl mb-2">ðŸ‘¥</div>
+          <div className="text-4xl mb-2">👥</div>
           <p className="text-sm text-gray-500">{search ? 'No staff match your search.' : 'No staff members found.'}</p>
         </div>
       ) : (
@@ -724,7 +724,7 @@ const StaffListView: React.FC<{
                         {u.isActive !== false ? 'Active' : 'Inactive'}
                       </span>
                     </div>
-                    <p className="text-xs text-gray-500 mt-0.5 truncate">{u.position || 'No position'} Â· {u.email}</p>
+                    <p className="text-xs text-gray-500 mt-0.5 truncate">{u.position || 'No position'} · {u.email}</p>
                   </div>
 
                   {/* Chevron */}
