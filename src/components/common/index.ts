@@ -25,9 +25,6 @@ export type { ViewToggleProps, ViewType } from './ViewToggle';
 export { StatFilterDropdown } from './StatFilterDropdown';
 export type { StatFilterOption, StatFilterDropdownProps } from './StatFilterDropdown';
 
-export { IconButton } from './IconButton';
-export type { IconButtonProps, IconButtonVariant, IconButtonSize } from './IconButton';
-
 export {
   PrinterIcon, DownloadIcon, UploadIcon, ExportIcon, EyeIcon, FileTextIcon, ImageIcon,
   PlusIcon, PencilIcon, TrashIcon, DuplicateIcon, SaveIcon,

@@ -39,34 +39,6 @@ const normStaffKey = (s: string) =>
   s.trim().toLowerCase().replace(/\s+/g, ' ');
 
 /**
- * Resolve `job.assignedStaff` to a user. Prefer uid; also matches legacy values stored as
- * "FirstName LastName", displayName, or email (Job modal historically used display names).
- */
-export function matchUserFromAssignedStaffValue(
-  assignment: string | undefined,
-  users: User[]
-): User | undefined {
-  if (!assignment?.trim()) return undefined;
-  const a = assignment.trim();
-  const byUid = users.find((u) => u.uid === a);
-  if (byUid) return byUid;
-  const key = normStaffKey(a);
-  return users.find((u) => {
-    const full = normStaffKey(`${u.firstName || ''} ${u.lastName || ''}`);
-    if (full && full === key) return true;
-    const disp = normStaffKey(u.displayName || '');
-    if (disp && disp === key) return true;
-    if (u.email && normStaffKey(u.email) === key) return true;
-    return false;
-  });
-}
-
-/**
- * Service for managing user-related operations
- * Handles user CRUD, authentication tracking, and role management
- * Designed to be extensible for future features (training logs, documents, etc.)
- */
-/**
  * Resolve a raw `assignedStaff` value (which may be a UID, email, or legacy
  * display-name string) to a User object. Returns undefined if no match found.
  *

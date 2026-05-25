@@ -1,10 +1,5 @@
 import type { Job } from '../types';
 import { firestoreToDate } from '../utils/dateUtils';
-
-/** Strips undefined values so Firestore doesn't reject them */
-export function removeUndefinedForFirestore<T extends object>(obj: T): T {
-  return JSON.parse(JSON.stringify(obj)) as T;
-}
 import {
   db,
   collection,
