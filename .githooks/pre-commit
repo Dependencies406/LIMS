@@ -1,0 +1,46 @@
+#!/bin/bash
+# ─────────────────────────────────────────────────────────────
+# Pre-commit hook: enforce .md file placement
+#
+# Rule: No .md files may be committed to the project root,
+#       EXCEPT for CLAUDE.md and README.md.
+#       All other documentation must go in the docs/ folder.
+# ─────────────────────────────────────────────────────────────
+
+ALLOWED_ROOT_MD=("CLAUDE.md" "README.md")
+
+# Find any .md files being newly added directly at the root level
+STAGED_ROOT_MD=$(git diff --cached --name-only --diff-filter=A | grep -E '^[^/]+\.md$')
+
+if [ -z "$STAGED_ROOT_MD" ]; then
+  exit 0
+fi
+
+BLOCKED=()
+for file in $STAGED_ROOT_MD; do
+  allowed=false
+  for allowed_file in "${ALLOWED_ROOT_MD[@]}"; do
+    if [ "$file" = "$allowed_file" ]; then
+      allowed=true
+      break
+    fi
+  done
+  if [ "$allowed" = false ]; then
+    BLOCKED+=("$file")
+  fi
+done
+
+if [ ${#BLOCKED[@]} -gt 0 ]; then
+  echo ""
+  echo "  ❌  Commit blocked — .md files must go in docs/"
+  echo ""
+  for f in "${BLOCKED[@]}"; do
+    echo "       $f  →  move to  docs/$f"
+  done
+  echo ""
+  echo "  Only CLAUDE.md and README.md are allowed at the project root."
+  echo ""
+  exit 1
+fi
+
+exit 0

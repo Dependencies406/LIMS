@@ -147,6 +147,17 @@ Expected healthy state:
 
 ---
 
+## RULE 9: ALL MARKDOWN FILES GO IN `docs/` — NOT THE PROJECT ROOT.
+
+**The rule:**
+- Only `CLAUDE.md` and `README.md` may live at the project root.
+- Every other `.md` file (notes, guides, summaries, reports) must go in `docs/`.
+- A pre-commit hook (`.githooks/pre-commit`) enforces this automatically.
+- If you create a markdown file during a session, save it to `docs/<NAME>.md`.
+- Git is configured to use `.githooks/` via `git config core.hooksPath .githooks`.
+
+---
+
 ## SUMMARY OF MISTAKES THAT ALREADY HAPPENED ON THIS PROJECT
 
 | # | Mistake | Consequence |
