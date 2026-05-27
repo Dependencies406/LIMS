@@ -2,12 +2,12 @@
  * Equipment Export Service
  *
  * Produces fixed-layout ISO evidence documents for the Equipment Control module.
- * All layouts are plain / clean â€” no filled backgrounds, ISO form header style.
+ * All layouts are plain / clean — no filled backgrounds, ISO form header style.
  * Thai text is rendered correctly via the embedded Sarabun font.
  *
  * Documents:
- *   generateEquipmentDatasheetBytes()  â†’ LAB-FM-QP-05-005  Equipment Control Record (A4 portrait)
- *   generateUsageLogReportBytes()      â†’ LAB-FM-QP-05-006  Equipment Usage Log Report (A4 landscape)
+ *   generateEquipmentDatasheetBytes()  → LAB-FM-QP-05-005  Equipment Control Record (A4 portrait)
+ *   generateUsageLogReportBytes()      → LAB-FM-QP-05-006  Equipment Usage Log Report (A4 landscape)
  *
  * Form metadata (name, revision, effective date) is resolved at generation time
  * from the Documents module (document_index collection) using the form code.
@@ -18,10 +18,10 @@ import autoTable from 'jspdf-autotable';
 import { getCompanyInfo } from './companyInfoService';
 import { documentIndexService } from './documentIndexService';
 import { registerThaiFont } from './thaiPdfFontService';
-import type { EquipmentRecord, UsageLog, CalibrationEvent } from '../types';
+import type { EquipmentRecord, EquipmentStatus, UsageLog, CalibrationEvent } from '../types';
 import { equipmentService } from './equipmentControlService';
 
-// â”€â”€â”€ Text colours (no fill colours â€” clean plain layout) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Text colours (no fill colours — clean plain layout) ─────────────────────
 
 const BLACK    = [0, 0, 0]       as [number, number, number];
 const GRAY_600 = [75, 85, 99]    as [number, number, number];
@@ -30,19 +30,19 @@ const GREEN    = [22, 163, 74]   as [number, number, number];
 const RED      = [220, 38, 38]   as [number, number, number];
 const AMBER    = [217, 119, 6]   as [number, number, number];
 
-// â”€â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function fmtDate(d?: string | Date | null): string {
-  if (!d) return 'â€”';
+  if (!d) return '—';
   const date = typeof d === 'string' ? new Date(d) : d;
-  if (isNaN(date.getTime())) return 'â€”';
+  if (isNaN(date.getTime())) return '—';
   return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
 function fmtDateShort(d?: string | null): string {
-  if (!d) return 'â€”';
+  if (!d) return '—';
   const date = new Date(d);
-  if (isNaN(date.getTime())) return 'â€”';
+  if (isNaN(date.getTime())) return '—';
   return date.toLocaleDateString('en-GB');
 }
 
@@ -64,7 +64,7 @@ async function loadLogoBase64(url: string): Promise<string | null> {
   }
 }
 
-// â”€â”€â”€ Document index lookup â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Document index lookup ────────────────────────────────────────────────────
 
 interface FormMeta {
   formName: string;
@@ -87,17 +87,17 @@ async function lookupFormMeta(docCode: string): Promise<FormMeta> {
   return { formName: '', revisionNumber: '', effectiveDate: '' };
 }
 
-// â”€â”€â”€ ISO form page header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── ISO form page header ─────────────────────────────────────────────────────
 //
 //  Plain two-column bordered box (no fills):
 //
-//  â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
-//  â”‚  [Logo]  Company Name       â”‚  Form Name:   <name>         â”‚
-//  â”‚          Address Â· Contact  â”‚  Form No:     <code>         â”‚
-//  â”‚                             â”‚  Revision:    Rev. 01        â”‚
-//  â”‚                             â”‚  Eff. Date:   dd mmm yyyy    â”‚
-//  â”‚                             â”‚  Page:        N of M         â”‚
-//  â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”´â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
+//  â”Œ─────────────────────────────â”¬──────────────────────────────â”
+//  │  [Logo]  Company Name       │  Form Name:   <name>         │
+//  │          Address · Contact  │  Form No:     <code>         │
+//  │                             │  Revision:    Rev. 01        │
+//  │                             │  Eff. Date:   dd mmm yyyy    │
+//  │                             │  Page:        N of M         │
+//  â””─────────────────────────────â”´──────────────────────────────â”˜
 //
 
 interface PageFrameOptions {
@@ -128,7 +128,7 @@ function drawPageFrame(opts: PageFrameOptions, pageNum: number, totalPages: numb
   // Vertical divider
   pdf.line(divX, margin, divX, margin + headerH);
 
-  // â”€â”€ Left: company â”€â”€
+  // ── Left: company ──
   let lx = margin + 3;
   let ly = margin + 5;
 
@@ -153,17 +153,17 @@ function drawPageFrame(opts: PageFrameOptions, pageNum: number, totalPages: numb
   if (companyAddress) { pdf.text(companyAddress, lx, ly); ly += 4; }
   if (companyContact) { pdf.text(companyContact, lx, ly); }
 
-  // â”€â”€ Right: form info â”€â”€
+  // ── Right: form info ──
   const rx = divX + 4;
   const labelW = 24;
   const valueX = rx + labelW;
   let ry = margin + 5;
 
   const rows: [string, string][] = [
-    ['Form Name:', formMeta.formName || 'â€”'],
+    ['Form Name:', formMeta.formName || '—'],
     ['Form No:',   docCode],
-    ['Revision:',  formMeta.revisionNumber ? `Rev. ${formMeta.revisionNumber}` : 'â€”'],
-    ['Eff. Date:', formMeta.effectiveDate || 'â€”'],
+    ['Revision:',  formMeta.revisionNumber ? `Rev. ${formMeta.revisionNumber}` : '—'],
+    ['Eff. Date:', formMeta.effectiveDate || '—'],
     ['Page:',      `${pageNum} of ${totalPages}`],
   ];
 
@@ -178,7 +178,7 @@ function drawPageFrame(opts: PageFrameOptions, pageNum: number, totalPages: numb
     ry += 4.5;
   });
 
-  // â”€â”€ Footer: thin rule + generated text â”€â”€
+  // ── Footer: thin rule + generated text ──
   pdf.setFont(fontName, 'normal');
   pdf.setFontSize(6.5);
   pdf.setTextColor(...GRAY_400);
@@ -194,11 +194,11 @@ function drawPageFrame(opts: PageFrameOptions, pageNum: number, totalPages: numb
   pdf.setLineWidth(0.3);
 }
 
-// â”€â”€â”€ Document 1: Equipment Control Record â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Document 1: Equipment Control Record ────────────────────────────────────
 
 /**
  * LAB-FM-QP-05-005  Equipment Control Record
- * A4 portrait â€” plain clean layout, Thai text supported, metadata from document index.
+ * A4 portrait — plain clean layout, Thai text supported, metadata from document index.
  */
 export async function generateEquipmentDatasheetBytes(
   equipment: EquipmentRecord,
@@ -207,7 +207,7 @@ export async function generateEquipmentDatasheetBytes(
 ): Promise<ArrayBuffer> {
   const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
 
-  // Load Thai font first â€” must happen before any text rendering
+  // Load Thai font first — must happen before any text rendering
   const fontName = await registerThaiFont(pdf);
 
   const [company, formMeta] = await Promise.all([
@@ -242,7 +242,7 @@ export async function generateEquipmentDatasheetBytes(
 
   let y = margin + 30;
 
-  // â”€â”€ Document title â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Document title ────────────────────────────────────────────────────────
   pdf.setFont(fontName, 'bold');
   pdf.setFontSize(12);
   pdf.setTextColor(...BLACK);
@@ -258,7 +258,7 @@ export async function generateEquipmentDatasheetBytes(
   pdf.line(margin, y, margin + contentW, y);
   y += 6;
 
-  // â”€â”€ Section heading â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Section heading ───────────────────────────────────────────────────────
   function sectionHeading(title: string) {
     pdf.setFont(fontName, 'bold');
     pdf.setFontSize(8);
@@ -270,35 +270,35 @@ export async function generateEquipmentDatasheetBytes(
     y += 9;
   }
 
-  // â”€â”€ Field rows â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Field rows ────────────────────────────────────────────────────────────
   function fieldTable(rows: [string, string, string?, string?][]) {
     const colW = contentW / 2;
     const rowH = 7;
     const labelW = 38;
 
     rows.forEach((row) => {
-      // Left â€” label
+      // Left — label
       pdf.setFont(fontName, 'bold');
       pdf.setFontSize(7);
       pdf.setTextColor(...GRAY_400);
       pdf.text(row[0], margin, y + 4.5);
-      // Left â€” value
+      // Left — value
       pdf.setFont(fontName, 'normal');
       pdf.setFontSize(8);
       pdf.setTextColor(...BLACK);
-      pdf.text(row[1] || 'â€”', margin + labelW, y + 4.5);
+      pdf.text(row[1] || '—', margin + labelW, y + 4.5);
 
       if (row[2] !== undefined) {
-        // Right â€” label
+        // Right — label
         pdf.setFont(fontName, 'bold');
         pdf.setFontSize(7);
         pdf.setTextColor(...GRAY_400);
         pdf.text(row[2], margin + colW, y + 4.5);
-        // Right â€” value
+        // Right — value
         pdf.setFont(fontName, 'normal');
         pdf.setFontSize(8);
         pdf.setTextColor(...BLACK);
-        pdf.text(row[3] || 'â€”', margin + colW + labelW, y + 4.5);
+        pdf.text(row[3] || '—', margin + colW + labelW, y + 4.5);
       }
 
       pdf.setDrawColor(220, 220, 220);
@@ -309,34 +309,34 @@ export async function generateEquipmentDatasheetBytes(
     y += 3;
   }
 
-  // â”€â”€ 1. Identity & Classification â”€â”€
+  // ── 1. Identity & Classification ──
   sectionHeading('1. IDENTITY & CLASSIFICATION');
   fieldTable([
     ['Equipment Name', equipment.name,                       'Category',     equipment.category],
     ['Manufacturer',   equipment.manufacturer,               'Model',        equipment.model],
     ['Serial Number',  equipment.serialNumber,               'Status',       equipmentService.getStatusLabel(equipment.status)],
-    ['Capacity',       equipment.capacity      || 'â€”',       'Usage Range',  equipment.usageRange   || 'â€”'],
-    ['Usage Criteria', equipment.usageCriteria || 'â€”',       '',             ''],
+    ['Capacity',       equipment.capacity      || '—',       'Usage Range',  equipment.usageRange   || '—'],
+    ['Usage Criteria', equipment.usageCriteria || '—',       '',             ''],
   ]);
 
-  // â”€â”€ 2. Location & Custodianship â”€â”€
+  // ── 2. Location & Custodianship ──
   sectionHeading('2. LOCATION & CUSTODIANSHIP');
   fieldTable([
     ['Location',         equipment.location,                                          'Registration Date', fmtDate(equipment.registrationDate)],
     ['Custodian',        equipment.custodianName || equipment.custodian,             'External Provider', fmtBool(equipment.externalProvider)],
     ['Authorized Users', equipment.authorizedUsers?.length
-                           ? `${equipment.authorizedUsers.length} user(s)` : 'â€”',  '',                  ''],
+                           ? `${equipment.authorizedUsers.length} user(s)` : '—',  '',                  ''],
   ]);
 
-  // â”€â”€ 3. Calibration Information â”€â”€
+  // ── 3. Calibration Information ──
   sectionHeading('3. CALIBRATION INFORMATION');
   fieldTable([
-    ['Requires Cal.',   fmtBool(equipment.requiresCalibration),  'Interval',      equipment.calibrationInterval ? `${equipment.calibrationInterval} months` : 'â€”'],
-    ['Procedure',       equipment.calibrationProcedure || 'â€”',   'Ext. Provider', fmtBool(equipment.externalProvider)],
+    ['Requires Cal.',   fmtBool(equipment.requiresCalibration),  'Interval',      equipment.calibrationInterval ? `${equipment.calibrationInterval} months` : '—'],
+    ['Procedure',       equipment.calibrationProcedure || '—',   'Ext. Provider', fmtBool(equipment.externalProvider)],
     ['Last Calibrated', fmtDate(equipment.lastCalibrationDate),  'Next Due',      fmtDate(equipment.nextCalibrationDate)],
   ]);
 
-  // â”€â”€ 4. Calibration History â”€â”€
+  // ── 4. Calibration History ──
   sectionHeading('4. CALIBRATION HISTORY');
   if (calibrationEvents.length > 0) {
     autoTable(pdf, {
@@ -347,8 +347,8 @@ export async function generateEquipmentDatasheetBytes(
         fmtDateShort(ev.sentDate),
         fmtDateShort(ev.receivedDate),
         ev.calibrationLab,
-        ev.certificateNumber || 'â€”',
-        ev.result ? ev.result.toUpperCase() : 'â€”',
+        ev.certificateNumber || '—',
+        ev.result ? ev.result.toUpperCase() : '—',
         ev.notes || '',
       ]),
       headStyles: {
@@ -378,7 +378,7 @@ export async function generateEquipmentDatasheetBytes(
         4: { cellWidth: 18 },
         5: { cellWidth: 'auto' },
       },
-      didParseCell(data) {
+      didParseCell(data: any) {
         if (data.section === 'body' && data.column.index === 4) {
           const v = String(data.cell.raw);
           if (v === 'PASS') data.cell.styles.textColor = GREEN;
@@ -395,7 +395,7 @@ export async function generateEquipmentDatasheetBytes(
     y += 10;
   }
 
-  // â”€â”€ 5. Notes â”€â”€
+  // ── 5. Notes ──
   if (equipment.notes) {
     sectionHeading('5. NOTES');
     pdf.setFont(fontName, 'normal');
@@ -408,7 +408,7 @@ export async function generateEquipmentDatasheetBytes(
     });
   }
 
-  // â”€â”€ Signature row â”€â”€
+  // ── Signature row ──
   y += 8;
   if (y < 260) {
     pdf.setDrawColor(...BLACK);
@@ -429,10 +429,117 @@ export async function generateEquipmentDatasheetBytes(
   return pdf.output('arraybuffer');
 }
 
-// â”€â”€â”€ Document 2: Equipment Usage Log Report â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Document 3: Equipment Register (LAB-FM-QP-05-003) ───────────────────────
 
 /**
- * Equipment Usage Log Report â€” A4 landscape, plain clean layout, Thai text supported.
+ * Equipment Register — A4 landscape, full equipment list for printing.
+ */
+export async function generateEquipmentRegisterBytes(
+  records: EquipmentRecord[],
+  docCode = 'LAB-FM-QP-05-003'
+): Promise<ArrayBuffer> {
+  const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+  const fontName = await registerThaiFont(pdf);
+
+  const [company, formMeta] = await Promise.all([
+    getCompanyInfo(),
+    lookupFormMeta(docCode),
+  ]);
+
+  const logoBase64 = company?.logoUrl ? await loadLogoBase64(company.logoUrl) : null;
+  const companyName = company?.companyName || 'Laboratory';
+  const companyAddress = [
+    company?.address?.street,
+    company?.address?.city,
+    company?.address?.state,
+    company?.address?.postalCode,
+  ].filter(Boolean).join(', ');
+  const companyContact = [
+    company?.contactInfo?.phone ? `Tel: ${company.contactInfo.phone}` : '',
+    company?.contactInfo?.email ? `Email: ${company.contactInfo.email}` : '',
+  ].filter(Boolean).join('  ');
+
+  const W = 297;
+  const margin = 14;
+
+  const frameOpts: PageFrameOptions = {
+    pdf, fontName, companyName, companyAddress, companyContact, logoBase64,
+    formMeta, docCode, landscape: true,
+  };
+
+  drawPageFrame(frameOpts, 1, 1);
+
+  autoTable(pdf, {
+    startY: 54,
+    margin: { left: margin, right: margin },
+    head: [[
+      'No.', 'Equipment ID', 'Name', 'Capacity', 'Category',
+      'Serial No.', 'Status', 'Custodian', 'Last Cal.', 'Next Cal.',
+    ]],
+    body: records.map((e, i) => [
+      String(i + 1),
+      e.id,
+      e.name,
+      e.capacity || '—',
+      e.category,
+      e.serialNumber || '—',
+      equipmentService.getStatusLabel(e.status as EquipmentStatus),
+      e.custodianName || e.custodian || '—',
+      fmtDateShort(e.lastCalibrationDate),
+      fmtDateShort(e.nextCalibrationDate),
+    ]),
+    styles: {
+      font: fontName,
+      fontSize: 7.5,
+      cellPadding: { top: 2.5, bottom: 2.5, left: 2, right: 2 },
+    },
+    headStyles: {
+      fillColor: [240, 240, 240],
+      textColor: BLACK,
+      fontStyle: 'bold',
+      fontSize: 7,
+    },
+    columnStyles: {
+      0: { cellWidth: 8,  halign: 'center' },
+      1: { cellWidth: 26 },
+      2: { cellWidth: 48 },
+      3: { cellWidth: 24 },
+      4: { cellWidth: 16 },
+      5: { cellWidth: 28 },
+      6: { cellWidth: 24 },
+      7: { cellWidth: 36 },
+      8: { cellWidth: 22 },
+      9: { cellWidth: 22 },
+    },
+    alternateRowStyles: { fillColor: [250, 250, 250] },
+    didDrawPage: (data) => {
+      if (data.pageNumber > 1) drawPageFrame(frameOpts, data.pageNumber, data.pageNumber);
+    },
+  });
+
+  const totalPages = (pdf as unknown as { internal: { getNumberOfPages: () => number } }).internal.getNumberOfPages();
+  const H = 210;
+  for (let p = 1; p <= totalPages; p++) {
+    pdf.setPage(p);
+    pdf.setFillColor(255, 255, 255);
+    pdf.rect(0, H - 12, W, 12, 'F');
+    pdf.setDrawColor(...GRAY_400);
+    pdf.setLineWidth(0.2);
+    pdf.line(margin, H - 9, W - margin, H - 9);
+    pdf.setFont(fontName, 'normal');
+    pdf.setFontSize(6.5);
+    pdf.setTextColor(...GRAY_400);
+    pdf.text(`Generated: ${new Date().toLocaleString('en-GB')}`, margin, H - 5);
+    pdf.text(`Page ${p} of ${totalPages}`, W - margin, H - 5, { align: 'right' });
+  }
+
+  return pdf.output('arraybuffer');
+}
+
+// ─── Document 2: Equipment Usage Log Report ───────────────────────────────────
+
+/**
+ * Equipment Usage Log Report — A4 landscape, plain clean layout, Thai text supported.
  */
 export async function generateUsageLogReportBytes(
   equipment: EquipmentRecord,
@@ -483,7 +590,7 @@ export async function generateUsageLogReportBytes(
 
   let y = margin + 30;
 
-  // â”€â”€ Document title â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Document title ────────────────────────────────────────────────────────
   pdf.setFont(fontName, 'bold');
   pdf.setFontSize(12);
   pdf.setTextColor(...BLACK);
@@ -492,14 +599,14 @@ export async function generateUsageLogReportBytes(
   pdf.setFont(fontName, 'normal');
   pdf.setFontSize(8);
   pdf.setTextColor(...GRAY_600);
-  pdf.text(`${equipment.id}  Â·  ${equipment.name}`, W / 2, y, { align: 'center' });
+  pdf.text(`${equipment.id}  ·  ${equipment.name}`, W / 2, y, { align: 'center' });
   y += 2;
   pdf.setDrawColor(...GRAY_400);
   pdf.setLineWidth(0.3);
   pdf.line(margin, y, margin + contentW, y);
   y += 5;
 
-  // â”€â”€ Equipment summary (inline) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Equipment summary (inline) ────────────────────────────────────────────
   const summaryItems: [string, string][] = [
     ['Serial No.', equipment.serialNumber],
     ['Category',   equipment.category],
@@ -516,7 +623,7 @@ export async function generateUsageLogReportBytes(
     pdf.setFont(fontName, 'normal');
     pdf.setFontSize(8);
     pdf.setTextColor(...BLACK);
-    pdf.text(val || 'â€”', sx, y + 8);
+    pdf.text(val || '—', sx, y + 8);
   });
   y += 11;
 
@@ -525,14 +632,14 @@ export async function generateUsageLogReportBytes(
   pdf.line(margin, y, margin + contentW, y);
   y += 5;
 
-  // â”€â”€ Stats row â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Stats row ─────────────────────────────────────────────────────────────
   const statBlocks: [string, string, [number, number, number]][] = [
     ['Total Sessions', String(total),      BLACK],
     ['Pass',           String(passCount),  GREEN],
     ['Fail',           String(failCount),  failCount > 0 ? RED : GRAY_400],
     ['Pass Rate',      `${passRate}%`,     passRate >= 90 ? GREEN : passRate >= 70 ? AMBER : RED],
     ['Period', dateFrom || dateTo
-      ? `${fmtDateShort(dateFrom)} â€“ ${fmtDateShort(dateTo)}`
+      ? `${fmtDateShort(dateFrom)} – ${fmtDateShort(dateTo)}`
       : 'All dates',                        BLACK],
   ];
   const blockW = contentW / statBlocks.length;
@@ -549,7 +656,7 @@ export async function generateUsageLogReportBytes(
   });
   y += 14;
 
-  // â”€â”€ Usage log table â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Usage log table ───────────────────────────────────────────────────────
   autoTable(pdf, {
     startY: y,
     margin: { left: margin, right: margin },
@@ -561,18 +668,18 @@ export async function generateUsageLogReportBytes(
     ]],
     body: logs.map((log) => [
       fmtDateShort(log.date),
-      log.operatorName || log.operator || 'â€”',
-      log.linkedJobRef || 'â€”',
+      log.operatorName || log.operator || '—',
+      log.linkedJobRef || '—',
       log.visualInspection === 'pass' ? 'Pass' : 'Fail',
       log.functionalCheck  === 'pass' ? 'Pass' : 'Fail',
       log.documentCheck === 'valid'   ? 'Valid'
         : log.documentCheck === 'expired' ? 'Expired' : 'N/A',
-      log.refValuesVerified ? 'Yes' : 'â€”',
+      log.refValuesVerified ? 'Yes' : '—',
       log.equipmentCondition === 'normal' ? 'Normal' : 'Abnormal',
       log.overallResult.toUpperCase(),
       [log.abnormalDetails, log.actionTaken ? `Action: ${log.actionTaken}` : '']
-        .filter(Boolean).join(' Â· ') || 'â€”',
-      log.notes || 'â€”',
+        .filter(Boolean).join(' · ') || '—',
+      log.notes || '—',
     ]),
     headStyles: {
       fillColor: false as any,
@@ -608,7 +715,7 @@ export async function generateUsageLogReportBytes(
       9:  { cellWidth: 'auto' },
       10: { cellWidth: 26 },
     },
-    didParseCell(data) {
+    didParseCell(data: any) {
       if (data.section !== 'body') return;
       const v = String(data.cell.raw);
       if (data.column.index === 3 || data.column.index === 4) {
@@ -625,7 +732,7 @@ export async function generateUsageLogReportBytes(
         data.cell.styles.textColor = v === 'PASS' ? GREEN : RED;
       }
     },
-    didDrawPage(data) {
+    didDrawPage(data: any) {
       if (data.pageNumber > 1) {
         drawPageFrame(frameOpts, data.pageNumber, 1);
       }

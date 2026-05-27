@@ -27,6 +27,7 @@ import {
   getDoc,
   getDocs,
   runTransaction,
+  increment,
   Timestamp,
   collectionGroup
 } from "firebase/firestore";
@@ -75,6 +76,7 @@ export {
   getDoc,
   getDocs,
   runTransaction,
+  increment,
   Timestamp,
   collectionGroup,
   storageRef,

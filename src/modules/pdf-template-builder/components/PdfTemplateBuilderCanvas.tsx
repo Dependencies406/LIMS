@@ -411,7 +411,7 @@ export const PdfTemplateBuilderCanvas: React.FC<PdfTemplateBuilderCanvasProps> =
     <div
       ref={canvasRef}
       className="pdf-template-canvas overflow-auto"
-      style={{ width: '100%', height: '100%', backgroundColor: '#F3F4F6' }}
+      style={{ width: '100%', height: '100%', backgroundColor: '#ffffff' }}
       onClick={handleCanvasClick}
     >
       {/*

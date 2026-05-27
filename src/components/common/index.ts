@@ -31,6 +31,6 @@ export {
   XIcon, CheckIcon, SearchIcon, ChevronDownIcon, RefreshIcon, FilterIcon, BackupIcon, SettingsIcon,
   AlertTriangleIcon,
   HashIcon, BuildingIcon, UsersIcon, MailIcon, BarChartIcon, InfoIcon, ShieldIcon,
-  WrenchIcon, MapPinIcon, PhoneIcon,
+  WrenchIcon, MapPinIcon, PhoneIcon, IdCardIcon, TagIcon,
 } from './Icons';
 

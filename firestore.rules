@@ -184,7 +184,26 @@ service cloud.firestore {
     match /equipment/{equipmentId} {
       allow read, write: if request.auth != null;
     }
-    
+
+    // Equipment Control collection - authenticated users can read/write
+    // Primary equipment module (equipmentControlService) stores records here with
+    // subcollections for usage logs, calibration events, and documents.
+    match /equipmentControl/{equipmentId} {
+      allow read, write: if request.auth != null;
+
+      match /usageLogs/{logId} {
+        allow read, write: if request.auth != null;
+      }
+
+      match /calibrationEvents/{eventId} {
+        allow read, write: if request.auth != null;
+      }
+
+      match /documents/{docId} {
+        allow read, write: if request.auth != null;
+      }
+    }
+
     // Service Requests collection - allow public writes for customer submissions
     // Authenticated users can read/write, unauthenticated users can only create
     // Stores customer service requests before conversion to jobs

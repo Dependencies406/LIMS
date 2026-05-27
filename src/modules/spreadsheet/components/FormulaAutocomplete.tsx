@@ -260,7 +260,7 @@ export const FormulaAutocomplete: React.FC<FormulaAutocompleteProps> = ({
   return (
     <div ref={containerRef} className="relative w-full">
       <input
-        ref={inputElementRef}
+        ref={inputElementRef as React.RefObject<HTMLInputElement>}
         type="text"
         value={value}
         onChange={handleChange}

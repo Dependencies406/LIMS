@@ -16,7 +16,7 @@ import type { RendererHelpers } from './rendererHelpers';
 
 /** Format a completion date ISO string (YYYY-MM-DD) for display. */
 function fmtDate(iso: string | undefined): string {
-  if (!iso) return 'â€”';
+  if (!iso) return '—';
   try {
     return new Date(iso + 'T00:00:00').toLocaleDateString('en-GB', {
       day: '2-digit', month: 'short', year: 'numeric',
@@ -29,15 +29,15 @@ function fmtDate(iso: string | undefined): string {
 /** Get display text for a cell in the training records table. */
 function getCellText(record: TrainingRecord, colId: string): string {
   switch (colId) {
-    case 'courseName':     return record.courseName || 'â€”';
-    case 'trainingFormat': return record.trainingFormat || 'â€”';
-    case 'duration':       return record.duration || 'â€”';
-    case 'organizer':      return record.organizer || 'â€”';
-    case 'status':         return record.status || 'â€”';
+    case 'courseName':     return record.courseName || '—';
+    case 'trainingFormat': return record.trainingFormat || '—';
+    case 'duration':       return record.duration || '—';
+    case 'organizer':      return record.organizer || '—';
+    case 'status':         return record.status || '—';
     case 'completionDate': return fmtDate(record.completionDate);
-    case 'certificateUrl': return record.certificateUrl ? 'Yes' : 'â€”';
-    case 'remarks':        return record.remarks || 'â€”';
-    default:               return 'â€”';
+    case 'certificateUrl': return record.certificateUrl ? 'Yes' : '—';
+    case 'remarks':        return record.remarks || '—';
+    default:               return '—';
   }
 }
 

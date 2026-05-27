@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useLayoutEffect, useMemo, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { firestoreToDate } from '../utils/dateUtils';
-import type { Job, Customer, Equipment, User, WorkAuthorization } from '../types';
+import type { Job, Customer, Equipment, User, WorkAuthorization, FileAttachment } from '../types';
 import { db, doc, setDoc, updateDoc, getDoc, serverTimestamp, deleteField } from '../services/firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { useUsers } from '../hooks/useUsers';
@@ -19,6 +19,7 @@ import { StatementOfConformityPdfUpload } from './StatementOfConformityPdfUpload
 import { matchUserFromAssignedStaffValue } from '../services/userService';
 import { jobService } from '../services/jobService';
 import { IconButton, PlusIcon, DuplicateIcon } from './common';
+import { JobAttachmentsPanel } from './JobAttachmentsPanel';
 
 interface JobModalProps {
   job: Job | null;
@@ -33,13 +34,53 @@ interface JobModalProps {
 
 type JobModalTab = 'job' | 'customer' | 'service' | 'items' | 'workAuth' | 'notes';
 
-const JOB_MODAL_TABS: { id: JobModalTab; label: string }[] = [
-  { id: 'job', label: 'Job' },
-  { id: 'customer', label: 'Customer' },
-  { id: 'service', label: 'Service' },
-  { id: 'items', label: 'Items' },
-  { id: 'workAuth', label: 'Work auth' },
-  { id: 'notes', label: 'Notes' },
+/** Stroke-based SVG icon factory — matches the app-wide icon style from Icons.tsx */
+function TI({ d, extra }: { d: string; extra?: React.ReactNode }) {
+  return (
+    <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none"
+      stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"
+      aria-hidden="true">
+      <path d={d} />
+      {extra}
+    </svg>
+  );
+}
+
+const JOB_MODAL_TABS: { id: JobModalTab; label: string; icon: React.ReactNode }[] = [
+  {
+    id: 'job', label: 'Job',
+    icon: <TI d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"
+               extra={<><rect x="9" y="3" width="6" height="4" rx="1"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/></>} />,
+  },
+  {
+    id: 'customer', label: 'Customer',
+    icon: <TI d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"
+               extra={<polyline points="9 22 9 12 15 12 15 22"/>} />,
+  },
+  {
+    id: 'service', label: 'Service',
+    icon: <TI d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"
+               extra={<circle cx="12" cy="12" r="3"/>} />,
+  },
+  {
+    id: 'items', label: 'Items',
+    icon: <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"
+                aria-hidden="true">
+            <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/>
+            <line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/>
+            <line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>
+          </svg>,
+  },
+  {
+    id: 'workAuth', label: 'Work auth',
+    icon: <TI d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />,
+  },
+  {
+    id: 'notes', label: 'Notes',
+    icon: <TI d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"
+               extra={<><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="13" y1="17" x2="8" y2="17"/></>} />,
+  },
 ];
 
 /** Equipment type names from Certificate Number Manager, plus legacy job name if not in list */
@@ -97,6 +138,16 @@ export const JobModal: React.FC<JobModalProps> = ({
   const [showTemplatePdfPreview, setShowTemplatePdfPreview] = useState(false);
   /** Template linked to this job — persisted immediately to Firestore when the user picks one */
   const [linkedPdfTemplateId, setLinkedPdfTemplateId] = useState<string | undefined>(job?.pdfTemplateId);
+  /** Job-level attachments (Notes tab). Separate from form state; merged into jobData on save. */
+  const [jobAttachments, setJobAttachments] = useState<FileAttachment[]>(
+    () => job?.attachments ?? []
+  );
+  /**
+   * Pre-generated Firestore document ID used for new jobs.
+   * Kept stable in a ref so files uploaded before the first save land at the right path.
+   */
+  const newJobDocIdRef = useRef<string>(`job-${Date.now()}`);
+
   const [activeJobTab, setActiveJobTab] = useState<JobModalTab>('job');
   const [customerSuggestOpen, setCustomerSuggestOpen] = useState(false);
   const [receivedByUserSuggestOpen, setReceivedByUserSuggestOpen] = useState(false);
@@ -272,6 +323,7 @@ export const JobModal: React.FC<JobModalProps> = ({
   useEffect(() => {
     setCurrentJob(job);
     setLinkedPdfTemplateId(job?.pdfTemplateId);
+    setJobAttachments(job?.attachments ?? []);
   }, [job]);
 
   useEffect(() => {
@@ -475,7 +527,7 @@ export const JobModal: React.FC<JobModalProps> = ({
     const workAuthorization = {
       workAuthorizationStatement: WORK_AUTH_TERMS_AND_CONDITIONS,
       itemsConditionOnReceipt: form.itemsConditionOnReceipt,
-      ...(form.itemsConditionOnReceipt !== 'Acceptable' && form.itemsConditionOnReceipt !== 'Insufficient quantity' && form.itemsConditionSpecification ? { itemsConditionSpecification: form.itemsConditionSpecification } : {}),
+      ...(form.itemsConditionOnReceipt !== 'Acceptable' && form.itemsConditionSpecification ? { itemsConditionSpecification: form.itemsConditionSpecification } : {}),
       laboratoryCapabilityAssessment: form.laboratoryCapabilityAssessment,
       ...(form.laboratoryCapabilityAssessment !== 'Full capability' && form.capabilitySpecification ? { capabilitySpecification: form.capabilitySpecification } : {}),
       preWorkChecklist,
@@ -924,6 +976,7 @@ export const JobModal: React.FC<JobModalProps> = ({
         manufacturer: '',
         model: '',
         serialNumber: '',
+        assetTag: '',
         calibrationPoint: '',
         unit: '',
         calibrationMethods: '',
@@ -1097,10 +1150,10 @@ export const JobModal: React.FC<JobModalProps> = ({
 
     try {
       // Separate service information and work authorization from form data
-      const { 
-        serviceRequested, statementOfConformity, statementOfConformityRequirements,
+      const {
+        serviceRequested, statementOfConformity, statementOfConformityRequirements, decisionRule,
         itemsConditionOnReceipt, itemsConditionSpecification, laboratoryCapabilityAssessment, capabilitySpecification,
-        ...restForm 
+        ...restForm
       } = form;
       
       const serviceInformation = {
@@ -1114,6 +1167,8 @@ export const JobModal: React.FC<JobModalProps> = ({
       };
 
       const workAuthorization = {
+        // Always persist the statement so the customer sign page and PDF renderers have it
+        workAuthorizationStatement: WORK_AUTH_TERMS_AND_CONDITIONS,
         itemsConditionOnReceipt,
         ...(itemsConditionOnReceipt !== 'Acceptable' && itemsConditionSpecification ? { itemsConditionSpecification } : {}),
         laboratoryCapabilityAssessment,
@@ -1131,10 +1186,21 @@ export const JobModal: React.FC<JobModalProps> = ({
         serviceInformation,
         workAuthorization,
         ...(linkedPdfTemplateId ? { pdfTemplateId: linkedPdfTemplateId } : {}),
+        // Persist job-level attachments (Notes tab)
+        attachments: jobAttachments.map((a) => ({
+          id: a.id,
+          name: a.name,
+          size: a.size,
+          type: a.type,
+          url: a.url,
+          ...(a.storagePath ? { storagePath: a.storagePath } : {}),
+          uploadedAt: a.uploadedAt,
+          uploadedBy: a.uploadedBy,
+        })),
         updatedAt: serverTimestamp(),
-        ...(job ? {} : { 
-          createdAt: serverTimestamp(), 
-          createdBy: currentUser?.uid || '' 
+        ...(job ? {} : {
+          createdAt: serverTimestamp(),
+          createdBy: currentUser?.uid || ''
         })
       };
       // Remove legacy scheduleDate if present on existing docs
@@ -1145,14 +1211,15 @@ export const JobModal: React.FC<JobModalProps> = ({
       if (currentJob) {
         // Updating existing job
         await updateDoc(doc(db, 'jobs', currentJob.id), jobData);
-        
+
         // Refresh job data to get the latest from Firestore
         await refreshJobData(currentJob.id);
       } else {
-        // Creating new job
-        const newJobId = `job-${Date.now()}`;
+        // Creating new job — use the pre-generated ID so files uploaded before save
+        // land at the correct storage path (jobs/{newJobDocIdRef.current}/attachments/…)
+        const newJobId = newJobDocIdRef.current;
         await setDoc(doc(db, 'jobs', newJobId), jobData);
-        
+
         // Refresh job data to get the latest from Firestore
         await refreshJobData(newJobId);
         
@@ -1871,13 +1938,19 @@ export const JobModal: React.FC<JobModalProps> = ({
                   role="tab"
                   aria-selected={activeJobTab === tab.id}
                   onClick={() => setActiveJobTab(tab.id)}
-                  className={`shrink-0 rounded-t-md px-3 py-2 text-sm font-medium transition-colors whitespace-nowrap border-b-2 -mb-px ${
+                  className={`shrink-0 flex items-center gap-1.5 rounded-t-md px-3 py-2 text-sm font-medium transition-colors whitespace-nowrap border-b-2 -mb-px ${
                     activeJobTab === tab.id
                       ? 'border-primary-600 text-primary-700 bg-primary-50/90'
                       : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50'
                   }`}
                 >
+                  {tab.icon}
                   {tab.label}
+                  {tab.id === 'notes' && jobAttachments.length > 0 && (
+                    <span className="inline-flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-primary-600 text-white text-[9px] font-bold leading-none">
+                      {jobAttachments.length}
+                    </span>
+                  )}
                 </button>
               ))}
             </div>
@@ -1888,7 +1961,11 @@ export const JobModal: React.FC<JobModalProps> = ({
           <div className="bg-gray-50 rounded-lg p-4 sm:p-6 min-w-0">
             <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
               <span className="w-8 h-8 bg-primary-100 rounded-lg flex items-center justify-center mr-3 shrink-0">
-                <span className="text-primary-600 text-sm">📋</span>
+                <svg className="w-4 h-4 text-primary-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2" />
+                  <rect x="9" y="3" width="6" height="4" rx="1" />
+                  <line x1="9" y1="12" x2="15" y2="12" /><line x1="9" y1="16" x2="13" y2="16" />
+                </svg>
               </span>
               Job Information
             </h3>
@@ -2019,7 +2096,10 @@ export const JobModal: React.FC<JobModalProps> = ({
           <div className="bg-gray-50 rounded-lg p-4 sm:p-6 min-w-0">
             <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
               <span className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center mr-3 shrink-0">
-                <span className="text-blue-600 text-sm">🏢</span>
+                <svg className="w-4 h-4 text-blue-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
+                  <polyline points="9 22 9 12 15 12 15 22" />
+                </svg>
               </span>
               Customer Information
             </h3>
@@ -2158,7 +2238,10 @@ export const JobModal: React.FC<JobModalProps> = ({
           <div className="bg-gray-50 rounded-lg p-4 sm:p-6 min-w-0">
             <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
               <span className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center mr-3 shrink-0">
-                <span className="text-purple-600 text-sm">⚙️</span>
+                <svg className="w-4 h-4 text-purple-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z" />
+                  <circle cx="12" cy="12" r="3" />
+                </svg>
               </span>
               Service Information
               <span className="text-red-500 ml-1">*</span>
@@ -2261,7 +2344,11 @@ export const JobModal: React.FC<JobModalProps> = ({
             <div className="flex flex-row items-start justify-between gap-3 mb-4 w-full min-w-0">
               <h3 className="text-lg font-semibold text-gray-900 flex items-center min-w-0 pr-2">
                 <span className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center mr-3 shrink-0">
-                  <span className="text-green-600 text-sm">🔧</span>
+                  <svg className="w-4 h-4 text-green-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" />
+                    <line x1="8" y1="18" x2="21" y2="18" /><line x1="3" y1="6" x2="3.01" y2="6" />
+                    <line x1="3" y1="12" x2="3.01" y2="12" /><line x1="3" y1="18" x2="3.01" y2="18" />
+                  </svg>
                 </span>
                 <span className="min-w-0 break-words">Item Details <span className="text-red-500">*</span></span>
               </h3>
@@ -2551,22 +2638,6 @@ export const JobModal: React.FC<JobModalProps> = ({
 
                     <div className="flex flex-col gap-2 py-2 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
                       <div className="w-full min-w-0 sm:flex-1">
-                        <label className="text-sm font-medium text-gray-700">Resolution</label>
-                        <p className="text-xs text-gray-500">e.g. 0.01 g, 0.1°C</p>
-                      </div>
-                      <div className="w-full min-w-0 sm:w-96 sm:max-w-md sm:flex-shrink-0">
-                        <input
-                          type="text"
-                          value={(eq as any).resolution ?? ''}
-                          onChange={(e) => handleEquipmentChange(index, 'resolution' as any, e.target.value)}
-                          className="input text-sm w-full min-w-0"
-                          placeholder="Optional"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="flex flex-col gap-2 py-2 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
-                      <div className="w-full min-w-0 sm:flex-1">
                         <label className="text-sm font-medium text-gray-700">Asset tag / ID tag</label>
                         <p className="text-xs text-gray-500">Customer asset tag (optional)</p>
                       </div>
@@ -2610,6 +2681,22 @@ export const JobModal: React.FC<JobModalProps> = ({
                           onChange={(e) => handleEquipmentChange(index, 'calibrationPoint', e.target.value)}
                           className="input text-sm w-full min-w-0"
                           placeholder="Calibration point"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col gap-2 py-2 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+                      <div className="w-full min-w-0 sm:flex-1">
+                        <label className="text-sm font-medium text-gray-700">Resolution</label>
+                        <p className="text-xs text-gray-500">e.g. 0.01 g, 0.1°C</p>
+                      </div>
+                      <div className="w-full min-w-0 sm:w-96 sm:max-w-md sm:flex-shrink-0">
+                        <input
+                          type="text"
+                          value={(eq as any).resolution ?? ''}
+                          onChange={(e) => handleEquipmentChange(index, 'resolution' as any, e.target.value)}
+                          className="input text-sm w-full min-w-0"
+                          placeholder="Optional"
                         />
                       </div>
                     </div>
@@ -2767,7 +2854,9 @@ export const JobModal: React.FC<JobModalProps> = ({
           <div className="bg-gray-50 rounded-lg p-4 sm:p-6 min-w-0">
             <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
               <span className="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center mr-3 shrink-0">
-                <span className="text-orange-600 text-sm">📋</span>
+                <svg className="w-4 h-4 text-orange-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                </svg>
               </span>
               Work Authorization
               <span className="text-red-500 ml-1">*</span>
@@ -2779,7 +2868,9 @@ export const JobModal: React.FC<JobModalProps> = ({
               <div className="bg-white rounded-lg p-4 border border-gray-200">
                 <h4 className="text-md font-semibold text-gray-800 mb-4 flex items-center">
                   <span className="w-6 h-6 bg-blue-100 rounded-lg flex items-center justify-center mr-2">
-                    <span className="text-blue-600 text-xs">👤</span>
+                    <svg className="w-3.5 h-3.5 text-blue-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" /><circle cx="12" cy="7" r="4" />
+                    </svg>
                   </span>
                   Customer Authorization
                 </h4>
@@ -2870,7 +2961,9 @@ export const JobModal: React.FC<JobModalProps> = ({
               <div className="bg-white rounded-lg p-4 border border-gray-200">
                 <h4 className="text-md font-semibold text-gray-800 mb-4 flex items-center">
                   <span className="w-6 h-6 bg-green-100 rounded-lg flex items-center justify-center mr-2">
-                    <span className="text-green-600 text-xs">🔬</span>
+                    <svg className="w-3.5 h-3.5 text-green-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <path d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v11m0 0H5a2 2 0 00-2 2v1a2 2 0 002 2h14a2 2 0 002-2v-1a2 2 0 00-2-2h-4m-5 0h5" />
+                    </svg>
                   </span>
                   Request Review (Laboratory Use Only)
                 </h4>
@@ -3142,23 +3235,49 @@ export const JobModal: React.FC<JobModalProps> = ({
           )}
 
           {activeJobTab === 'notes' && (
-          <div className="bg-gray-50 rounded-lg p-4 sm:p-6 min-w-0">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+          <div className="bg-gray-50 rounded-lg p-4 sm:p-6 min-w-0 space-y-5">
+            <h3 className="text-lg font-semibold text-gray-900 flex items-center">
               <span className="w-8 h-8 bg-yellow-100 rounded-lg flex items-center justify-center mr-3 shrink-0">
-                <span className="text-yellow-600 text-sm">📝</span>
+                <svg className="w-4 h-4 text-yellow-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+                  <polyline points="14 2 14 8 20 8" />
+                  <line x1="16" y1="13" x2="8" y2="13" /><line x1="13" y1="17" x2="8" y2="17" />
+                </svg>
               </span>
               Notes
             </h3>
 
+            {/* Comments */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Comments
               </label>
               <textarea
                 value={form.comments}
-                onChange={(e) => setForm({ ...form, comments: e.target.value })}
+                onChange={(e) => handleChange('comments', e.target.value)}
                 className="input w-full h-32 resize-none"
                 placeholder="Enter any additional comments or notes..."
+              />
+            </div>
+
+            {/* ── Attachments ─────────────────────────────────────── */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-sm font-medium text-gray-700">
+                  Attachments
+                  {jobAttachments.length > 0 && (
+                    <span className="ml-1.5 inline-flex items-center justify-center px-1.5 py-0.5 rounded-full bg-primary-100 text-primary-700 text-[10px] font-semibold leading-none">
+                      {jobAttachments.length}
+                    </span>
+                  )}
+                </label>
+              </div>
+              <JobAttachmentsPanel
+                jobDocId={currentJob?.id ?? newJobDocIdRef.current}
+                attachments={jobAttachments}
+                onAttachmentsChange={setJobAttachments}
+                currentUserId={currentUser?.uid ?? ''}
+                isReadOnly={!hasEditJobPermission && !!currentJob}
               />
             </div>
           </div>

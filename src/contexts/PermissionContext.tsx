@@ -5,7 +5,7 @@
  *
  * Design:
  *  - Subscribes to roles/{roleId} in Firestore via onSnapshot so permission
- *    changes made by an admin take effect immediately â€” no re-login required.
+ *    changes made by an admin take effect immediately — no re-login required.
  *  - Provides a synchronous can() function so every component gets O(1) checks
  *    without spawning its own Firestore read.
  *  - Admins always pass every permission regardless of the role document.
@@ -21,7 +21,7 @@ interface PermissionContextType {
   permissions: Set<string>;
   /** True while the initial role document is being fetched. */
   loading: boolean;
-  /** Synchronous permission check â€” always returns false while loading. */
+  /** Synchronous permission check — always returns false while loading. */
   can: (permission: PermissionAction) => boolean;
 }
 
@@ -70,7 +70,7 @@ export const PermissionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           const perms: string[] = Array.isArray(data.permissions) ? data.permissions : [];
           setPermissions(new Set(perms));
         } else {
-          // Role doc missing in Firestore â€” fall back to the built-in staff defaults
+          // Role doc missing in Firestore — fall back to the built-in staff defaults
           setPermissions(new Set(DEFAULT_ROLE_PERMISSIONS.standardUser));
         }
         setLoading(false);

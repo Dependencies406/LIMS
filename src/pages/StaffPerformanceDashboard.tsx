@@ -97,14 +97,14 @@ export const StaffPerformanceDashboard: React.FC = () => {
               <div className="card p-4">
                 <div className="text-sm text-gray-600">Total Assigned Jobs</div>
                 <div className="text-2xl font-bold text-blue-600">
-                  {metrics.reduce((sum, item) => sum + item.totalJobsAssigned, 0)}
+                  {metrics.reduce((sum, item) => sum + (item.totalJobsAssigned ?? 0), 0)}
                 </div>
               </div>
               <div className="card p-4">
                 <div className="text-sm text-gray-600">Average On-Time %</div>
                 <div className="text-2xl font-bold text-green-600">
                   {metrics.length > 0
-                    ? Math.round(metrics.reduce((sum, item) => sum + item.onTimePercentage, 0) / metrics.length)
+                    ? Math.round(metrics.reduce((sum, item) => sum + (item.onTimePercentage ?? 0), 0) / metrics.length)
                     : 0}
                   %
                 </div>
@@ -112,7 +112,7 @@ export const StaffPerformanceDashboard: React.FC = () => {
               <div className="card p-4">
                 <div className="text-sm text-gray-600">Jobs In Progress</div>
                 <div className="text-2xl font-bold text-purple-600">
-                  {metrics.reduce((sum, item) => sum + item.jobsInProgress, 0)}
+                  {metrics.reduce((sum, item) => sum + (item.jobsInProgress ?? 0), 0)}
                 </div>
               </div>
             </div>
@@ -173,12 +173,12 @@ export const StaffPerformanceDashboard: React.FC = () => {
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center gap-2">
                             <span className="text-sm font-medium text-gray-900">
-                              {item.onTimePercentage.toFixed(1)}%
+                              {(item.onTimePercentage ?? 0).toFixed(1)}%
                             </span>
                             <div className="w-24 bg-gray-200 rounded-full h-2">
                               <div
                                 className="bg-green-600 h-2 rounded-full"
-                                style={{ width: `${item.onTimePercentage}%` }}
+                                style={{ width: `${item.onTimePercentage ?? 0}%` }}
                               />
                             </div>
                           </div>
@@ -189,7 +189,7 @@ export const StaffPerformanceDashboard: React.FC = () => {
                         <td className="px-6 py-4 whitespace-nowrap text-sm">
                           <button
                             type="button"
-                            onClick={() => handleExportLogs(item.staffId)}
+                            onClick={() => handleExportLogs(item.staffId ?? '')}
                             disabled={exportingStaffId === item.staffId}
                             className="text-blue-600 hover:text-blue-800 disabled:opacity-50"
                           >

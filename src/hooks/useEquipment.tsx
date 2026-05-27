@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react';
 import type { EquipmentRecord, UsageLog, CalibrationEvent, EquipmentDocument } from '../types';
-import { equipmentService, type EquipmentInput } from '../services/equipmentService';
+import { equipmentControlService, type EquipmentInput } from '../services/equipmentControlService';
+
+// Single source of truth: all equipment data lives in the 'equipmentControl' Firestore collection.
+const equipmentService = equipmentControlService;
 
 export function useEquipment() {
   const [equipment, setEquipment] = useState<EquipmentRecord[]>([]);
@@ -124,6 +127,29 @@ export function useEquipmentDetail(id: string | undefined) {
     setDocuments(docs);
   }
 
+  async function deleteDocument(
+    documentId: string,
+    storagePath?: string
+  ): Promise<void> {
+    if (!id) throw new Error('No equipment ID');
+    await equipmentControlService.deleteDocument(id, documentId, storagePath);
+    setDocuments((prev) => prev.filter((d) => d.id !== documentId));
+  }
+
+  async function updateUsageLog(
+    logId: string,
+    data: Partial<Omit<UsageLog, 'id' | 'createdAt'>>
+  ): Promise<void> {
+    if (!id) throw new Error('No equipment ID');
+    await equipmentControlService.updateUsageLog(id, logId, data);
+  }
+
+  async function deleteUsageLog(logId: string): Promise<void> {
+    if (!id) throw new Error('No equipment ID');
+    await equipmentControlService.deleteUsageLog(id, logId);
+    setUsageLogs((prev) => prev.filter((l) => l.id !== logId));
+  }
+
   return {
     equipment,
     usageLogs,
@@ -135,6 +161,9 @@ export function useEquipmentDetail(id: string | undefined) {
     addCalibrationEvent,
     uploadDocument,
     refreshDocuments,
+    deleteDocument,
+    updateUsageLog,
+    deleteUsageLog,
     setEquipment,
   };
 }

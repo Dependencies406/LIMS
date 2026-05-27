@@ -110,12 +110,20 @@ export const customerService = {
   },
 
   /**
-   * Create a new customer
+   * Create a new customer.
+   * The caller is responsible for generating the customer code and
+   * incrementing the appropriate sequence counter afterwards.
    * @param data Customer input data
    * @returns Promise with customer code
    */
   async createCustomer(data: CustomerInput): Promise<string> {
     try {
+      // Guard: refuse to overwrite an existing customer record
+      const existing = await getDoc(doc(db, 'customers', data.customerCode));
+      if (existing.exists()) {
+        throw new Error(`Customer code ${data.customerCode} already exists`);
+      }
+
       const customerData = {
         name: data.name,
         contact: data.contact,
@@ -126,12 +134,7 @@ export const customerService = {
         updatedAt: serverTimestamp(),
       };
 
-      // Use customer code as document ID
       await setDoc(doc(db, 'customers', data.customerCode), customerData);
-
-      // Update the counter for the next customer
-      await this.updateCustomerCounter(data.customerCode);
-
       return data.customerCode;
     } catch (error) {
       console.error('Error creating customer:', error);

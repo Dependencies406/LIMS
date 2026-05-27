@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useEquipment } from '../../hooks/useEquipment';
-import { equipmentService } from '../../services/equipmentService';
+import { equipmentControlService as equipmentService } from '../../services/equipmentControlService';
 
 function formatDate(d?: string): string {
   if (!d) return '—';
@@ -54,13 +54,33 @@ export const CalibrationPlanPage: React.FC = () => {
     <div className="flex-1 overflow-auto bg-gray-50">
       <div className="bg-white border-b border-gray-200 px-6 py-4">
         <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Calibration Plan</h1>
-            <p className="text-sm text-gray-500 mt-0.5">LAB-FM-QP-05-007 — All equipment sorted by next due date</p>
+          <div className="flex items-center gap-3">
+            <Link to="/equipment" className="text-sm text-gray-400 hover:text-gray-600">
+              ← Equipment
+            </Link>
+            <span className="text-gray-300">/</span>
+            <div>
+              <h1 className="text-xl font-bold text-gray-900">Calibration Plan</h1>
+              <p className="text-sm text-gray-500 mt-0.5">LAB-FM-QP-05-007 — reviewed every 4 months</p>
+            </div>
           </div>
-          <Link to="/equipment" className="text-sm text-primary-600 hover:underline">
-            ← Equipment Dashboard
-          </Link>
+          <label
+            htmlFor="plan-upload-input"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-primary-600 text-white text-sm font-medium rounded-lg hover:bg-primary-700 transition-colors cursor-pointer"
+          >
+            + Upload Plan
+            <input
+              id="plan-upload-input"
+              type="file"
+              accept=".pdf,.doc,.docx"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) alert(`Plan upload for: ${f.name}\n(Backend integration not yet connected.)`);
+                e.target.value = '';
+              }}
+            />
+          </label>
         </div>
       </div>
 
@@ -81,17 +101,28 @@ export const CalibrationPlanPage: React.FC = () => {
           </div>
         </div>
 
-        {/* 4-month plan review alert */}
-        <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-800">
-          <strong>Plan Review Reminder:</strong> LAB-FM-QP-05-007 must be reviewed every 4 months (§3.5.2). Upload the current plan via the Cal. Plan tab on each equipment record.
+        {/* Plan Documents Card */}
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
+          <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-100">
+            <h3 className="text-sm font-semibold text-gray-700">Plan Documents (LAB-FM-QP-05-007)</h3>
+            <span className="text-xs text-gray-400">0 files</span>
+          </div>
+          <div className="px-5 py-6 text-center text-sm text-gray-400">
+            No plan documents uploaded yet. Use the &ldquo;Upload Plan&rdquo; button above.
+          </div>
         </div>
 
-        {calEquipment.length === 0 ? (
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-8 text-center text-gray-400 text-sm">
-            No calibration-controlled equipment registered.
+        {/* Calibration Schedule */}
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+          <div className="px-5 py-3.5 border-b border-gray-100">
+            <h3 className="text-sm font-semibold text-gray-700">Calibration Schedule</h3>
+            <p className="text-xs text-gray-400 mt-0.5">Click any row to open equipment details</p>
           </div>
-        ) : (
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+          {calEquipment.length === 0 ? (
+            <div className="p-8 text-center text-gray-400 text-sm">
+              No calibration-controlled equipment registered.
+            </div>
+          ) : (
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200 text-sm">
                 <thead className="bg-gray-50">
@@ -135,8 +166,8 @@ export const CalibrationPlanPage: React.FC = () => {
                 </tbody>
               </table>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </div>
   );

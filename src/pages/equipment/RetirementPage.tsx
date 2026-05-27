@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useEquipmentDetail } from '../../hooks/useEquipment';
-import { equipmentService } from '../../services/equipmentService';
+import { equipmentControlService as equipmentService } from '../../services/equipmentControlService';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../hooks/useToast';
 

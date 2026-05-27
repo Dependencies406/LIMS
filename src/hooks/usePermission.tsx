@@ -5,7 +5,7 @@
  * Returns the same { hasPermission, loading } shape as before so all existing
  * call-sites continue to work without changes.
  *
- * Unlike the previous implementation this hook does NOT make a Firestore call â€”
+ * Unlike the previous implementation this hook does NOT make a Firestore call —
  * the context has already loaded the role document once via onSnapshot.
  */
 import { usePermissions } from '../contexts/PermissionContext';

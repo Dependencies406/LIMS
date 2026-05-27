@@ -16,7 +16,7 @@ import { useUndoRedo } from '../modules/pdf-template-builder/hooks/useUndoRedo';
 import { useClipboard } from '../modules/pdf-template-builder/hooks/useClipboard';
 import type { PdfTemplate, PdfElement, PdfElementType, PdfPage, PdfTemplateScope } from '../modules/pdf-template-builder/types';
 import { PdfComponentScannerModal } from './PdfComponentScannerModal';
-import { Button, IconButton } from './common';
+import { Button } from './common';
 
 export interface PdfTemplateBuilderModalProps {
   isOpen: boolean;
@@ -679,23 +679,23 @@ export const PdfTemplateBuilderModal: React.FC<PdfTemplateBuilderModalProps> = (
 
   if (!isOpen) return null;
 
+  // ─── Dark-theme palette (Photoshop-inspired) ─────────────────────────────────
+  // All colours are defined here so a single-line change updates the whole UI.
+  // (Tailwind arbitrary-value classes like hover:bg-gray-100 also reference these.)
+
   return (
     <>
-    <div 
-      className="fixed inset-0 z-50 bg-black bg-opacity-50 overflow-hidden"
-      style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", "Roboto", sans-serif' }}
+    <div
+      className="fixed inset-0 z-50 overflow-hidden"
+      style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", "Roboto", sans-serif', backgroundColor: '#1a1a1a' }}
     >
-      <div className="w-full h-full flex flex-col bg-white overflow-hidden">
-        {/* Top Toolbar */}
-        <div 
-          className="px-4 py-3 border-b flex items-center justify-between flex-shrink-0"
-          style={{ 
-            borderBottomColor: '#E5E7EB',
-            backgroundColor: '#FFFFFF',
-            minHeight: '56px'
-          }}
+      <div className="w-full h-full flex flex-col overflow-hidden" style={{ backgroundColor: '#1a1a1a' }}>
+        {/* ── Top Toolbar ── */}
+        <div
+          className="flex items-center flex-shrink-0 px-3 gap-1"
+          style={{ borderBottom: '1px solid #e5e7eb', backgroundColor: '#ffffff', minHeight: '48px' }}
         >
-          {/* Left: Template Name (Editable) */}
+          {/* Template name */}
           <input
             type="text"
             placeholder="Untitled Template"
@@ -703,106 +703,69 @@ export const PdfTemplateBuilderModal: React.FC<PdfTemplateBuilderModalProps> = (
             onChange={(e) => updateTemplate({ ...template, name: e.target.value || '' })}
             onFocus={() => isInputFocusedRef.current = true}
             onBlur={() => isInputFocusedRef.current = false}
-            className="text-base font-semibold text-gray-900 bg-transparent border-none outline-none focus:bg-gray-50 px-2 py-1 rounded flex-shrink-0 min-w-0 max-w-[200px]"
-            style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", "Roboto", sans-serif' }}
+            className="text-sm font-semibold bg-transparent border-none outline-none px-2 py-1 rounded flex-shrink-0 min-w-0 max-w-[180px] hover:bg-gray-100 focus:bg-gray-50 transition-colors"
+            style={{ color: '#111827', fontFamily: 'inherit' }}
           />
 
-          {/* Center: Icon Toolbar */}
-          <div className="flex items-center gap-1 flex-1 min-w-0 overflow-x-auto">
-            {/* Add Element Icons */}
-            <div className="flex items-center gap-1 px-2 border-r" style={{ borderRightColor: '#E5E7EB' }}>
-              <button
-                onClick={() => handleElementAdd('text')}
-                className="w-8 h-8 flex items-center justify-center rounded hover:bg-gray-100 transition-colors"
-                title="Add Text (T)"
-              >
-                <span className="text-sm font-bold text-gray-700">T</span>
+          {/* ── Tool groups ── */}
+          <div className="flex items-center gap-0.5 flex-1 min-w-0 overflow-x-hidden justify-center">
+
+            {/* Graphics / Shape tools */}
+            <div className="flex items-center gap-0.5" style={{ borderRight: '1px solid #e5e7eb', paddingRight: 8, marginRight: 4 }}>
+              <button onClick={() => handleElementAdd('text')} className="w-8 h-8 flex items-center justify-center rounded hover:bg-gray-100 transition-colors" style={{ color: '#374151' }} title="Add Text (T)">
+                <span className="text-sm font-bold">T</span>
               </button>
-              <button
-                onClick={() => handleElementAdd('line')}
-                className="w-8 h-8 flex items-center justify-center rounded hover:bg-gray-100 transition-colors"
-                title="Add Line"
-              >
-                <svg className="w-4 h-4 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h14" />
-                </svg>
+              <button onClick={() => handleElementAdd('line')} className="w-8 h-8 flex items-center justify-center rounded hover:bg-gray-100 transition-colors" style={{ color: '#374151' }} title="Add Line">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h14" /></svg>
               </button>
-              <button
-                onClick={() => handleElementAdd('rectangle')}
-                className="w-8 h-8 flex items-center justify-center rounded hover:bg-gray-100 transition-colors"
-                title="Add Rectangle"
-              >
-                <svg className="w-4 h-4 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h12a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V6z" />
-                </svg>
+              <button onClick={() => handleElementAdd('rectangle')} className="w-8 h-8 flex items-center justify-center rounded hover:bg-gray-100 transition-colors" style={{ color: '#374151' }} title="Add Rectangle">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h12a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V6z" /></svg>
               </button>
-              <button
-                onClick={() => handleElementAdd('image')}
-                className="w-8 h-8 flex items-center justify-center rounded hover:bg-gray-100 transition-colors"
-                title="Add Image"
-              >
-                <svg className="w-4 h-4 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-              </button>
-              <button
-                onClick={() => handleElementAdd('equipment-table')}
-                className="w-8 h-8 flex items-center justify-center rounded hover:bg-gray-100 transition-colors"
-                title="Add Equipment Table"
-              >
-                <span className="text-lg">📋</span>
-              </button>
-              <button
-                onClick={() => handleElementAdd('documents-table')}
-                className="w-8 h-8 flex items-center justify-center rounded hover:bg-gray-100 transition-colors"
-                title="Add Documents Index Table"
-              >
-                <span className="text-lg">📑</span>
-              </button>
-              <button
-                onClick={() => handleElementAdd('chart')}
-                className="w-8 h-8 flex items-center justify-center rounded hover:bg-gray-100 transition-colors"
-                title="Add Chart"
-              >
-                <span className="text-lg">📈</span>
+              <button onClick={() => handleElementAdd('image')} className="w-8 h-8 flex items-center justify-center rounded hover:bg-gray-100 transition-colors" style={{ color: '#374151' }} title="Add Image">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
               </button>
             </div>
 
-            {/* Edit Actions */}
-            <div className="flex items-center gap-1 px-2 border-r" style={{ borderRightColor: '#E5E7EB' }}>
-              <button
-                onClick={handleCopy}
-                disabled={selectedElementIds.length === 0}
-                className="w-8 h-8 flex items-center justify-center rounded hover:bg-gray-100 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                title="Copy (Ctrl+C)"
-              >
-                <svg className="w-4 h-4 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                </svg>
+            {/* Data blocks */}
+            <div className="flex items-center gap-0.5" style={{ borderRight: '1px solid #e5e7eb', paddingRight: 8, marginRight: 4 }}>
+              <button onClick={() => handleElementAdd('equipment-table')} className="w-8 h-8 flex items-center justify-center rounded hover:bg-gray-100 transition-colors" style={{ color: '#374151' }} title="Add Equipment Table">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 10h18M3 14h18M10 3v18M3 3h18v18H3z" /></svg>
+              </button>
+              <button onClick={() => handleElementAdd('documents-table')} className="w-8 h-8 flex items-center justify-center rounded hover:bg-gray-100 transition-colors" style={{ color: '#374151' }} title="Add Documents Index Table">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+              </button>
+              <button onClick={() => handleElementAdd('chart')} className="w-8 h-8 flex items-center justify-center rounded hover:bg-gray-100 transition-colors" style={{ color: '#374151' }} title="Add Chart">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
               </button>
               <button
-                onClick={handlePaste}
-                disabled={!hasClipboard}
-                className="w-8 h-8 flex items-center justify-center rounded hover:bg-gray-100 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                title="Paste (Ctrl+V)"
+                onClick={() => handleElementAdd({
+                  id: `text-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                  type: 'text', x: 100, y: 100, width: 120, height: 20,
+                  fontSize: 9, align: 'center',
+                  dataSource: { type: 'text', key: 'page.counter' },
+                } as any)}
+                className="w-8 h-8 flex items-center justify-center rounded hover:bg-gray-100 transition-colors"
+                style={{ color: '#6b7280' }}
+                title="Add Page Counter"
               >
-                <svg className="w-4 h-4 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                </svg>
-              </button>
-              <button
-                onClick={handleDuplicate}
-                disabled={selectedElementIds.length === 0}
-                className="w-8 h-8 flex items-center justify-center rounded hover:bg-gray-100 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                title="Duplicate (Ctrl+D)"
-              >
-                <svg className="w-4 h-4 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                </svg>
+                <span className="text-[10px] font-bold">1/N</span>
               </button>
             </div>
 
-            {/* Alignment & Distribution Tools */}
+            {/* Edit actions */}
+            <div className="flex items-center gap-0.5" style={{ borderRight: '1px solid #e5e7eb', paddingRight: 8, marginRight: 4 }}>
+              <button onClick={handleCopy} disabled={selectedElementIds.length === 0} className="w-8 h-8 flex items-center justify-center rounded hover:bg-gray-100 transition-colors disabled:opacity-30 disabled:cursor-not-allowed" style={{ color: '#374151' }} title="Copy (Ctrl+C)">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+              </button>
+              <button onClick={handlePaste} disabled={!hasClipboard} className="w-8 h-8 flex items-center justify-center rounded hover:bg-gray-100 transition-colors disabled:opacity-30 disabled:cursor-not-allowed" style={{ color: '#374151' }} title="Paste (Ctrl+V)">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
+              </button>
+              <button onClick={handleDuplicate} disabled={selectedElementIds.length === 0} className="w-8 h-8 flex items-center justify-center rounded hover:bg-gray-100 transition-colors disabled:opacity-30 disabled:cursor-not-allowed" style={{ color: '#374151' }} title="Duplicate (Ctrl+D)">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"/></svg>
+              </button>
+            </div>
+
+            {/* Alignment & Distribution */}
             <AlignmentToolbar
               elements={activeElements}
               pageSize={activePageSize}
@@ -811,373 +774,183 @@ export const PdfTemplateBuilderModal: React.FC<PdfTemplateBuilderModalProps> = (
               onElementsMove={handleElementsMove}
             />
 
-            {/* Undo/Redo & Zoom */}
-            <div className="flex items-center gap-2 px-2">
-              <button
-                onClick={undo}
-                disabled={!canUndo}
-                className="w-8 h-8 flex items-center justify-center rounded hover:bg-gray-100 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                title="Undo (Ctrl+Z)"
-              >
-                <svg className="w-4 h-4 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
-                </svg>
+            {/* Undo / Redo */}
+            <div className="flex items-center gap-0.5" style={{ borderRight: '1px solid #e5e7eb', paddingRight: 8, marginRight: 4 }}>
+              <button onClick={undo} disabled={!canUndo} className="w-8 h-8 flex items-center justify-center rounded hover:bg-gray-100 transition-colors disabled:opacity-30 disabled:cursor-not-allowed" style={{ color: '#374151' }} title="Undo (Ctrl+Z)">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" /></svg>
               </button>
-              <button
-                onClick={redo}
-                disabled={!canRedo}
-                className="w-8 h-8 flex items-center justify-center rounded hover:bg-gray-100 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                title="Redo (Ctrl+Y)"
-              >
-                <svg className="w-4 h-4 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 10h-10a8 8 0 00-8 8v2M21 10l-6 6m6-6l-6-6" />
-                </svg>
+              <button onClick={redo} disabled={!canRedo} className="w-8 h-8 flex items-center justify-center rounded hover:bg-gray-100 transition-colors disabled:opacity-30 disabled:cursor-not-allowed" style={{ color: '#374151' }} title="Redo (Ctrl+Y)">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 10h-10a8 8 0 00-8 8v2M21 10l-6 6m6-6l-6-6" /></svg>
               </button>
-              <div className="flex items-center gap-1 ml-2">
-                <button
-                  type="button"
-                  onClick={() => setZoom((z) => Math.max(0.25, Math.round((z - 0.1) * 100) / 100))}
-                  className="w-6 h-6 flex items-center justify-center rounded text-gray-600 hover:bg-gray-100 text-sm font-medium leading-none"
-                  title="Zoom out"
-                >−</button>
-                <input
-                  type="range"
-                  min="0.25"
-                  max="3"
-                  step="0.05"
-                  value={zoom}
-                  onChange={(e) => setZoom(parseFloat(e.target.value))}
-                  className="w-20"
-                />
-                <button
-                  type="button"
-                  onClick={() => setZoom((z) => Math.min(3, Math.round((z + 0.1) * 100) / 100))}
-                  className="w-6 h-6 flex items-center justify-center rounded text-gray-600 hover:bg-gray-100 text-sm font-medium leading-none"
-                  title="Zoom in"
-                >+</button>
-                <button
-                  type="button"
-                  onClick={() => setZoom(1)}
-                  className="text-xs text-gray-600 min-w-[3rem] hover:text-primary-600 hover:underline"
-                  title="Reset zoom to 100%"
-                >{Math.round(zoom * 100)}%</button>
-              </div>
+            </div>
+
+            {/* Zoom */}
+            <div className="flex items-center gap-1">
+              <button type="button" onClick={() => setZoom((z) => Math.max(0.25, Math.round((z - 0.1) * 100) / 100))} className="w-6 h-6 flex items-center justify-center rounded text-sm font-medium leading-none hover:bg-gray-100 transition-colors" style={{ color: '#6b7280' }} title="Zoom out">−</button>
+              <input type="range" min="0.25" max="3" step="0.05" value={zoom} onChange={(e) => setZoom(parseFloat(e.target.value))} className="w-16" style={{ accentColor: '#4688d7' }} />
+              <button type="button" onClick={() => setZoom((z) => Math.min(3, Math.round((z + 0.1) * 100) / 100))} className="w-6 h-6 flex items-center justify-center rounded text-sm font-medium leading-none hover:bg-gray-100 transition-colors" style={{ color: '#6b7280' }} title="Zoom in">+</button>
+              <button type="button" onClick={() => setZoom(1)} className="text-xs min-w-[3rem] hover:text-blue-600 transition-colors tabular-nums text-left" style={{ color: '#6b7280' }} title="Reset zoom to 100%">{Math.round(zoom * 100)}%</button>
             </div>
           </div>
 
-          {/* Right: Scanner/Save/Close */}
-          <div className="flex items-center gap-2 flex-shrink-0 ml-2">
-            <button
-              type="button"
-              onClick={() => setShowComponentScanner(true)}
-              className="px-3 py-1.5 rounded-md text-sm font-medium transition-colors bg-white border border-gray-300 hover:bg-gray-50 hover:border-gray-400 flex items-center gap-1.5 whitespace-nowrap shadow-sm"
-              title="Scan all available PDF components"
-            >
-              <svg className="w-4 h-4 flex-shrink-0 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
-              <span className="text-gray-700">Scan Components</span>
+          {/* Right: Scan / Save / Close */}
+          <div className="flex items-center gap-2 flex-shrink-0 ml-1">
+            <button type="button" onClick={() => setShowComponentScanner(true)} className="px-2.5 py-1 rounded text-xs font-medium flex items-center gap-1.5 whitespace-nowrap hover:bg-gray-100 transition-colors" style={{ backgroundColor: '#f3f4f6', color: '#374151', border: '1px solid #d1d5db' }} title="Scan all available PDF components">
+              <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+              <span>Scan</span>
             </button>
-            <Button
-              variant="primary"
-              size="sm"
-              loading={saving}
-              disabled={saving || !templateName.trim()}
-              onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleSave(); }}
-            >
+            <Button variant="primary" size="sm" loading={saving} disabled={saving || !templateName.trim()} onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleSave(); }}>
               Save
             </Button>
-            <IconButton
-              variant="ghost"
-              size="sm"
-              title="Close"
-              onClick={onClose}
-            >
-              <span className="text-xl leading-none">×</span>
-            </IconButton>
+            <button type="button" onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded text-xl leading-none hover:bg-gray-100 transition-colors" style={{ color: '#6b7280' }} title="Close">
+              ×
+            </button>
           </div>
         </div>
 
-        {/* Main Content - Holy Grail Layout */}
+        {/* ── Main content ── */}
         <div className="flex-1 flex overflow-hidden">
-          {/* Left Sidebar */}
+
+          {/* ── Left Sidebar ── */}
           <div
-            className={`${leftSidebarCollapsed ? 'w-10' : 'w-[280px]'} border-r flex flex-col flex-shrink-0 transition-all duration-200 overflow-hidden`}
-            style={{
-              borderRightColor: '#E5E7EB',
-              backgroundColor: '#FFFFFF'
-            }}
+            className={`${leftSidebarCollapsed ? 'w-10' : 'w-[260px]'} flex flex-col flex-shrink-0 transition-all duration-200 overflow-hidden`}
+            style={{ borderRight: '1px solid #e5e7eb', backgroundColor: '#ffffff' }}
           >
-            {/* Sidebar header / collapse toggle */}
-            <div
-              className="flex items-center justify-between px-2 border-b flex-shrink-0"
-              style={{ borderBottomColor: '#E5E7EB', backgroundColor: '#F9FAFB', minHeight: '32px' }}
-            >
+            {/* Header */}
+            <div className="flex items-center justify-between px-2 flex-shrink-0" style={{ borderBottom: '1px solid #e5e7eb', backgroundColor: '#f9fafb', minHeight: '30px' }}>
               {!leftSidebarCollapsed && (
-                <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Elements</span>
+                <span className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: '#6b7280' }}>Elements</span>
               )}
               <button
                 type="button"
                 onClick={() => setLeftSidebarCollapsed((c) => !c)}
-                className={`w-6 h-6 flex items-center justify-center rounded hover:bg-gray-200 text-gray-500 flex-shrink-0 ${leftSidebarCollapsed ? 'mx-auto' : 'ml-auto'}`}
+                className={`w-5 h-5 flex items-center justify-center rounded hover:bg-gray-100 transition-colors flex-shrink-0 ${leftSidebarCollapsed ? 'mx-auto' : 'ml-auto'}`}
+                style={{ color: '#6b7280' }}
                 title={leftSidebarCollapsed ? 'Expand panel' : 'Collapse panel'}
               >
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   {leftSidebarCollapsed
                     ? <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
-                    : <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" />
-                  }
+                    : <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" />}
                 </svg>
               </button>
             </div>
 
-            {/* Collapsed indicator */}
             {leftSidebarCollapsed && (
               <div className="flex-1 flex flex-col items-center justify-center">
-                <span className="text-xs text-gray-400 select-none" style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}>Elements</span>
+                <span className="text-[10px] select-none" style={{ color: '#9ca3af', writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}>Elements</span>
               </div>
             )}
 
-            {/* Sidebar content */}
             {!leftSidebarCollapsed && (<>
-            {/* Toolbox */}
-            <div className="border-b p-4 flex-[0_0_50%] overflow-y-auto min-h-0" style={{ borderBottomColor: '#E5E7EB' }}>
-              <h3 className="text-sm font-semibold text-gray-900 mb-3" style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", "Roboto", sans-serif' }}>
-                Add Elements
-              </h3>
-              <div className="space-y-4">
-                <div>
-                  <h4 className="text-xs font-semibold text-gray-700 mb-2 uppercase tracking-wide">
-                    Graphics / Text
-                  </h4>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      onClick={() => handleElementAdd('text')}
-                      className="p-3 border rounded-md hover:bg-gray-50 transition-colors text-left"
-                      style={{ borderColor: '#E5E7EB' }}
-                    >
-                      <div className="text-xs font-medium text-gray-900 mb-1">Text</div>
-                      <div className="text-lg font-bold text-gray-600">T</div>
-                    </button>
-                    <button
-                      onClick={() => handleElementAdd('line')}
-                      className="p-3 border rounded-md hover:bg-gray-50 transition-colors text-left"
-                      style={{ borderColor: '#E5E7EB' }}
-                    >
-                      <div className="text-xs font-medium text-gray-900 mb-1">Line</div>
-                      <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h14" />
-                      </svg>
-                    </button>
-                    <button
-                      onClick={() => handleElementAdd('rectangle')}
-                      className="p-3 border rounded-md hover:bg-gray-50 transition-colors text-left"
-                      style={{ borderColor: '#E5E7EB' }}
-                    >
-                      <div className="text-xs font-medium text-gray-900 mb-1">Rectangle</div>
-                      <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h12a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V6z" />
-                      </svg>
-                    </button>
-                    <button
-                      onClick={() => handleElementAdd('image')}
-                      className="p-3 border rounded-md hover:bg-gray-50 transition-colors text-left"
-                      style={{ borderColor: '#E5E7EB' }}
-                    >
-                      <div className="text-xs font-medium text-gray-900 mb-1">Image</div>
-                      <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                      </svg>
-                    </button>
-                  </div>
+              {/* ── Toolbox ── */}
+              <div className="p-3 flex-shrink-0" style={{ borderBottom: '1px solid #e5e7eb' }}>
+                <p className="text-[10px] font-semibold uppercase tracking-widest mb-2" style={{ color: '#6b7280' }}>Graphics / Text</p>
+                <div className="grid grid-cols-4 gap-1 mb-3">
+                  <button onClick={() => handleElementAdd('text')} className="flex flex-col items-center justify-center gap-0.5 py-2 px-1 rounded hover:bg-gray-100 transition-colors" style={{ backgroundColor: '#f3f4f6', color: '#374151' }} title="Add Text">
+                    <span className="text-sm font-bold leading-none">T</span>
+                    <span className="text-[9px]" style={{ color: '#6b7280' }}>Text</span>
+                  </button>
+                  <button onClick={() => handleElementAdd('line')} className="flex flex-col items-center justify-center gap-0.5 py-2 px-1 rounded hover:bg-gray-100 transition-colors" style={{ backgroundColor: '#f3f4f6', color: '#374151' }} title="Add Line">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h14" /></svg>
+                    <span className="text-[9px]" style={{ color: '#6b7280' }}>Line</span>
+                  </button>
+                  <button onClick={() => handleElementAdd('rectangle')} className="flex flex-col items-center justify-center gap-0.5 py-2 px-1 rounded hover:bg-gray-100 transition-colors" style={{ backgroundColor: '#f3f4f6', color: '#374151' }} title="Add Rectangle">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h12a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V6z" /></svg>
+                    <span className="text-[9px]" style={{ color: '#6b7280' }}>Rect</span>
+                  </button>
+                  <button onClick={() => handleElementAdd('image')} className="flex flex-col items-center justify-center gap-0.5 py-2 px-1 rounded hover:bg-gray-100 transition-colors" style={{ backgroundColor: '#f3f4f6', color: '#374151' }} title="Add Image">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                    <span className="text-[9px]" style={{ color: '#6b7280' }}>Image</span>
+                  </button>
                 </div>
-
-                <div>
-                  <h4 className="text-xs font-semibold text-gray-700 mb-2 uppercase tracking-wide">
-                    Data Blocks
-                  </h4>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      onClick={() => handleElementAdd('equipment-table')}
-                      className="p-3 border rounded-md hover:bg-gray-50 transition-colors text-left"
-                      style={{ borderColor: '#E5E7EB' }}
-                    >
-                      <div className="text-xs font-medium text-gray-900 mb-1">Equipment Table</div>
-                      <span className="text-lg">📋</span>
-                    </button>
-                    <button
-                      onClick={() => handleElementAdd('documents-table')}
-                      className="p-3 border rounded-md hover:bg-gray-50 transition-colors text-left"
-                      style={{ borderColor: '#E5E7EB' }}
-                    >
-                      <div className="text-xs font-medium text-gray-900 mb-1">Documents Index Table</div>
-                      <span className="text-lg">📑</span>
-                    </button>
-                    <button
-                      onClick={() => handleElementAdd('chart')}
-                      className="p-3 border rounded-md hover:bg-gray-50 transition-colors text-left"
-                      style={{ borderColor: '#E5E7EB' }}
-                    >
-                      <div className="text-xs font-medium text-gray-900 mb-1">Chart</div>
-                      <span className="text-lg">📈</span>
-                    </button>
-                    <button
-                      onClick={() => handleElementAdd({
-                        id: `text-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-                        type: 'text',
-                        x: 100,
-                        y: 100,
-                        width: 120,
-                        height: 20,
-                        fontSize: 9,
-                        align: 'center',
-                        dataSource: { type: 'text', key: 'page.counter' },
-                      } as any)}
-                      className="p-3 border rounded-md hover:bg-gray-50 transition-colors text-left"
-                      style={{ borderColor: '#E5E7EB' }}
-                    >
-                      <div className="text-xs font-medium text-gray-900 mb-1">Page Counter</div>
-                      <span className="text-sm font-semibold text-gray-600">1/N</span>
-                    </button>
-                  </div>
+                <p className="text-[10px] font-semibold uppercase tracking-widest mb-2" style={{ color: '#6b7280' }}>Data Blocks</p>
+                <div className="grid grid-cols-4 gap-1">
+                  <button onClick={() => handleElementAdd('equipment-table')} className="flex flex-col items-center justify-center gap-0.5 py-2 px-1 rounded hover:bg-gray-100 transition-colors" style={{ backgroundColor: '#f3f4f6', color: '#374151' }} title="Add Equipment Table">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 10h18M3 14h18M10 3v18M3 3h18v18H3z" /></svg>
+                    <span className="text-[9px]" style={{ color: '#6b7280' }}>Equip.</span>
+                  </button>
+                  <button onClick={() => handleElementAdd('documents-table')} className="flex flex-col items-center justify-center gap-0.5 py-2 px-1 rounded hover:bg-gray-100 transition-colors" style={{ backgroundColor: '#f3f4f6', color: '#374151' }} title="Add Documents Index">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                    <span className="text-[9px]" style={{ color: '#6b7280' }}>Docs</span>
+                  </button>
+                  <button onClick={() => handleElementAdd('chart')} className="flex flex-col items-center justify-center gap-0.5 py-2 px-1 rounded hover:bg-gray-100 transition-colors" style={{ backgroundColor: '#f3f4f6', color: '#374151' }} title="Add Chart">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
+                    <span className="text-[9px]" style={{ color: '#6b7280' }}>Chart</span>
+                  </button>
+                  <button
+                    onClick={() => handleElementAdd({
+                      id: `text-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                      type: 'text', x: 100, y: 100, width: 120, height: 20,
+                      fontSize: 9, align: 'center',
+                      dataSource: { type: 'text', key: 'page.counter' },
+                    } as any)}
+                    className="flex flex-col items-center justify-center gap-0.5 py-2 px-1 rounded hover:bg-gray-100 transition-colors"
+                    style={{ backgroundColor: '#f3f4f6', color: '#374151' }}
+                    title="Add Page Counter"
+                  >
+                    <span className="text-xs font-bold leading-none" style={{ color: '#6b7280' }}>1/N</span>
+                    <span className="text-[9px]" style={{ color: '#6b7280' }}>Pages</span>
+                  </button>
                 </div>
               </div>
-            </div>
 
-              {/* Tabs: Pages / Sections / Layers */}
-              <div className="flex-[0_0_50%] overflow-y-auto p-4 min-h-0">
-                <div className="flex gap-2 mb-4">
+              {/* ── Tab bar ── */}
+              <div className="flex flex-shrink-0" style={{ borderBottom: '1px solid #e5e7eb' }}>
+                {(['pages', 'sections', 'layers'] as const).map((tab) => (
                   <button
+                    key={tab}
                     type="button"
-                    onClick={() => setActiveLeftSidebarTab('pages')}
-                    className={`flex-1 text-xs px-2 py-2 rounded-md border transition-colors ${
-                      activeLeftSidebarTab === 'pages'
-                        ? 'bg-blue-50 border-blue-200 text-blue-900'
-                        : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'
-                    }`}
+                    onClick={() => setActiveLeftSidebarTab(tab)}
+                    className="flex-1 py-1.5 text-[11px] font-medium capitalize transition-colors"
+                    style={{
+                      color: activeLeftSidebarTab === tab ? '#4688d7' : '#6b7280',
+                      borderBottom: activeLeftSidebarTab === tab ? '2px solid #4688d7' : '2px solid transparent',
+                      backgroundColor: 'transparent',
+                    }}
                   >
-                    Pages
+                    {tab.charAt(0).toUpperCase() + tab.slice(1)}
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => setActiveLeftSidebarTab('sections')}
-                    className={`flex-1 text-xs px-2 py-2 rounded-md border transition-colors ${
-                      activeLeftSidebarTab === 'sections'
-                        ? 'bg-blue-50 border-blue-200 text-blue-900'
-                        : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'
-                    }`}
-                  >
-                    Sections
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setActiveLeftSidebarTab('layers')}
-                    className={`flex-1 text-xs px-2 py-2 rounded-md border transition-colors ${
-                      activeLeftSidebarTab === 'layers'
-                        ? 'bg-blue-50 border-blue-200 text-blue-900'
-                        : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'
-                    }`}
-                  >
-                    Layers
-                  </button>
-                </div>
+                ))}
+              </div>
 
+              {/* ── Tab content ── */}
+              <div className="flex-1 overflow-y-auto p-3 min-h-0">
+
+                {/* Pages */}
                 {activeLeftSidebarTab === 'pages' && (
-                  <div className="mb-4 pb-4 border-b" style={{ borderBottomColor: '#E5E7EB' }}>
+                  <div>
                     <div className="flex items-center justify-between mb-2">
-                      <h3 className="text-sm font-semibold text-gray-900" style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", "Roboto", sans-serif' }}>
-                        Pages
-                      </h3>
-                      <button
-                        type="button"
-                        onClick={handleAddPage}
-                        className="text-xs px-2 py-1 rounded border border-gray-300 hover:bg-gray-50"
-                      >
-                        Add
-                      </button>
+                      <span className="text-[11px] font-semibold" style={{ color: '#6b7280' }}>Pages ({pages.length})</span>
+                      <button type="button" onClick={handleAddPage} className="text-[11px] px-2 py-0.5 rounded hover:bg-gray-100 transition-colors" style={{ backgroundColor: '#f3f4f6', color: '#374151', border: '1px solid #d1d5db' }}>+ Add</button>
                     </div>
-                    <div className="space-y-1">
+                    <div className="space-y-0.5 mb-3">
                       {pages.map((page, index) => (
                         <div
                           key={page.id}
-                          className={`flex items-center gap-1 rounded-md px-2 py-1 ${
-                            activePage?.id === page.id ? 'bg-blue-50 border border-blue-200' : 'hover:bg-gray-50'
-                          }`}
+                          className="flex items-center gap-1 rounded px-2 py-1 overflow-hidden"
+                          style={{
+                            backgroundColor: activePage?.id === page.id ? '#1b4f8a' : 'transparent',
+                            border: activePage?.id === page.id ? '1px solid #4688d7' : '1px solid transparent',
+                          }}
                         >
-                          <button
-                            type="button"
-                            onClick={() => setActivePageId(page.id)}
-                            className="flex-1 text-left text-xs font-medium"
-                          >
+                          <button type="button" onClick={() => setActivePageId(page.id)} className="flex-1 text-left text-xs font-medium" style={{ color: activePage?.id === page.id ? '#fff' : '#374151' }}>
                             Page {page.pageNumber}
                           </button>
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleMovePage(page.id, 'up');
-                            }}
-                            disabled={index === 0}
-                            className={`w-5 h-5 flex items-center justify-center rounded border text-xs ${
-                              index === 0 ? 'bg-gray-100 text-gray-400 border-gray-200' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
-                            }`}
-                            title="Move page up"
-                          >
-                            ↑
-                          </button>
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleMovePage(page.id, 'down');
-                            }}
-                            disabled={index === pages.length - 1}
-                            className={`w-5 h-5 flex items-center justify-center rounded border text-xs ${
-                              index === pages.length - 1 ? 'bg-gray-100 text-gray-400 border-gray-200' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
-                            }`}
-                            title="Move page down"
-                          >
-                            ↓
-                          </button>
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDeletePage(page.id);
-                            }}
-                            disabled={pages.length <= 1}
-                            className={`w-5 h-5 flex items-center justify-center rounded border text-xs ${
-                              pages.length <= 1 ? 'bg-gray-100 text-gray-400 border-gray-200' : 'bg-white text-red-600 border-red-200 hover:bg-red-50'
-                            }`}
-                            title="Delete page"
-                          >
-                            ✕
-                          </button>
+                          <button type="button" onClick={(e) => { e.stopPropagation(); handleMovePage(page.id, 'up'); }} disabled={index === 0} className="w-4 h-4 flex items-center justify-center rounded text-xs hover:bg-gray-100 transition-colors disabled:opacity-20 disabled:cursor-not-allowed" style={{ color: '#6b7280' }} title="Move up">↑</button>
+                          <button type="button" onClick={(e) => { e.stopPropagation(); handleMovePage(page.id, 'down'); }} disabled={index === pages.length - 1} className="w-4 h-4 flex items-center justify-center rounded text-xs hover:bg-gray-100 transition-colors disabled:opacity-20 disabled:cursor-not-allowed" style={{ color: '#6b7280' }} title="Move down">↓</button>
+                          <button type="button" onClick={(e) => { e.stopPropagation(); handleDeletePage(page.id); }} disabled={pages.length <= 1} className="w-4 h-4 flex items-center justify-center rounded text-xs hover:bg-red-900 transition-colors disabled:opacity-20 disabled:cursor-not-allowed" style={{ color: '#e74c3c' }} title="Delete page">✕</button>
                         </div>
                       ))}
                     </div>
-                    <div className="flex items-center gap-2 mt-2">
-                      <button
-                        type="button"
-                        onClick={handleAddPage}
-                        className="text-xs px-2 py-1 rounded border border-gray-300 hover:bg-gray-50"
-                      >
-                        Add Page
-                      </button>
-                      <button
-                        type="button"
-                        onClick={handleDuplicatePage}
-                        disabled={!activePage}
-                        className={`text-xs px-2 py-1 rounded border ${
-                          activePage ? 'border-gray-300 hover:bg-gray-50' : 'border-gray-200 text-gray-400 cursor-not-allowed'
-                        }`}
-                      >
-                        Duplicate
-                      </button>
+                    <div className="flex items-center gap-2">
+                      <button type="button" onClick={handleAddPage} className="text-[11px] px-2 py-1 rounded hover:bg-gray-100 transition-colors" style={{ backgroundColor: '#f3f4f6', color: '#374151', border: '1px solid #d1d5db' }}>Add Page</button>
+                      <button type="button" onClick={handleDuplicatePage} disabled={!activePage} className="text-[11px] px-2 py-1 rounded hover:bg-gray-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed" style={{ backgroundColor: '#f3f4f6', color: '#374151', border: '1px solid #d1d5db' }}>Duplicate</button>
                     </div>
                   </div>
                 )}
 
+                {/* Sections */}
                 {activeLeftSidebarTab === 'sections' && (
                   <SectionPanel
                     selectedSectionId={selectedSectionId}
@@ -1188,93 +961,58 @@ export const PdfTemplateBuilderModal: React.FC<PdfTemplateBuilderModalProps> = (
                   />
                 )}
 
+                {/* Layers */}
                 {activeLeftSidebarTab === 'layers' && (
-                  <div className="border-t pt-3" style={{ borderTopColor: '#E5E7EB' }}>
-                    <h3 className="text-sm font-semibold text-gray-900 mb-3" style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", "Roboto", sans-serif' }}>
-                      Layers ({activeElements.length})
-                    </h3>
+                  <div>
+                    <p className="text-[11px] font-semibold mb-2" style={{ color: '#6b7280' }}>Layers ({activeElements.length})</p>
                     {activeElements.length === 0 ? (
-                      <p className="text-xs text-gray-500">No elements yet</p>
+                      <p className="text-[11px]" style={{ color: '#9ca3af' }}>No elements yet. Add from the toolbox above.</p>
                     ) : (
-                      <div ref={layersScrollRef} className="space-y-1">
-                        {activeElements.map((element, index) => (
-                          <div
-                            key={element.id}
-                            data-element-id={element.id}
-                            className={`flex items-center gap-2 rounded-md overflow-hidden ${
-                              selectedElementIds.includes(element.id)
-                                ? 'bg-blue-50'
-                                : 'hover:bg-gray-50'
-                            }`}
-                          >
-                            {/* Layer Order Controls */}
-                            <div className="flex flex-col gap-0.5 p-1">
+                      <div ref={layersScrollRef} className="space-y-0.5">
+                        {activeElements.map((element, index) => {
+                          const isSel = selectedElementIds.includes(element.id);
+                          return (
+                            <div
+                              key={element.id}
+                              data-element-id={element.id}
+                              className="flex items-center rounded overflow-hidden"
+                              style={{ backgroundColor: isSel ? '#1b4f8a' : 'transparent' }}
+                            >
+                              {/* Reorder */}
+                              <div className="flex flex-col gap-0.5 px-0.5 py-0.5 flex-shrink-0">
+                                <button type="button" onClick={(e) => { e.stopPropagation(); handleElementReorder(element.id, 'up'); }} disabled={index === 0} className="w-4 h-4 flex items-center justify-center rounded text-[10px] hover:bg-gray-100 transition-colors disabled:opacity-20 disabled:cursor-not-allowed" style={{ color: '#6b7280' }} title="Bring forward">↑</button>
+                                <button type="button" onClick={(e) => { e.stopPropagation(); handleElementReorder(element.id, 'down'); }} disabled={index === activeElements.length - 1} className="w-4 h-4 flex items-center justify-center rounded text-[10px] hover:bg-gray-100 transition-colors disabled:opacity-20 disabled:cursor-not-allowed" style={{ color: '#6b7280' }} title="Send backward">↓</button>
+                              </div>
+                              {/* Index */}
+                              <span className="text-[10px] font-medium min-w-[14px] text-center flex-shrink-0" style={{ color: '#9ca3af' }}>{index + 1}</span>
+                              {/* Icon + name */}
                               <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleElementReorder(element.id, 'up');
-                                }}
-                                disabled={index === 0}
-                                className={`w-5 h-5 flex items-center justify-center rounded border text-xs ${
-                                  index === 0
-                                    ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
-                                    : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50 cursor-pointer'
-                                }`}
-                                title="Move layer up (bring forward)"
+                                onClick={(e) => handleLayerClick(element.id, e.shiftKey, e.ctrlKey || e.metaKey)}
+                                className="flex-1 text-left px-1.5 py-1.5 text-[11px] flex items-center gap-1.5 min-w-0 hover:bg-blue-50 transition-colors"
+                                style={{ color: isSel ? '#fff' : '#374151' }}
                               >
-                                ↑
-                              </button>
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleElementReorder(element.id, 'down');
-                                }}
-                                disabled={index === activeElements.length - 1}
-                                className={`w-5 h-5 flex items-center justify-center rounded border text-xs ${
-                                  index === activeElements.length - 1
-                                    ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
-                                    : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50 cursor-pointer'
-                                }`}
-                                title="Move layer down (send backward)"
-                              >
-                                ↓
+                                <span className="flex-shrink-0 flex justify-center" style={{ color: isSel ? '#9ec8ff' : '#6b7280', width: 14 }}>
+                                  {element.type === 'text' ? (
+                                    <span className="text-[11px] font-bold">T</span>
+                                  ) : element.type === 'line' ? (
+                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 12h14" /></svg>
+                                  ) : element.type === 'rectangle' ? (
+                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="1" strokeWidth={2} /></svg>
+                                  ) : element.type === 'image' ? (
+                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14M6 8h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                                  ) : element.type === 'equipment-table' || element.type === 'documents-table' || element.type === 'treb-table' ? (
+                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 10h18M3 14h18M10 3v18M3 3h18v18H3z" /></svg>
+                                  ) : element.type === 'chart' ? (
+                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
+                                  ) : (
+                                    <span>•</span>
+                                  )}
+                                </span>
+                                <span className="font-medium truncate">{getElementLabel(element).replace(/^[^\s]+\s/, '')}</span>
                               </button>
                             </div>
-
-                            {/* Layer Index Badge */}
-                            <span className="text-xs font-medium text-gray-500 min-w-[20px] text-center">
-                              {index + 1}
-                            </span>
-
-                            {/* Element Button
-                                Plain click       → single select
-                                Shift+Click       → range select from anchor
-                                Ctrl/Cmd+Click    → toggle
-                                Ctrl+Shift+Click  → range select (same as Shift) */}
-                            <button
-                              onClick={(e) => handleLayerClick(element.id, e.shiftKey, e.ctrlKey || e.metaKey)}
-                              className={`flex-1 text-left px-3 py-2 rounded-md text-xs transition-colors flex items-center gap-2 ${
-                                selectedElementIds.includes(element.id)
-                                  ? 'bg-blue-50 text-blue-900'
-                                  : 'text-gray-700'
-                              }`}
-                            >
-                              <span className="text-base">
-                                {element.type === 'text' ? '📝' :
-                                 element.type === 'line' ? '➖' :
-                                 element.type === 'rectangle' ? '▭' :
-                                 element.type === 'image' ? '🖼️' :
-                                 element.type === 'equipment-table' ? '📋' :
-                                 element.type === 'documents-table' ? '📑' :
-                                 element.type === 'treb-table' ? '📊' :
-                                 element.type === 'chart' ? '📈' : '•'}
-                              </span>
-                              <span className="font-medium truncate">{getElementLabel(element).replace(/^[^\s]+\s/, '')}</span>
-                            </button>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     )}
                   </div>
@@ -1283,11 +1021,11 @@ export const PdfTemplateBuilderModal: React.FC<PdfTemplateBuilderModalProps> = (
             </>)}
           </div>
 
-          {/* Center - Canvas Area */}
+          {/* ── Canvas Area ── */}
           <div
             ref={canvasAreaRef}
             className="flex-1 relative overflow-hidden"
-            style={{ backgroundColor: '#F3F4F6' }}
+            style={{ backgroundColor: '#ffffff' }}
           >
             <PdfTemplateBuilderCanvas
               elements={activeElements}
@@ -1304,7 +1042,7 @@ export const PdfTemplateBuilderModal: React.FC<PdfTemplateBuilderModalProps> = (
               onZoomChange={(newZoom) => setZoom(Math.min(3, Math.max(0.25, newZoom)))}
             />
 
-            {/* Floating draggable page counter */}
+            {/* Draggable page counter */}
             {(() => {
               const currentIdx = pages.findIndex((p) => p.id === activePageId);
               const total = Math.max(1, pages.length);
@@ -1313,100 +1051,65 @@ export const PdfTemplateBuilderModal: React.FC<PdfTemplateBuilderModalProps> = (
                 <div
                   ref={counterRef}
                   onMouseDown={handleCounterDragStart}
+                  className="flex items-center gap-1.5 rounded-full pl-2 pr-3 py-1.5 shadow-xl"
                   style={{
                     position: 'absolute',
                     zIndex: 20,
                     cursor: isCounterDragging ? 'grabbing' : 'grab',
                     userSelect: 'none',
+                    backgroundColor: '#2c2c2c',
+                    border: '1px solid #555',
                     ...(counterPos
                       ? { left: counterPos.x, top: counterPos.y }
                       : { bottom: 16, left: '50%', transform: 'translateX(-50%)' }),
                   }}
-                  className="flex items-center gap-1.5 bg-white border border-gray-200 rounded-full pl-2 pr-3 py-1.5 shadow-md"
                   title="Drag to reposition"
                 >
-                  {/* Drag handle dots */}
-                  <svg width="8" height="12" viewBox="0 0 8 12" className="text-gray-400 flex-shrink-0" fill="currentColor">
-                    <circle cx="2" cy="2"  r="1.3"/><circle cx="6" cy="2"  r="1.3"/>
-                    <circle cx="2" cy="6"  r="1.3"/><circle cx="6" cy="6"  r="1.3"/>
+                  <svg width="8" height="12" viewBox="0 0 8 12" fill="#555" className="flex-shrink-0">
+                    <circle cx="2" cy="2" r="1.3"/><circle cx="6" cy="2" r="1.3"/>
+                    <circle cx="2" cy="6" r="1.3"/><circle cx="6" cy="6" r="1.3"/>
                     <circle cx="2" cy="10" r="1.3"/><circle cx="6" cy="10" r="1.3"/>
                   </svg>
-
-                  {/* Prev */}
-                  <button
-                    type="button"
-                    onMouseDown={(e) => e.stopPropagation()}
-                    onClick={() => { if (currentIdx > 0) setActivePageId(pages[currentIdx - 1].id); }}
-                    disabled={currentIdx <= 0}
-                    className="w-5 h-5 flex items-center justify-center rounded-full hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed text-gray-600"
-                    title="Previous page"
-                  >
-                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" />
-                    </svg>
+                  <button type="button" onMouseDown={(e) => e.stopPropagation()} onClick={() => { if (currentIdx > 0) setActivePageId(pages[currentIdx - 1].id); }} disabled={currentIdx <= 0} className="w-5 h-5 flex items-center justify-center rounded-full hover:bg-[#3a3a3a] transition-colors disabled:opacity-30 disabled:cursor-not-allowed" style={{ color: '#aaa' }} title="Previous page">
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" /></svg>
                   </button>
-
-                  <span className="text-xs font-medium text-gray-700 tabular-nums whitespace-nowrap">
-                    Page {current} of {total}
-                  </span>
-
-                  {/* Next */}
-                  <button
-                    type="button"
-                    onMouseDown={(e) => e.stopPropagation()}
-                    onClick={() => { if (currentIdx < pages.length - 1) setActivePageId(pages[currentIdx + 1].id); }}
-                    disabled={currentIdx >= pages.length - 1}
-                    className="w-5 h-5 flex items-center justify-center rounded-full hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed text-gray-600"
-                    title="Next page"
-                  >
-                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
-                    </svg>
+                  <span className="text-xs font-medium tabular-nums whitespace-nowrap" style={{ color: '#d4d4d4' }}>Page {current} of {total}</span>
+                  <button type="button" onMouseDown={(e) => e.stopPropagation()} onClick={() => { if (currentIdx < pages.length - 1) setActivePageId(pages[currentIdx + 1].id); }} disabled={currentIdx >= pages.length - 1} className="w-5 h-5 flex items-center justify-center rounded-full hover:bg-[#3a3a3a] transition-colors disabled:opacity-30 disabled:cursor-not-allowed" style={{ color: '#aaa' }} title="Next page">
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" /></svg>
                   </button>
                 </div>
               );
             })()}
           </div>
 
-          {/* Right Sidebar - Properties */}
+          {/* ── Right Sidebar ── */}
           <div
-            className={`${rightSidebarCollapsed ? 'w-10' : 'w-[300px]'} border-l flex flex-col flex-shrink-0 transition-all duration-200 overflow-hidden`}
-            style={{
-              borderLeftColor: '#E5E7EB',
-              backgroundColor: '#FFFFFF'
-            }}
+            className={`${rightSidebarCollapsed ? 'w-10' : 'w-[300px]'} flex flex-col flex-shrink-0 transition-all duration-200 overflow-hidden`}
+            style={{ borderLeft: '1px solid #e5e7eb', backgroundColor: '#ffffff' }}
           >
-            {/* Sidebar header / collapse toggle */}
-            <div
-              className="flex items-center justify-between px-2 border-b flex-shrink-0"
-              style={{ borderBottomColor: '#E5E7EB', backgroundColor: '#F9FAFB', minHeight: '32px' }}
-            >
+            <div className="flex items-center justify-between px-2 flex-shrink-0" style={{ borderBottom: '1px solid #e5e7eb', backgroundColor: '#f9fafb', minHeight: '30px' }}>
               <button
                 type="button"
                 onClick={() => setRightSidebarCollapsed((c) => !c)}
-                className={`w-6 h-6 flex items-center justify-center rounded hover:bg-gray-200 text-gray-500 flex-shrink-0 ${rightSidebarCollapsed ? 'mx-auto' : 'mr-auto'}`}
+                className={`w-5 h-5 flex items-center justify-center rounded hover:bg-gray-100 transition-colors flex-shrink-0 ${rightSidebarCollapsed ? 'mx-auto' : 'mr-auto'}`}
+                style={{ color: '#6b7280' }}
                 title={rightSidebarCollapsed ? 'Expand panel' : 'Collapse panel'}
               >
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   {rightSidebarCollapsed
                     ? <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" />
-                    : <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
-                  }
+                    : <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />}
                 </svg>
               </button>
               {!rightSidebarCollapsed && (
-                <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Properties</span>
+                <span className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: '#6b7280' }}>Properties</span>
               )}
             </div>
-
-            {/* Collapsed indicator */}
             {rightSidebarCollapsed && (
               <div className="flex-1 flex flex-col items-center justify-center">
-                <span className="text-xs text-gray-400 select-none" style={{ writingMode: 'vertical-rl' }}>Properties</span>
+                <span className="text-[10px] select-none" style={{ color: '#9ca3af', writingMode: 'vertical-rl' }}>Properties</span>
               </div>
             )}
-
-            {/* Sidebar content */}
             {!rightSidebarCollapsed && (
               <div className="flex-1 overflow-y-auto">
                 <ElementPropertiesPanel
@@ -1425,75 +1128,34 @@ export const PdfTemplateBuilderModal: React.FC<PdfTemplateBuilderModalProps> = (
       </div>
     </div>
 
-    {/* Save Success Modal - Must be outside main modal div to appear on top */}
+    {/* Save Success Modal */}
     {showSaveSuccess && (
-      <div 
-        className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50"
-        style={{ position: 'fixed', zIndex: 9999, fontFamily: '-apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", "Roboto", sans-serif' }}
-        onClick={(e) => {
-          // Only close if clicking the backdrop, not the modal content
-          if (e.target === e.currentTarget) {
-            setShowSaveSuccess(false);
-          }
-        }}
+      <div
+        className="fixed inset-0 flex items-center justify-center"
+        style={{ position: 'fixed', zIndex: 9999, fontFamily: 'inherit', backgroundColor: 'rgba(0,0,0,0.7)' }}
+        onClick={(e) => { if (e.target === e.currentTarget) setShowSaveSuccess(false); }}
       >
-        <div 
-          className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4"
-          onClick={(e) => e.stopPropagation()}
-        >
-          {/* Header with close button */}
+        <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4" onClick={(e) => e.stopPropagation()}>
           <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
             <h3 className="text-xl font-semibold text-gray-900">Success</h3>
-            <button
-              onClick={() => setShowSaveSuccess(false)}
-              className="text-gray-400 hover:text-gray-600 text-2xl leading-none w-6 h-6 flex items-center justify-center"
-              type="button"
-            >
-              ×
-            </button>
+            <button onClick={() => setShowSaveSuccess(false)} className="text-gray-400 hover:text-gray-600 text-2xl leading-none w-6 h-6 flex items-center justify-center" type="button">×</button>
           </div>
-
-          {/* Content */}
           <div className="px-6 py-8 text-center">
-            {/* Green Checkmark Circle */}
             <div className="mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4">
-              <svg
-                className="w-10 h-10 text-green-600"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={3}
-                  d="M5 13l4 4L19 7"
-                />
+              <svg className="w-10 h-10 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
               </svg>
             </div>
-
-            {/* Success Message */}
-            <p className="text-lg font-medium text-gray-900 mb-2">
-              Template Saved Successfully
-            </p>
-            <p className="text-sm text-gray-600">
-              Your PDF template has been saved. You can continue editing or close this window.
-            </p>
+            <p className="text-lg font-medium text-gray-900 mb-2">Template Saved Successfully</p>
+            <p className="text-sm text-gray-600">Your PDF template has been saved. You can continue editing or close this window.</p>
           </div>
-
-          {/* Footer */}
           <div className="px-6 py-4 border-t border-gray-200 flex justify-end">
-            <Button variant="success" onClick={() => setShowSaveSuccess(false)}>
-              OK
-            </Button>
+            <Button variant="success" onClick={() => setShowSaveSuccess(false)}>OK</Button>
           </div>
         </div>
       </div>
     )}
-    <PdfComponentScannerModal
-      isOpen={showComponentScanner}
-      onClose={() => setShowComponentScanner(false)}
-    />
+    <PdfComponentScannerModal isOpen={showComponentScanner} onClose={() => setShowComponentScanner(false)} />
     </>
   );
 };

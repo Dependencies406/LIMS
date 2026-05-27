@@ -1,5 +1,5 @@
 ﻿/**
- * Staff Section â€” PDF Template Builder
+ * Staff Section — PDF Template Builder
  *
  * Provides drag-and-drop components and data source keys for staff personnel
  * record templates (training register, ID card, personnel profile, etc.).

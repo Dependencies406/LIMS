@@ -15,7 +15,7 @@ import {
   signShareToken,
   TOKEN_TTL_MS,
 } from '../services/jobShareTokenService';
-import type { JobShareToken, DigitalSignature } from '../types';
+import type { JobShareToken, JobSnapshot, DigitalSignature } from '../types';
 
 // ---------------------------------------------------------------------------
 // Tiny signature-pad shim (canvas-based, no external deps)
@@ -162,7 +162,7 @@ export const CustomerSignPage: React.FC = () => {
         const active = await getShareToken(token);
         if (active) {
           setTokenData(active);
-          setSignerName(active.jobSnapshot.customerContact ?? '');
+          setSignerName(active.jobSnapshot?.customerContact ?? '');
           setPageState('valid');
           return;
         }
@@ -224,7 +224,7 @@ export const CustomerSignPage: React.FC = () => {
           </div>
           <div>
             <p className="font-semibold text-gray-900 text-sm leading-tight">Laboratory Management System</p>
-            <p className="text-xs text-gray-500">Work Authorization â€” Customer Signing</p>
+            <p className="text-xs text-gray-500">Work Authorization — Customer Signing</p>
           </div>
         </div>
       </div>
@@ -323,9 +323,9 @@ export const CustomerSignPage: React.FC = () => {
     );
   }
 
-  // â”€â”€â”€ Valid token â€” show form â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // â”€â”€â”€ Valid token — show form â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-  const snap = tokenData!.jobSnapshot;
+  const snap = (tokenData!.jobSnapshot ?? {}) as JobSnapshot & Record<string, any>;
   const isUrgent = remaining < 120_000; // last 2 minutes
 
   return (
@@ -340,7 +340,7 @@ export const CustomerSignPage: React.FC = () => {
           <span>{isUrgent ? 'â°' : 'ðŸ”—'}</span>
           <span>
             {isUrgent
-              ? `This link expires in ${formatCountdown(remaining)} â€” please sign now!`
+              ? `This link expires in ${formatCountdown(remaining)} — please sign now!`
               : `This signing link is valid for ${formatCountdown(remaining)}`}
           </span>
         </div>
@@ -395,7 +395,7 @@ export const CustomerSignPage: React.FC = () => {
                   <div key={i} className="flex items-start gap-2 text-sm">
                     <span className="text-gray-400 font-mono text-xs mt-0.5">{i + 1}.</span>
                     <span className="text-gray-900">
-                      {eq.name || 'â€”'}
+                      {eq.name || '—'}
                       {eq.manufacturer && <span className="text-gray-500"> Â· {eq.manufacturer}</span>}
                       {eq.model && <span className="text-gray-500"> {eq.model}</span>}
                       {eq.serialNumber && (

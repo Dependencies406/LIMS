@@ -1,91 +1,74 @@
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
-    function getUserRole() {
-      return request.auth != null
-        ? get(/databases/(default)/documents/users/$(request.auth.uid)).data.role
-        : null;
-    }
-    
-    // Allow authenticated users to upload and manage company logos
+
+    // Company logo
     match /company/logo/{fileName} {
-      // Allow read for authenticated users (for displaying logo)
       allow read: if request.auth != null;
-      // Allow write (create, update, delete) for authenticated users
       allow write: if request.auth != null;
     }
-    
-    // Allow authenticated users to manage all job-related files (for deletion operations)
-    // This wildcard rule should come AFTER specific rules to allow more specific rules to match first
-    // But since Storage rules evaluate in order and first match wins, we put it last
-    // Specific rules for attachments come before this to ensure they're handled correctly
+
+    // Job equipment attachments
     match /jobs/{jobId}/equipment/{equipmentIndex}/attachments/{fileName} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null;
+      allow read, write: if request.auth != null;
     }
-    
+
+    // Job-level attachments (Notes tab)
     match /jobs/{jobId}/attachments/{fileName} {
       allow read, write: if request.auth != null;
     }
-    
-    // Statement of Conformity reference PDF (Job → Service Information; see fileUploadService.uploadStatementOfConformityReferencePdf)
+
+    // Statement of Conformity reference PDF
     match /jobs/{jobId}/service-information/statement-of-conformity/{fileName} {
       allow read, write: if request.auth != null;
     }
-    
-    // Allow authenticated users to manage all other job-related files (for deletion operations)
-    // This matches any path under jobs/{jobId}/ that doesn't match the more specific rules above
+
+    // All other files under a job (catch-all)
     match /jobs/{jobId}/{allPaths=**} {
       allow read, write: if request.auth != null;
     }
-    
+
+    // Customer files
     match /customers/{customerId}/files/{fileName} {
       allow read, write: if request.auth != null;
     }
-    
+
+    // User avatar (primary path)
     match /users/{userId}/avatar/{fileName} {
-      allow read, write: if request.auth != null && (
-        request.auth.uid == userId ||
-        getUserRole() == 'admin'
-      );
+      allow read, write: if request.auth != null && request.auth.uid == userId;
     }
-    
-    // User files - users can read/write their own files; admins can manage for cleanup
+
+    // All user files — owner only
     match /users/{userId}/{allPaths=**} {
-      allow read, write: if request.auth != null && (
-        request.auth.uid == userId ||
-        getUserRole() == 'admin'
-      );
+      allow read, write: if request.auth != null && request.auth.uid == userId;
     }
-    
-    // Avatar files (alternative path structure)
+
+    // Avatar files (alternative path)
     match /avatars/{userId}/{allPaths=**} {
-      allow read, write: if request.auth != null && (
-        request.auth.uid == userId ||
-        getUserRole() == 'admin'
-      );
+      allow read, write: if request.auth != null && request.auth.uid == userId;
     }
-    
+
+    // Report templates
     match /report_templates/{allPaths=**} {
       allow read, write: if request.auth != null;
     }
-    
+
+    // PDF templates
     match /templates/{templateId}/{allPaths=**} {
       allow read, write: if request.auth != null;
     }
 
-    // Lab equipment control documents (verification forms, certificates, spec sheets, etc.)
+    // Lab equipment control documents
     match /equipmentControl/{equipmentId}/{allPaths=**} {
       allow read, write: if request.auth != null;
     }
 
-    // Staff personnel documents (code of conduct, job description, certificates, etc.)
+    // Staff personnel documents
     match /staff/{staffUid}/documents/{allPaths=**} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null;
+      allow read, write: if request.auth != null;
     }
 
-    // Default rule: deny all other access
+    // Default: deny everything else
     match /{allPaths=**} {
       allow read, write: if false;
     }

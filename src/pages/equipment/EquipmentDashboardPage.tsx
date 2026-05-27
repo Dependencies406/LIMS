@@ -1,8 +1,8 @@
-import React, { useState, useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useMemo, useCallback } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { useEquipment } from '../../hooks/useEquipment';
-import { equipmentService } from '../../services/equipmentService';
-import type { EquipmentStatus } from '../../types';
+import { equipmentControlService as equipmentService } from '../../services/equipmentControlService';
+import type { EquipmentRecord, EquipmentStatus } from '../../types';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../hooks/useToast';
 
@@ -19,7 +19,22 @@ function formatDate(d?: string): string {
   return new Date(d).toLocaleDateString('en-GB');
 }
 
+type SortKey = 'id' | 'name' | 'capacity' | 'category' | 'serialNumber' | 'status' | 'custodianName' | 'nextCalibrationDate';
+type SortDir = 'asc' | 'desc';
+
+function SortIcon({ col, sortKey, sortDir }: { col: SortKey; sortKey: SortKey; sortDir: SortDir }) {
+  if (col !== sortKey) {
+    return (
+      <span className="ml-1 text-gray-400 text-[10px]">↕</span>
+    );
+  }
+  return (
+    <span className="ml-1 text-primary-600 text-[10px]">{sortDir === 'asc' ? '↑' : '↓'}</span>
+  );
+}
+
 export const EquipmentDashboardPage: React.FC = () => {
+  const navigate = useNavigate();
   const { equipment, loading, error, approveRegistration, rejectRegistration } = useEquipment();
   const { isAdmin } = useAuth();
   const { success, error: showError } = useToast();
@@ -27,6 +42,19 @@ export const EquipmentDashboardPage: React.FC = () => {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [categoryFilter, setCategoryFilter] = useState('all');
+  const [sortKey, setSortKey] = useState<SortKey>('id');
+  const [sortDir, setSortDir] = useState<SortDir>('asc');
+
+  const handleSort = useCallback((col: SortKey) => {
+    setSortKey((prev) => {
+      if (prev === col) {
+        setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+        return col;
+      }
+      setSortDir('asc');
+      return col;
+    });
+  }, []);
 
   // Summary card counts
   const total = equipment.length;
@@ -45,6 +73,25 @@ export const EquipmentDashboardPage: React.FC = () => {
     () => equipmentService.filterEquipment(equipment, { search, status: statusFilter, category: categoryFilter }),
     [equipment, search, statusFilter, categoryFilter]
   );
+
+  const sorted = useMemo(() => {
+    return [...filtered].sort((a, b) => {
+      let av: string = '';
+      let bv: string = '';
+      if (sortKey === 'custodianName') {
+        av = a.custodianName || a.custodian || '';
+        bv = b.custodianName || b.custodian || '';
+      } else if (sortKey === 'nextCalibrationDate') {
+        av = a.nextCalibrationDate || '';
+        bv = b.nextCalibrationDate || '';
+      } else {
+        av = String((a as unknown as Record<string, unknown>)[sortKey] ?? '');
+        bv = String((b as unknown as Record<string, unknown>)[sortKey] ?? '');
+      }
+      const cmp = av.localeCompare(bv, undefined, { numeric: true, sensitivity: 'base' });
+      return sortDir === 'asc' ? cmp : -cmp;
+    });
+  }, [filtered, sortKey, sortDir]);
 
   async function handleApprove(id: string) {
     try {
@@ -65,21 +112,36 @@ export const EquipmentDashboardPage: React.FC = () => {
     }
   }
 
-  function exportToXlsx() {
-    // Simple CSV download as proxy for xlsx
-    const headers = ['ID', 'Name', 'Category', 'Serial No.', 'Location', 'Custodian', 'Status', 'Cal. Due', 'Last Usage'];
-    const rows = filtered.map((e) => [
-      e.id, e.name, e.category, e.serialNumber, e.location, e.custodian,
-      equipmentService.getStatusLabel(e.status), e.nextCalibrationDate || '', '',
+  function exportCSV() {
+    const headers = ['ID', 'Name', 'Capacity', 'Category', 'Serial No.', 'Location', 'Custodian', 'Status', 'Last Cal.', 'Next Cal.'];
+    const rows = sorted.map((e) => [
+      e.id, e.name, e.capacity || '', e.category, e.serialNumber, e.location,
+      e.custodianName || e.custodian,
+      equipmentService.getStatusLabel(e.status),
+      e.lastCalibrationDate || '', e.nextCalibrationDate || '',
     ]);
     const csv = [headers, ...rows].map((r) => r.map((c) => `"${c}"`).join(',')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `LAB-FM-QP-05-003_${new Date().toISOString().split('T')[0]}.csv`;
+    a.download = `LAB-FM-QP-05-003_Register_${new Date().toISOString().split('T')[0]}.csv`;
     a.click();
     URL.revokeObjectURL(url);
+  }
+
+  async function printRegister() {
+    try {
+      const { generateEquipmentRegisterBytes } = await import('../../services/equipmentExportService');
+      const bytes = await generateEquipmentRegisterBytes(sorted);
+      const blob = new Blob([bytes], { type: 'application/pdf' });
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank');
+      setTimeout(() => URL.revokeObjectURL(url), 30_000);
+    } catch (err) {
+      showError('Failed to generate register PDF');
+      console.error(err);
+    }
   }
 
   if (loading) {
@@ -99,13 +161,27 @@ export const EquipmentDashboardPage: React.FC = () => {
             <h1 className="text-2xl font-bold text-gray-900">Equipment Control</h1>
             <p className="text-sm text-gray-500 mt-0.5">LAB-FM-QP-05-003 — Equipment Registry</p>
           </div>
-          <Link
-            to="/equipment/new"
-            className="inline-flex items-center gap-2 px-4 py-2 bg-primary-600 text-white text-sm font-medium rounded-lg hover:bg-primary-700 transition-colors"
-          >
-            <span className="text-base">+</span>
-            Register Equipment
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link
+              to="/equipment/calibration-plan"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                <line x1="16" y1="2" x2="16" y2="6" />
+                <line x1="8" y1="2" x2="8" y2="6" />
+                <line x1="3" y1="10" x2="21" y2="10" />
+              </svg>
+              Calibration Plan
+            </Link>
+            <Link
+              to="/equipment/new"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-primary-600 text-white text-sm font-medium rounded-lg hover:bg-primary-700 transition-colors"
+            >
+              <span className="text-base">+</span>
+              Register Equipment
+            </Link>
+          </div>
         </div>
       </div>
 
@@ -166,12 +242,23 @@ export const EquipmentDashboardPage: React.FC = () => {
                 <option key={c} value={c}>{c}</option>
               ))}
             </select>
+            <button
+              onClick={exportCSV}
+              className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-300 text-sm font-medium rounded-lg hover:bg-gray-50 whitespace-nowrap"
+            >
+              Export CSV
+            </button>
             {isAdmin && (
               <button
-                onClick={exportToXlsx}
-                className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-300 text-sm font-medium rounded-lg hover:bg-gray-50"
+                onClick={printRegister}
+                className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-300 text-sm font-medium rounded-lg hover:bg-gray-50 whitespace-nowrap"
               >
-                Export Registry
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <polyline points="6 9 6 2 18 2 18 9" />
+                  <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+                  <rect x="6" y="14" width="12" height="8" />
+                </svg>
+                Print Register
               </button>
             )}
           </div>
@@ -183,29 +270,41 @@ export const EquipmentDashboardPage: React.FC = () => {
             <table className="min-w-full divide-y divide-gray-200 text-sm">
               <thead className="bg-gray-50">
                 <tr>
-                  {['Equipment ID', 'Name', 'Category', 'Serial No.', 'Status', 'Custodian', 'Next Cal.', 'Actions'].map(
-                    (h) => (
-                      <th
-                        key={h}
-                        className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap"
-                      >
-                        {h}
-                      </th>
-                    )
-                  )}
+                  {(
+                    [
+                      { label: 'Equipment ID', key: 'id' },
+                      { label: 'Name',         key: 'name' },
+                      { label: 'Capacity',     key: 'capacity' },
+                      { label: 'Category',     key: 'category' },
+                      { label: 'Serial No.',   key: 'serialNumber' },
+                      { label: 'Status',       key: 'status' },
+                      { label: 'Custodian',    key: 'custodianName' },
+                      { label: 'Next Cal.',    key: 'nextCalibrationDate' },
+                    ] as { label: string; key: SortKey }[]
+                  ).map(({ label, key }) => (
+                    <th
+                      key={key}
+                      onClick={() => handleSort(key)}
+                      className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap cursor-pointer select-none hover:bg-gray-100 transition-colors"
+                    >
+                      {label}
+                      <SortIcon col={key} sortKey={sortKey} sortDir={sortDir} />
+                    </th>
+                  ))}
+                  <th className="px-4 py-3" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {filtered.length === 0 ? (
+                {sorted.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="px-4 py-10 text-center text-gray-400 text-sm">
+                    <td colSpan={9} className="px-4 py-10 text-center text-gray-400 text-sm">
                       {equipment.length === 0
                         ? 'No equipment registered yet. Click "Register Equipment" to get started.'
                         : 'No equipment matches the current filters.'}
                     </td>
                   </tr>
                 ) : (
-                  filtered.map((eq) => {
+                  sorted.map((eq) => {
                     const calDue = eq.nextCalibrationDate;
                     const calClass =
                       eq.status === 'overdue'
@@ -215,13 +314,16 @@ export const EquipmentDashboardPage: React.FC = () => {
                         : 'text-gray-700';
 
                     return (
-                      <tr key={eq.id} className="hover:bg-gray-50 transition-colors">
+                      <tr
+                        key={eq.id}
+                        onClick={() => navigate(`/equipment/${eq.id}`)}
+                        className="hover:bg-primary-50 cursor-pointer transition-colors"
+                      >
                         <td className="px-4 py-3 font-mono text-xs font-medium text-primary-700">
-                          <Link to={`/equipment/${eq.id}`} className="hover:underline">
-                            {eq.id}
-                          </Link>
+                          {eq.id}
                         </td>
                         <td className="px-4 py-3 text-gray-900 max-w-[200px] truncate">{eq.name}</td>
+                        <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{eq.capacity || '—'}</td>
                         <td className="px-4 py-3 text-gray-500">{eq.category}</td>
                         <td className="px-4 py-3 font-mono text-xs text-gray-600">{eq.serialNumber}</td>
                         <td className="px-4 py-3">
@@ -231,17 +333,11 @@ export const EquipmentDashboardPage: React.FC = () => {
                           {eq.custodianName || eq.custodian}
                         </td>
                         <td className={`px-4 py-3 ${calClass}`}>{formatDate(calDue)}</td>
-                        <td className="px-4 py-3">
+                        <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                           <div className="flex items-center gap-2">
                             <Link
-                              to={`/equipment/${eq.id}`}
-                              className="text-primary-600 hover:text-primary-800 text-xs font-medium"
-                            >
-                              View
-                            </Link>
-                            <Link
                               to={`/equipment/${eq.id}/usage-log/new`}
-                              className="text-gray-500 hover:text-gray-700 text-xs"
+                              className="text-gray-500 hover:text-gray-700 text-xs whitespace-nowrap"
                             >
                               + Log
                             </Link>
@@ -270,9 +366,9 @@ export const EquipmentDashboardPage: React.FC = () => {
               </tbody>
             </table>
           </div>
-          {filtered.length > 0 && (
+          {sorted.length > 0 && (
             <div className="px-4 py-2 border-t border-gray-100 text-xs text-gray-400">
-              Showing {filtered.length} of {equipment.length} equipment records
+              Showing {sorted.length} of {equipment.length} equipment records
             </div>
           )}
         </div>

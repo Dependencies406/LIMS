@@ -26,16 +26,17 @@ const JobsIcon: React.FC<{ className?: string }> = ({ className = 'w-5 h-5' }) =
 
 const CustomersIcon: React.FC<{ className?: string }> = ({ className = 'w-5 h-5' }) => (
   <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round">
-    <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
-    <polyline points="9 22 9 12 15 12 15 22" />
+    {/* ID card */}
+    <rect x="2" y="5" width="20" height="14" rx="2" />
+    <circle cx="8" cy="11" r="2" />
+    <path d="M14 9h4M14 13h4M5.5 17a3.5 3.5 0 015-3.17" />
   </svg>
 );
 
 const EquipmentIcon: React.FC<{ className?: string }> = ({ className = 'w-5 h-5' }) => (
   <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round">
-    <path d="M9 3H6l-3 9h18L18 3h-3" />
-    <path d="M6 12v7a1 1 0 001 1h10a1 1 0 001-1v-7" />
-    <path d="M9 3v3a3 3 0 006 0V3" />
+    {/* Wrench */}
+    <path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z" />
   </svg>
 );
 
@@ -73,7 +74,7 @@ const SettingsIcon: React.FC<{ className?: string }> = ({ className = 'w-5 h-5' 
   </svg>
 );
 
-/** App logo mark â€” shown in header button when on a top-level page */
+/** App logo mark — shown in header button when on a top-level page */
 const LimsDatabaseIcon: React.FC<{ className?: string }> = ({ className = 'w-9 h-9' }) => (
   <div className={`flex-shrink-0 ${className}`} aria-hidden>
     <svg viewBox="0 0 64 64" className="w-full h-full">

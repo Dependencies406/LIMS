@@ -102,12 +102,11 @@ export async function createShareToken(job: Job, createdByUid: string): Promise<
     ...(job.customerPhone       ? { customerPhone: job.customerPhone }             : {}),
     ...(job.customerEmail       ? { customerEmail: job.customerEmail }             : {}),
     status:                        job.status,
-    ...(job.scheduleDate        ? { scheduleDate: job.scheduleDate }               : {}),
+    ...(job.appointmentDate     ? { scheduleDate: job.appointmentDate }            : {}),
     equipment:                     (job.equipment ?? []).map(eq => stripUndefined(eq)),
     ...(job.serviceInformation  ? {
       serviceInformation: stripUndefined({
         serviceRequested:      job.serviceInformation.serviceRequested,
-        reportingFormat:       job.serviceInformation.reportingFormat,
         statementOfConformity: job.serviceInformation.statementOfConformity,
       }),
     } : {}),

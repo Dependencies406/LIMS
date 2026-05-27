@@ -22,12 +22,12 @@ export const PdfTemplateManager: React.FC<PdfTemplateManagerProps> = ({
   onSave,
 }) => {
   const [settings, setSettings] = useState<PdfSettings>(
-    pdfSettings || {
+    pdfSettings ?? ({
       templateName: 'Default',
       pageSize: 'A4',
       orientation: 'portrait',
       layout: 'traditional',
-    }
+    } as unknown as PdfSettings)
   );
 
   const handleSave = () => {

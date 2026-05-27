@@ -20,10 +20,12 @@ import type {
   EquipmentTableElement,
   DocumentsTableElement,
   TrebTableElement,
+  TrainingTableElement,
 } from '../modules/pdf-template-builder/types';
 import { assertNever } from '../modules/pdf-template-builder/types';
 import { renderEquipmentTable } from './pdf-renderers/renderEquipmentTable';
 import { renderDocumentsTable } from './pdf-renderers/renderDocumentsTable';
+import { renderTrainingTable } from './pdf-renderers/renderTrainingTable';
 import type { RendererHelpers } from './pdf-renderers/rendererHelpers';
 import { documentIndexService } from './documentIndexService';
 import { pdfDataResolver, type MissingDataReport } from './pdfDataResolver';
@@ -321,7 +323,13 @@ export class PdfTemplateRenderer {
   private getPaginationMode(el: PdfElement): 'static' | 'dynamic' {
     if (el.paginationMode) return el.paginationMode;
     if (el.overflowRole) return el.overflowRole;
-    return el.type === 'equipment-table' || el.type === 'documents-table' || el.type === 'treb-table' ? 'dynamic' : 'static';
+    // Tables that render variable-length data default to dynamic so they paginate
+    // automatically. All other elements (text, line, rectangle, image, checkbox,
+    // chart, training-table) default to static — the user must opt in via the
+    // Overflow Pagination control in the properties panel.
+    return el.type === 'equipment-table' || el.type === 'documents-table' || el.type === 'treb-table'
+      ? 'dynamic'
+      : 'static';
   }
 
   /** Dynamic vs static for overflow continuation pages. */
@@ -399,6 +407,8 @@ export class PdfTemplateRenderer {
         map.set(el.id, this.planEquipmentTableElement(el as EquipmentTableElement, jobData, pageDimensions, pdf));
       } else if (el.type === 'documents-table') {
         map.set(el.id, this.planDocumentsTableElement(el as DocumentsTableElement, jobData, pageDimensions, pdf));
+      } else if (el.type === 'training-table') {
+        map.set(el.id, this.planTrainingTableElement(el as TrainingTableElement, jobData, pageDimensions, pdf));
       }
     }
     return map;
@@ -528,6 +538,26 @@ export class PdfTemplateRenderer {
       return;
     }
 
+    if (element.type === 'training-table') {
+      const plan = plans.get(element.id);
+      if (!plan || plan.splitCount <= 1) {
+        this.renderTrainingTableElement(pdf, element as TrainingTableElement, jobData);
+        return;
+      }
+      if (k < plan.slices.length) {
+        const sl = plan.slices[k];
+        this.renderTrainingTableElement(pdf, element as TrainingTableElement, jobData, {
+          rowStart: sl.start,
+          rowEnd: sl.end,
+        });
+        return;
+      }
+      if (this.shouldRepeatOnOverflowPages(element)) {
+        this.renderTrainingTableElement(pdf, element as TrainingTableElement, jobData);
+      }
+      return;
+    }
+
     if (element.type === 'text') {
       const plan = plans.get(element.id);
       if (!plan || plan.splitCount <= 1) {
@@ -597,6 +627,9 @@ export class PdfTemplateRenderer {
         break;
       case 'documents-table':
         this.renderDocumentsTableElement(pdf, element as DocumentsTableElement, jobData);
+        break;
+      case 'training-table':
+        this.renderTrainingTableElement(pdf, element as TrainingTableElement, jobData);
         break;
       case 'treb-table':
         await this.renderTrebTableElement(pdf, element as TrebTableElement, jobData, options);
@@ -1301,6 +1334,109 @@ export class PdfTemplateRenderer {
     slice?: { rowStart: number; rowEnd: number }
   ): void {
     renderDocumentsTable(pdf, element, jobData as any, slice, this.getRendererHelpers());
+  }
+
+  // ── Training table ─────────────────────────────────────────────────────────
+
+  private getTrainingTableCellText(record: any, colId: string): string {
+    switch (colId) {
+      case 'courseName':     return record.courseName     || '—';
+      case 'trainingFormat': return record.trainingFormat || '—';
+      case 'duration':       return record.duration       || '—';
+      case 'organizer':      return record.organizer      || '—';
+      case 'status':         return record.status         || '—';
+      case 'completionDate': {
+        const iso: string | undefined = record.completionDate;
+        if (!iso) return '—';
+        try { return new Date(iso + 'T00:00:00').toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }); }
+        catch { return iso; }
+      }
+      case 'certificateUrl': return record.certificateUrl ? 'Yes' : '—';
+      case 'remarks':        return record.remarks        || '—';
+      case 'staffName':      return record.staffName      || '—';
+      default:               return '—';
+    }
+  }
+
+  /**
+   * Measures header and per-row heights for a training-table element.
+   * Formula mirrors renderTrainingTable.ts exactly so slice boundaries align with rendering.
+   */
+  private measureTrainingTableHeights(
+    pdf: jsPDF,
+    element: TrainingTableElement,
+    jobData: PdfRenderJobData
+  ): { headerHeight: number; rowHeights: number[] } {
+    const records: any[] = Array.isArray((jobData as any).training?.records)
+      ? (jobData as any).training!.records
+      : [];
+    const columns = (element.columns || [])
+      .filter((c: any) => c.visible !== false)
+      .sort((a: any, b: any) => (a.order ?? 0) - (b.order ?? 0));
+    if (columns.length === 0) return { headerHeight: 0, rowHeights: [] };
+
+    const fontSize       = element.fontSize       ?? element.cellStyle?.fontSize   ?? 9;
+    const headerFontSize = element.headerFontSize  ?? element.headerStyle?.fontSize ?? 9;
+    const cellPadding    = 3;
+    const defaultRowHeight = 16;
+
+    const totalColWidth = columns.reduce((sum: number, c: any) => sum + (c.width ?? 60), 0);
+    const tableWidth    = element.width ?? totalColWidth;
+    const scale         = totalColWidth > 0 ? tableWidth / totalColWidth : 1;
+
+    const headerSample     = columns.map((c: any) => String(c.label || c.id || '')).join(' ');
+    const headerLineHeight = computeSafeLineHeight({ fontSize: headerFontSize, text: headerSample });
+    // Mirror renderTrainingTable.ts height formula exactly
+    const headerHeight     = headerLineHeight * headerFontSize * 0.3528 + cellPadding * 2;
+
+    const bodySample = records
+      .map((r) => columns.map((c: any) => this.getTrainingTableCellText(r, c.id)).join(' '))
+      .join(' ');
+    const lineHeight = computeSafeLineHeight({ fontSize, text: bodySample });
+
+    this.applyContentFont(pdf, bodySample, undefined, (element.cellStyle || {}).bold ? 'bold' : 'normal', fontSize);
+    const rowHeights: number[] = records.map((record) => {
+      let maxLines = 1;
+      for (const col of columns) {
+        const colWidth = (col.width ?? 60) * scale;
+        const text = this.getTrainingTableCellText(record, col.id);
+        const lines = this.wrapTextForCell(text, Math.max(1, colWidth - cellPadding * 2), fontSize, pdf);
+        if (lines.length > maxLines) maxLines = lines.length;
+      }
+      // Mirror renderTrainingTable.ts formula exactly
+      return Math.max(defaultRowHeight, maxLines * lineHeight * fontSize * 0.3528 + cellPadding * 2);
+    });
+
+    return { headerHeight, rowHeights };
+  }
+
+  private planTrainingTableElement(
+    element: TrainingTableElement,
+    jobData: PdfRenderJobData,
+    pageDimensions: { width: number; height: number },
+    pdf: jsPDF
+  ): ElementSlicePlan {
+    const { headerHeight, rowHeights } = this.measureTrainingTableHeights(pdf, element, jobData);
+    const viewport = this.getTableViewportHeight(element, pageDimensions);
+    const slices   = this.computeTableRowSlices(headerHeight, rowHeights, viewport);
+    return {
+      elementId:  element.id,
+      slices,
+      splitCount: Math.max(1, slices.length),
+    };
+  }
+
+  /**
+   * Training records table.
+   * Logic lives in: src/services/pdf-renderers/renderTrainingTable.ts
+   */
+  private renderTrainingTableElement(
+    pdf: jsPDF,
+    element: TrainingTableElement,
+    jobData: PdfRenderJobData,
+    slice?: { rowStart: number; rowEnd: number }
+  ): void {
+    renderTrainingTable(pdf, element, jobData as any, slice, this.getRendererHelpers());
   }
 
   /**
@@ -2835,8 +2971,8 @@ export class PdfTemplateRenderer {
     const templateIdToTabName = new Map<string, string>();
 
     // Build model tabs array once so we can resolve computedGrids by tab name (template tab id may differ from equipment tab id)
-    const spreadsheetModel = spreadsheetData?.spreadsheetModel;
-    const rawTabs = spreadsheetModel?.tabs;
+    const spreadsheetModel = spreadsheetData?.spreadsheetModel as Record<string, unknown> | undefined;
+    const rawTabs = (spreadsheetModel as any)?.tabs;
     let modelTabsArr: Array<{ id?: string; name?: string }> = [];
     if (Array.isArray(rawTabs)) modelTabsArr = rawTabs;
     else if (rawTabs instanceof Map) modelTabsArr = Array.from(rawTabs.values());
@@ -3340,7 +3476,7 @@ export class PdfTemplateRenderer {
       wrapTextForCell: (text, maxWidth, fontSize, pdf) =>
         this.wrapTextForCell(text, maxWidth, fontSize, pdf),
       normalizePdfText: (text) => this.normalizePdfText(text),
-      formatDate: (value, format) => this.formatDate(value, format),
+      formatDate: (value, format) => this.formatDate(value as string | Date | null | undefined, format),
     };
   }
 }

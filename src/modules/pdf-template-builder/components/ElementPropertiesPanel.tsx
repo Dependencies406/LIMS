@@ -4,13 +4,28 @@
  */
 
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import type { PdfElement, TextElement, LineElement, RectangleElement, ImageElement, CheckboxElement, ChartElement, EquipmentTableElement, EquipmentTableColumnDef, DocumentsTableElement, DocumentsTableColumnDef, TrebTableElement, PdfPage } from '../types';
-import { EQUIPMENT_TABLE_DEFAULT_COLUMNS, DOCUMENTS_TABLE_DEFAULT_COLUMNS } from '../types';
+import type { PdfElement, TextElement, LineElement, RectangleElement, ImageElement, CheckboxElement, ChartElement, EquipmentTableElement, EquipmentTableColumnDef, DocumentsTableElement, DocumentsTableColumnDef, TrebTableElement, TrainingTableElement, TrainingTableColumnDef, PdfPage } from '../types';
+import { EQUIPMENT_TABLE_DEFAULT_COLUMNS, DOCUMENTS_TABLE_DEFAULT_COLUMNS, TRAINING_TABLE_DEFAULT_COLUMNS } from '../types';
 import { DataSourceBrowser } from './DataSourceBrowser';
 import { getDataSourceDiscovery } from '../../../services/dataSourceDiscoveryService';
 import { getAvailableTemplates } from '../../../services/spreadsheetTemplateService';
 import type { SpreadsheetTemplate } from '../../spreadsheet-templates/types';
 import { useAuth } from '../../../contexts/AuthContext';
+
+/**
+ * Returns the effective pagination mode for an element, matching the renderer's
+ * getPaginationMode() logic. equipment-table, documents-table, and treb-table default
+ * to 'dynamic'; everything else defaults to 'static'. Used by renderPaginationControls
+ * so the dropdown shows the true effective value rather than always showing 'static'
+ * when paginationMode is not explicitly set.
+ */
+function getEffectivePaginationMode(el: PdfElement): 'static' | 'dynamic' {
+  if (el.paginationMode) return el.paginationMode;
+  if ((el as any).overflowRole) return (el as any).overflowRole as 'static' | 'dynamic';
+  return (el.type === 'equipment-table' || el.type === 'documents-table' || el.type === 'treb-table')
+    ? 'dynamic'
+    : 'static';
+}
 
 // Stable wrapper to keep input focus during rapid re-renders.
 // Defining this at module scope avoids React remounting children due to changing component identity.
@@ -526,7 +541,7 @@ export const ElementPropertiesPanel: React.FC<ElementPropertiesPanelProps> = ({
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">Pagination Mode</label>
         <select
-          value={el.paginationMode ?? (el.overflowRole ?? 'static')}
+          value={getEffectivePaginationMode(el)}
           onChange={(e) => handleUpdate({ paginationMode: e.target.value as 'static' | 'dynamic' })}
           className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
         >
@@ -997,6 +1012,7 @@ export const ElementPropertiesPanel: React.FC<ElementPropertiesPanelProps> = ({
             className="w-full px-3 py-2 border border-gray-300 rounded-md"
           />
         </div>
+        {renderPaginationControls(lineEl)}
       </div>
     );
   }
@@ -1262,12 +1278,25 @@ export const ElementPropertiesPanel: React.FC<ElementPropertiesPanelProps> = ({
       const newCols = columns.map((c, i) => (i === index ? { ...c, ...patch } : c));
       updateColumns(newCols);
     };
+    const effectivePagMode = getEffectivePaginationMode(tableEl);
+    const heightMissing = !tableEl.height || tableEl.height <= 0;
     return (
       <div className="p-6 space-y-4" style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", "Roboto", sans-serif' }}>
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-semibold text-sm text-gray-900">Equipment Table Properties</h3>
           {renderDeleteButton()}
         </div>
+
+        {/* Warning: height must be set for dynamic pagination to work */}
+        {effectivePagMode === 'dynamic' && heightMissing && (
+          <div className="bg-amber-50 border border-amber-300 rounded-md p-3 text-xs text-amber-800 flex gap-2">
+            <span className="mt-0.5 flex-shrink-0">⚠️</span>
+            <span>
+              <strong>Table Height is not set.</strong> Without a height, all rows render on one page and will overlap elements below.
+              Set <strong>Table Height</strong> (below) to the vertical space allocated for this table in your template.
+            </span>
+          </div>
+        )}
 
         {(() => {
           return (
@@ -1300,8 +1329,8 @@ export const ElementPropertiesPanel: React.FC<ElementPropertiesPanelProps> = ({
                   locked={!!tableEl.lockAspectRatio}
                   onUpdate={handleUpdate}
                   widthLabel="Table Width (pt)"
-                  heightLabel="Table Height (pt)"
-                  heightNote="Bounds the table body for PDF pagination; extra rows continue on continuation pages."
+                  heightLabel="Table Height (pt) ⚠️ Required for pagination"
+                  heightNote="Must be set: rows that don't fit within this height continue on the next page. Match this to the vertical space allocated for the table on your template."
                   minWidth={100}
                   minHeight={40}
                 />
@@ -1423,12 +1452,20 @@ export const ElementPropertiesPanel: React.FC<ElementPropertiesPanelProps> = ({
       const newCols = columns.map((c, i) => (i === index ? { ...c, ...patch } : c));
       updateColumns(newCols);
     };
+    const effectivePagModeDoc = getEffectivePaginationMode(tableEl);
+    const heightMissingDoc = !tableEl.height || tableEl.height <= 0;
     return (
       <div className="p-6 space-y-4" style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", "Roboto", sans-serif' }}>
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-semibold text-sm text-gray-900">Documents Index Table</h3>
           {renderDeleteButton()}
         </div>
+        {effectivePagModeDoc === 'dynamic' && heightMissingDoc && (
+          <div className="bg-amber-50 border border-amber-300 rounded-md p-3 text-xs text-amber-800 flex gap-2">
+            <span className="mt-0.5 flex-shrink-0">⚠️</span>
+            <span><strong>Table Height is not set.</strong> All rows will render on one page and may overlap elements below. Set Table Height in Position &amp; Size.</span>
+          </div>
+        )}
         <p className="text-xs text-gray-600">
           Renders the full document index (same order as the Documents Index page). Data source: <code className="bg-gray-100 px-1 rounded">documentIndex.list</code>.
         </p>
@@ -2017,6 +2054,175 @@ export const ElementPropertiesPanel: React.FC<ElementPropertiesPanelProps> = ({
         </PropertySection>
 
         {renderPaginationControls(cbEl)}
+      </div>
+    );
+  }
+
+  if (element.type === 'training-table') {
+    const tableEl = element as TrainingTableElement;
+    const columns = (tableEl.columns && tableEl.columns.length > 0)
+      ? [...tableEl.columns].sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+      : TRAINING_TABLE_DEFAULT_COLUMNS.map((def, idx) => ({
+          id: def.id,
+          label: def.label,
+          visible: true,
+          width: def.defaultWidth,
+          align: 'left' as const,
+          order: idx,
+        }));
+    const updateColumns = (next: TrainingTableColumnDef[]) => {
+      const withOrder = next.map((c, i) => ({ ...c, order: i }));
+      onUpdate({ columns: withOrder });
+    };
+    const moveColumn = (index: number, dir: 'up' | 'down') => {
+      const newCols = [...columns];
+      const swap = dir === 'up' ? index - 1 : index + 1;
+      if (swap < 0 || swap >= newCols.length) return;
+      [newCols[index], newCols[swap]] = [newCols[swap], newCols[index]];
+      updateColumns(newCols);
+    };
+    const setColumn = (index: number, patch: Partial<TrainingTableColumnDef>) => {
+      const newCols = columns.map((c, i) => (i === index ? { ...c, ...patch } : c));
+      updateColumns(newCols);
+    };
+    return (
+      <div className="p-6 space-y-4" style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", "Roboto", sans-serif' }}>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-semibold text-sm text-gray-900">Training Records Table</h3>
+          {renderDeleteButton()}
+        </div>
+        <p className="text-xs text-gray-600">
+          Renders staff training records. Data source: <code className="bg-gray-100 px-1 rounded">training.records</code>.
+          Enable <strong>Dynamic</strong> pagination below so rows continue onto additional pages when the table overflows.
+        </p>
+
+        {/* Block 1: Position & Size */}
+        <PropertySection title="Position & Size">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">X Position</label>
+              <input
+                type="number"
+                value={tableEl.x ?? 0}
+                onChange={(e) => handleUpdate({ x: parseFloat(e.target.value) || 0 })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Y Position</label>
+              <input
+                type="number"
+                value={tableEl.y ?? 0}
+                onChange={(e) => handleUpdate({ y: parseFloat(e.target.value) || 0 })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md"
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4 mt-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Width (pt)</label>
+              <input
+                type="number"
+                min={100}
+                value={tableEl.width ?? 500}
+                onChange={(e) => handleUpdate({ width: parseFloat(e.target.value) || 500 })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Height (pt)</label>
+              <input
+                type="number"
+                min={40}
+                value={tableEl.height ?? 200}
+                onChange={(e) => handleUpdate({ height: parseFloat(e.target.value) || 200 })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md"
+              />
+              <p className="text-xs text-gray-500 mt-1">Viewport — overflow splits onto next pages.</p>
+            </div>
+          </div>
+        </PropertySection>
+
+        {/* Block 2: Columns */}
+        <PropertySection title="Columns">
+          <label className="block text-sm font-medium text-gray-700 mb-2">Columns (check to show, use ↑↓ to reorder)</label>
+          <div className="space-y-2 max-h-64 overflow-y-auto border border-gray-200 rounded-md p-2">
+            {columns.map((col, index) => (
+              <div key={col.id} className="flex items-center gap-2 flex-wrap border-b border-gray-100 pb-2 last:border-0">
+                <input
+                  type="checkbox"
+                  checked={col.visible !== false}
+                  onChange={(e) => setColumn(index, { visible: e.target.checked })}
+                  className="w-4 h-4"
+                />
+                <span className="text-sm font-medium text-gray-700 min-w-[120px]">{col.label}</span>
+                <div className="flex flex-col gap-0.5">
+                  <button type="button" onClick={() => moveColumn(index, 'up')} disabled={index === 0} className="w-6 h-5 flex items-center justify-center rounded border text-xs disabled:opacity-40">↑</button>
+                  <button type="button" onClick={() => moveColumn(index, 'down')} disabled={index === columns.length - 1} className="w-6 h-5 flex items-center justify-center rounded border text-xs disabled:opacity-40">↓</button>
+                </div>
+                <select
+                  value={(col as any).align || 'left'}
+                  onChange={(e) => setColumn(index, { align: e.target.value as 'left' | 'center' | 'right' })}
+                  className="px-2 py-1 text-xs border border-gray-300 rounded"
+                >
+                  <option value="left">Left</option>
+                  <option value="center">Center</option>
+                  <option value="right">Right</option>
+                </select>
+                <label className="flex items-center gap-1 text-xs">
+                  <span>Width:</span>
+                  <input
+                    type="number"
+                    min={20}
+                    value={col.width ?? 60}
+                    onChange={(e) => setColumn(index, { width: parseFloat(e.target.value) || 60 })}
+                    className="w-14 px-1 py-0.5 border border-gray-300 rounded text-xs"
+                  />
+                </label>
+              </div>
+            ))}
+          </div>
+        </PropertySection>
+
+        {/* Block 3: Style */}
+        <PropertySection title="Style">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Border Color</label>
+              <input type="color" value={tableEl.borderColor ?? '#000000'} onChange={(e) => handleUpdate({ borderColor: e.target.value })} className="w-full h-9 border border-gray-300 rounded-md" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Border Width</label>
+              <input type="number" min={0} max={5} step={0.5} value={tableEl.borderWidth ?? 0.5} onChange={(e) => handleUpdate({ borderWidth: parseFloat(e.target.value) || 0.5 })} className="w-full px-3 py-2 border border-gray-300 rounded-md" />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4 mt-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Cell Font Size</label>
+              <input type="number" min={6} max={14} value={tableEl.fontSize ?? 9} onChange={(e) => handleUpdate({ fontSize: parseInt(e.target.value, 10) || 9 })} className="w-full px-3 py-2 border border-gray-300 rounded-md" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Header Font Size</label>
+              <input type="number" min={6} max={14} value={tableEl.headerFontSize ?? 9} onChange={(e) => handleUpdate({ headerFontSize: parseInt(e.target.value, 10) || 9 })} className="w-full px-3 py-2 border border-gray-300 rounded-md" />
+            </div>
+          </div>
+          <div className="flex items-center gap-2 mt-3">
+            <input
+              type="checkbox"
+              checked={tableEl.headerStyle?.bold !== false}
+              onChange={(e) => handleUpdate({ headerStyle: { ...tableEl.headerStyle, bold: e.target.checked } })}
+              className="w-4 h-4"
+            />
+            <label className="text-sm text-gray-700">Header bold</label>
+          </div>
+          <div className="mt-3">
+            <label className="block text-sm font-medium text-gray-700 mb-1">Header Background</label>
+            <input type="color" value={tableEl.headerStyle?.backgroundColor ?? '#e5e7eb'} onChange={(e) => handleUpdate({ headerStyle: { ...tableEl.headerStyle, backgroundColor: e.target.value } })} className="w-full h-9 border border-gray-300 rounded-md" />
+          </div>
+        </PropertySection>
+
+        {/* Block 4: Overflow & Pagination */}
+        {renderPaginationControls(tableEl)}
       </div>
     );
   }

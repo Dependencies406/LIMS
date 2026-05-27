@@ -1,4 +1,4 @@
-import { db, doc, getDoc, setDoc, updateDoc } from './firebase';
+import { db, doc, getDoc, setDoc, updateDoc, increment } from './firebase';
 import type { CustomerIdSettings } from '../types';
 
 const CUSTOMER_ID_SETTINGS_DOC = 'system/customerIdSettings';
@@ -128,25 +128,15 @@ export const getNextCustomerId = async (): Promise<string> => {
 };
 
 /**
- * Increment the customer ID sequence after successfully saving a customer
- * Called after customer is saved to database
+ * Atomically increment the customer ID sequence after successfully saving a customer.
+ * Uses Firestore increment() to avoid read-modify-write race conditions when
+ * multiple users create customers concurrently.
  */
 export const incrementCustomerIdSequence = async (): Promise<void> => {
   try {
     const docRef = doc(db, CUSTOMER_ID_SETTINGS_DOC);
-    const docSnap = await getDoc(docRef);
-    
-    if (docSnap.exists()) {
-      const settings = docSnap.data() as CustomerIdSettings;
-      const nextSequence = settings.currentSequence + 1;
-      
-      // Only increment if sequence is within valid range
-      if (nextSequence <= 999) {
-        await updateDoc(docRef, { currentSequence: nextSequence });
-      } else {
-        console.warn('Customer ID sequence has reached maximum (999). Consider yearly reset or manual adjustment.');
-      }
-    }
+    // increment() is atomic — concurrent calls can never produce the same sequence number
+    await updateDoc(docRef, { currentSequence: increment(1) });
   } catch (error) {
     console.error('Error incrementing customer ID sequence:', error);
     throw error;

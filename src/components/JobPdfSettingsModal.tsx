@@ -126,9 +126,9 @@ export const JobPdfSettingsModal: React.FC<JobPdfSettingsModalProps> = ({
   const handleSelectAllServiceInfoFields = (checked: boolean) => {
     const newServiceInformationVisibility = {
       serviceRequested: checked,
-      reportingFormat: checked,
       statementOfConformity: checked,
-      statementOfConformityRequirements: checked
+      statementOfConformityRequirements: checked,
+      statementOfConformityReferencePdf: checked,
     };
 
     setSettings({

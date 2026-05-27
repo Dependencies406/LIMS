@@ -48,15 +48,17 @@ function docToRecord(id: string, data: Record<string, any>): TrainingRecord {
 }
 
 export const trainingRecordService = {
-  /** Get all training records for a specific staff member, sorted by completionDate desc. */
+  /** Get all training records for a specific staff member, sorted by createdAt desc. */
   async getRecordsForStaff(staffUid: string): Promise<TrainingRecord[]> {
+    // Use only the equality filter to avoid requiring a composite index.
+    // Sorting is done client-side — training records per staff member are small enough.
     const q = query(
       collection(db, COLLECTION),
       where('staffUid', '==', staffUid),
-      orderBy('createdAt', 'desc'),
     );
     const snap = await getDocs(q);
-    return snap.docs.map((d) => docToRecord(d.id, d.data() as Record<string, any>));
+    const records = snap.docs.map((d) => docToRecord(d.id, d.data() as Record<string, any>));
+    return records.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
   },
 
   /** Get all training records across all staff (for admin overview). */

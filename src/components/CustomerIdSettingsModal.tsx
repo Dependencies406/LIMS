@@ -1,11 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import type { CustomerIdSettings } from '../types';
 import { previewCustomerId, validateCustomerIdSettings } from '../services/customerIdService';
-import { InfoIcon, AlertTriangleIcon, XIcon, CheckIcon } from './common';
+import { AlertTriangleIcon, CheckIcon } from './common';
 
-// Inline icon – reuse HashIcon shape but with a person silhouette feel;
-// using the standard customer/ID card icon
-const CustomerIdIcon: React.FC<{ className?: string }> = ({ className = 'w-5 h-5' }) => (
+const CustomerIdIcon: React.FC<{ className?: string }> = ({ className = 'w-4 h-4' }) => (
   <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor"
     strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
     <rect x="2" y="5" width="20" height="14" rx="2" />
@@ -58,42 +56,42 @@ export const CustomerIdSettingsModal: React.FC<CustomerIdSettingsModalProps> = (
     onClose();
   };
 
-  const previewCurrent = previewCustomerId(settings);
-  const previewNext    = previewCustomerId({ ...settings, currentSequence: settings.currentSequence + 1 });
-
   if (!isOpen) return null;
+
+  const previewCurrent = previewCustomerId(settings);
+  const prefixPart = settings.prefix || 'PREFIX';
+  const yearPart   = settings.currentYear.toString().slice(-2);
+  const seqPart    = settings.currentSequence.toString().padStart(3, '0');
 
   return (
     <div className="modal" onClick={handleCancel}>
-      <div className="modal-content max-w-4xl" onClick={e => e.stopPropagation()}>
+      <div className="modal-content max-w-lg" onClick={e => e.stopPropagation()}>
 
-        {/* ── Header ─────────────────────────────────────────────────────────── */}
-        <div className="sticky top-0 z-10 bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="w-10 h-10 bg-teal-100 rounded-xl flex items-center justify-center flex-shrink-0">
-              <CustomerIdIcon className="w-5 h-5 text-teal-600" />
+        {/* ── Header ─────────────────────────────────────────── */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-8 h-8 bg-teal-50 rounded-lg flex items-center justify-center flex-shrink-0">
+              <CustomerIdIcon className="w-4 h-4 text-teal-600" />
             </div>
             <div className="min-w-0">
-              <h2 className="text-lg font-semibold text-gray-900 leading-tight">Customer ID Configuration</h2>
-              <p className="text-xs text-gray-400 mt-0.5">Configure the auto-generated customer ID format</p>
+              <h2 className="text-base font-semibold text-gray-900 leading-tight">Customer ID Format</h2>
+              <p className="text-xs text-gray-400 mt-0.5">Auto-generated customer ID configuration</p>
             </div>
           </div>
-
           <div className="flex items-center gap-2 flex-shrink-0">
             <button
               type="button"
               onClick={handleCancel}
               disabled={saving}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-200 bg-white text-sm text-gray-600 hover:bg-gray-50 hover:border-gray-300 transition-colors disabled:opacity-50"
+              className="px-3 py-1.5 rounded-lg border border-gray-200 text-sm text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-50"
             >
-              <XIcon className="w-3.5 h-3.5" />
               Cancel
             </button>
             <button
               type="button"
               onClick={handleSave}
               disabled={saving || errors.length > 0}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary-600 text-white text-sm font-medium hover:bg-primary-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary-600 text-white text-sm font-medium hover:bg-primary-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
               {saving ? (
                 <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
@@ -103,176 +101,116 @@ export const CustomerIdSettingsModal: React.FC<CustomerIdSettingsModalProps> = (
               ) : (
                 <CheckIcon className="w-3.5 h-3.5" />
               )}
-              {saving ? 'Saving…' : 'Save Changes'}
+              {saving ? 'Saving…' : 'Save'}
             </button>
           </div>
         </div>
 
-        {/* ── Body ────────────────────────────────────────────────────────────── */}
-        <div className="p-6">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {/* ── Body ───────────────────────────────────────────── */}
+        <div className="p-5 space-y-5">
 
-            {/* ── Left: Form fields ── */}
-            <div className="space-y-5">
-
-              {/* Validation banner */}
-              {errors.length > 0 && (
-                <div className="flex items-start gap-3 bg-red-50 border border-red-200 rounded-xl p-4">
-                  <AlertTriangleIcon className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
-                  <div>
-                    <p className="text-sm font-semibold text-red-800 mb-1">Validation Errors</p>
-                    <ul className="space-y-0.5">
-                      {errors.map((err, i) => <li key={i} className="text-xs text-red-700">{err}</li>)}
-                    </ul>
-                  </div>
-                </div>
-              )}
-
-              {/* Prefix */}
-              <div className="space-y-1.5">
-                <label className="block text-sm font-medium text-gray-700">
-                  Prefix <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={settings.prefix}
-                  onChange={e => handleChange('prefix', e.target.value)}
-                  className="input w-full font-mono tracking-widest uppercase"
-                  placeholder="CM"
-                  maxLength={10}
-                />
-                <p className="text-xs text-gray-400">Short abbreviation for customer IDs (max 10 chars)</p>
-              </div>
-
-              {/* Year & Sequence row */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="block text-sm font-medium text-gray-700">
-                    Current Year <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="number"
-                    value={settings.currentYear}
-                    onChange={e => handleChange('currentYear', parseInt(e.target.value) || 0)}
-                    className="input w-full font-mono"
-                    min="2000"
-                    max="2099"
-                  />
-                  <p className="text-xs text-gray-400">Last 2 digits used in ID</p>
-                </div>
-                <div className="space-y-1.5">
-                  <label className="block text-sm font-medium text-gray-700">
-                    Next Sequence <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="number"
-                    value={settings.currentSequence}
-                    onChange={e => handleChange('currentSequence', parseInt(e.target.value) || 0)}
-                    className="input w-full font-mono"
-                    min="1"
-                    max="999"
-                  />
-                  <p className="text-xs text-gray-400">Range 1 – 999</p>
-                </div>
-              </div>
-
-              {/* Yearly Reset toggle */}
-              <div className="flex items-center justify-between px-4 py-3.5 bg-gray-50 rounded-xl border border-gray-100">
-                <div>
-                  <p className="text-sm font-medium text-gray-700">Automatic Yearly Reset</p>
-                  <p className="text-xs text-gray-400 mt-0.5">Resets sequence to 1 on new year</p>
-                </div>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={settings.yearlyReset}
-                  onClick={() => handleChange('yearlyReset', !settings.yearlyReset)}
-                  className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 ${
-                    settings.yearlyReset ? 'bg-primary-600' : 'bg-gray-200'
-                  }`}
-                >
-                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform duration-200 ${
-                    settings.yearlyReset ? 'translate-x-6' : 'translate-x-1'
-                  }`} />
-                </button>
-              </div>
-
-              {/* Warning note */}
-              <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-xl p-4">
-                <AlertTriangleIcon className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
-                <div>
-                  <p className="text-sm font-semibold text-amber-900 mb-1">Heads Up</p>
-                  <ul className="text-xs text-amber-800 space-y-1">
-                    <li>• Changes only apply to new customers – existing IDs are never modified</li>
-                    <li>• The sequence counter increments automatically with each new customer</li>
-                    <li>• Avoid gaps in the sequence to prevent duplicate IDs</li>
-                  </ul>
-                </div>
-              </div>
+          {/* Validation errors */}
+          {errors.length > 0 && (
+            <div className="flex items-start gap-2.5 bg-red-50 border border-red-200 rounded-lg p-3">
+              <AlertTriangleIcon className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
+              <ul className="space-y-0.5">
+                {errors.map((err, i) => (
+                  <li key={i} className="text-xs text-red-700">{err}</li>
+                ))}
+              </ul>
             </div>
+          )}
 
-            {/* ── Right: Live preview ── */}
-            <div className="space-y-4">
-
-              {/* Live label */}
-              <div className="flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-                <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Live Preview</span>
-              </div>
-
-              {/* Format card */}
-              <div className="flex items-start gap-3 bg-blue-50 border border-blue-100 rounded-xl p-4">
-                <InfoIcon className="w-4 h-4 text-blue-500 flex-shrink-0 mt-0.5" />
-                <div>
-                  <p className="text-xs font-semibold text-blue-700 mb-1.5">ID Format</p>
-                  <code className="text-xs font-mono bg-blue-100 text-blue-800 px-2.5 py-1 rounded-lg">
-                    [PREFIX]-[YY][XXX]
-                  </code>
-                </div>
-              </div>
-
-              {/* Current ID */}
-              <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
-                <div className="px-5 pt-4 pb-1">
-                  <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Next Customer Will Be</p>
-                </div>
-                <div className="px-5 pb-4">
-                  <div className="mt-2 rounded-lg bg-teal-50 border border-teal-200 px-5 py-4 flex items-center justify-between">
-                    <code className="font-mono text-2xl font-bold text-teal-700 tracking-wider">
-                      {previewCurrent}
-                    </code>
-                    <span className="w-2 h-2 rounded-full bg-teal-400 animate-pulse flex-shrink-0" />
-                  </div>
-                </div>
-                <div className="border-t border-gray-100 px-5 py-3.5 flex items-center justify-between">
-                  <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Customer After That</p>
-                  <code className="font-mono text-base text-gray-500">{previewNext}</code>
-                </div>
-              </div>
-
-              {/* Format breakdown */}
-              <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
-                <div className="px-5 py-3 border-b border-gray-100">
-                  <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Format Breakdown</p>
-                </div>
-                <div className="divide-y divide-gray-100">
-                  {[
-                    { label: 'Prefix',          value: settings.prefix || 'PREFIX' },
-                    { label: 'Year (2 digits)',  value: settings.currentYear.toString().slice(-2) },
-                    { label: 'Sequence',         value: settings.currentSequence.toString().padStart(3, '0') },
-                  ].map(({ label, value }) => (
-                    <div key={label} className="flex items-center justify-between px-5 py-2.5">
-                      <span className="text-xs text-gray-500">{label}</span>
-                      <code className="text-xs font-mono font-semibold text-teal-600 bg-teal-50 px-2 py-0.5 rounded">
-                        {value}
-                      </code>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
+          {/* ── Live preview ─────────────────────────────────── */}
+          <div className="rounded-xl bg-gray-50 border border-gray-200 p-4">
+            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-2">Next customer ID</p>
+            <p className="font-mono text-3xl font-bold text-gray-900 tracking-wider leading-none">
+              {previewCurrent}
+            </p>
+            <div className="flex items-center gap-1 mt-3 flex-wrap">
+              <span className="font-mono text-xs font-semibold text-teal-600 bg-teal-50 border border-teal-100 px-1.5 py-0.5 rounded"
+                title="Prefix">{prefixPart}</span>
+              <span className="text-xs text-gray-300">–</span>
+              <span className="font-mono text-xs font-semibold text-amber-600 bg-amber-50 border border-amber-100 px-1.5 py-0.5 rounded"
+                title="Year (last 2 digits)">{yearPart}</span>
+              <span className="font-mono text-xs font-semibold text-emerald-600 bg-emerald-50 border border-emerald-100 px-1.5 py-0.5 rounded"
+                title="Sequence number">{seqPart}</span>
             </div>
           </div>
+
+          {/* ── Form ─────────────────────────────────────────── */}
+          <div className="space-y-4">
+
+            {/* Prefix */}
+            <div className="space-y-1">
+              <label className="block text-xs font-medium text-gray-600">Prefix</label>
+              <input
+                type="text"
+                value={settings.prefix}
+                onChange={e => handleChange('prefix', e.target.value.toUpperCase())}
+                className="input w-full font-mono text-sm tracking-widest"
+                placeholder="CM"
+                maxLength={10}
+              />
+              <p className="text-[10px] text-gray-400">Shown in{' '}
+                <span className="font-mono font-semibold text-teal-600">{prefixPart}</span> · max 10 chars
+              </p>
+            </div>
+
+            {/* Year & Sequence */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="block text-xs font-medium text-gray-600">Year</label>
+                <input
+                  type="number"
+                  value={settings.currentYear}
+                  onChange={e => handleChange('currentYear', parseInt(e.target.value) || 0)}
+                  className="input w-full font-mono text-sm"
+                  min="2000"
+                  max="2099"
+                />
+                <p className="text-[10px] text-gray-400">Last 2 digits → <span className="font-mono font-semibold text-amber-600">{yearPart}</span></p>
+              </div>
+              <div className="space-y-1">
+                <label className="block text-xs font-medium text-gray-600">Next sequence</label>
+                <input
+                  type="number"
+                  value={settings.currentSequence}
+                  onChange={e => handleChange('currentSequence', parseInt(e.target.value) || 0)}
+                  className="input w-full font-mono text-sm"
+                  min="1"
+                  max="999"
+                />
+                <p className="text-[10px] text-gray-400">1–999 → <span className="font-mono font-semibold text-emerald-600">{seqPart}</span></p>
+              </div>
+            </div>
+
+            {/* Yearly reset toggle */}
+            <div className="flex items-center justify-between py-3 border-t border-gray-100">
+              <div>
+                <p className="text-sm font-medium text-gray-700">Auto-reset sequence yearly</p>
+                <p className="text-xs text-gray-400 mt-0.5">Restarts at 001 each new year</p>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={settings.yearlyReset}
+                onClick={() => handleChange('yearlyReset', !settings.yearlyReset)}
+                className={`relative inline-flex h-5 w-9 flex-shrink-0 items-center rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-1 ${
+                  settings.yearlyReset ? 'bg-primary-600' : 'bg-gray-200'
+                }`}
+              >
+                <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow-sm transition-transform duration-200 ${
+                  settings.yearlyReset ? 'translate-x-4' : 'translate-x-0.5'
+                }`} />
+              </button>
+            </div>
+          </div>
+
+          {/* ── Footer note ──────────────────────────────────── */}
+          <p className="text-[11px] text-gray-400 leading-relaxed">
+            Changes apply to new customers only — existing IDs are never modified. The counter increments automatically after each customer is created.
+          </p>
         </div>
       </div>
     </div>

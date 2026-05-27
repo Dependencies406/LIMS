@@ -84,6 +84,8 @@ export const templateSchema = z.object({
   createdAt: z.date().optional(),
   updatedAt: z.date().optional(),
   version: z.number().default(1),
+  tabs: z.array(z.any()).optional(),
+  columnOrder: z.array(z.string()).optional(),
 });
 
 export type TemplateSchema = z.infer<typeof templateSchema>;

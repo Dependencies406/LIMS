@@ -70,7 +70,7 @@ export const staffDocumentService = {
 
   /**
    * Upload a file to Firebase Storage then save metadata to Firestore.
-   * `onProgress` is called with 0â€“100 as the upload proceeds.
+   * `onProgress` is called with 0–100 as the upload proceeds.
    */
   uploadDocument(
     staffUid: string,

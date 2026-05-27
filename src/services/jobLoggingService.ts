@@ -44,7 +44,7 @@ export const jobLoggingService = {
 
   async logStaffAction(
     staffId: string,
-    action: JobAssignmentLog['action'],
+    action: string,
     jobId: string,
     details?: Record<string, unknown>,
     actor?: User | null
@@ -76,11 +76,12 @@ export const jobLoggingService = {
           jobId: data.jobId,
           action: data.action,
           details: data.details || undefined,
+          performedBy: data.userId || 'system',
           userId: data.userId || 'system',
           userName: data.userName || 'System',
           userEmail: data.userEmail || '',
           timestamp: toDate(data.timestamp),
-        } as JobActionLog;
+        } as unknown as JobActionLog;
       });
     } catch (error: any) {
       // Re-throw index errors so they can be handled gracefully by the caller
@@ -93,7 +94,7 @@ export const jobLoggingService = {
     }
   },
 
-  async getStaffLogs(staffId: string): Promise<JobAssignmentLog[]> {
+  async getStaffLogs(staffId: string): Promise<JobActionLog[]> {
     const q = query(
       collection(db, 'staffLogs', staffId, 'actions'),
       orderBy('timestamp', 'desc')
@@ -104,13 +105,15 @@ export const jobLoggingService = {
       const data = doc.data();
       return {
         id: doc.id,
-        action: data.action,
-        details: data.details || undefined,
-        userId: data.userId || 'system',
+        jobId: data.jobId || '',
+        action: data.action || '',
+        performedBy: data.userId || 'system',
+        performedByName: data.userName || 'System',
         userName: data.userName || 'System',
         userEmail: data.userEmail || '',
         timestamp: toDate(data.timestamp),
-      } as JobAssignmentLog;
+        details: data.details || undefined,
+      } as JobActionLog;
     });
   },
 

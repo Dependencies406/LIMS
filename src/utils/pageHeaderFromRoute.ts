@@ -9,7 +9,7 @@ export type NavSectionDisplay = {
    * If omitted, Layout falls back to the app database mark.
    */
   iconKey?: string;
-  /** @deprecated use iconKey â€” kept for any consumers that still read this */
+  /** @deprecated use iconKey — kept for any consumers that still read this */
   iconEmoji?: string;
 };
 

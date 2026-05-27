@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../hooks/useToast';
-import { equipmentService, EQUIPMENT_CATEGORIES } from '../../services/equipmentService';
+import { equipmentControlService as equipmentService, EQUIPMENT_CATEGORIES } from '../../services/equipmentControlService';
 import { useEquipment } from '../../hooks/useEquipment';
 import type { EquipmentDocument } from '../../types';
 

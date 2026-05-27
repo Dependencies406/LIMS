@@ -57,17 +57,19 @@ export const PendingJobsPage: React.FC = () => {
       const { getNextJobId, incrementJobIdSequence } = await import('../services/jobIdService');
       const jobId = await getNextJobId();
 
-      // Prefer code captured on the public form; else match directory by company name
+      // Prefer code captured on the service request; else fall back to name match.
+      // Trim everything to avoid whitespace mismatches that silently break linking.
       let customerCode = (request.customerCode || '').trim();
       if (!customerCode) {
         try {
           const { customerService } = await import('../services/customerService');
           const customers = await customerService.getAllCustomers();
+          const requestName = (request.customerCompanyName || request.customerName || '').trim().toLowerCase();
           const customer = customers.find(
-            c => c.name.toLowerCase() === (request.customerCompanyName || request.customerName || '').toLowerCase()
+            c => c.name.trim().toLowerCase() === requestName
           );
           if (customer) {
-            customerCode = customer.customerCode || (customer as any).customerId || '';
+            customerCode = (customer.customerCode || (customer as any).customerId || '').trim();
           }
         } catch (err) {
           console.error('Error finding customer:', err);
@@ -413,6 +415,24 @@ export const PendingJobsPage: React.FC = () => {
                               <span className="font-medium">
                                 {[eq.unit, eq.resolution].filter(Boolean).join(' · ')}
                               </span>
+                            </div>
+                          )}
+                          {eq.accessories && (
+                            <div className="mt-1">
+                              <span className="text-gray-500">Accessories:</span>{' '}
+                              <span className="font-medium">{eq.accessories}</span>
+                            </div>
+                          )}
+                          {eq.machineLocation && (
+                            <div className="mt-1">
+                              <span className="text-gray-500">Location:</span>{' '}
+                              <span className="font-medium">{eq.machineLocation}</span>
+                            </div>
+                          )}
+                          {eq.calibrationDate && (
+                            <div className="mt-1">
+                              <span className="text-gray-500">Last calibration date:</span>{' '}
+                              <span className="font-medium">{eq.calibrationDate}</span>
                             </div>
                           )}
                           {eq.assetTag && (

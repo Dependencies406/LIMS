@@ -40,7 +40,10 @@ export interface JobInput {
   assignedStaff?: string;
   equipment: Job['equipment'];
   startDate?: string;
+  receivedDate?: string;
   appointmentDate?: string;
+  expectedFinishDate?: string;
+  completedDate?: string;
   comments?: string;
   poNumber?: string;
   customerName?: string;
@@ -49,6 +52,10 @@ export interface JobInput {
   customerEmail?: string;
   serviceInformation?: Job['serviceInformation'];
   workAuthorization?: Job['workAuthorization'];
+  pdfTemplateId?: string;
+  certificateNumber?: string;
+  parentJobId?: string;
+  isDeleted?: boolean;
 }
 
 /**
@@ -205,7 +212,7 @@ export const jobService = {
 
       updateData.updatedAt = serverTimestamp();
 
-      await updateDoc(doc(db, 'jobs', id), removeUndefinedForFirestore(updateData));
+      await updateDoc(doc(db, 'jobs', id), removeUndefinedForFirestore(updateData) as any);
     } catch (error) {
       console.error('Error updating job:', error);
       throw error;
@@ -268,6 +275,30 @@ export const jobService = {
   filterJobsByStatus(jobs: Job[], status: string): Job[] {
     if (status === 'all') return jobs;
     return jobs.filter((job) => job.status === status);
+  },
+
+  /**
+   * Assign a job to a staff member
+   */
+  async assignJob(
+    jobId: string,
+    staffId: string,
+    assignedBy: string,
+    expectedFinishDate?: string
+  ): Promise<void> {
+    try {
+      const updateData: Record<string, unknown> = {
+        assignedStaff: staffId,
+        updatedAt: serverTimestamp(),
+      };
+      if (expectedFinishDate) {
+        updateData.expectedFinishDate = expectedFinishDate;
+      }
+      await updateDoc(doc(db, 'jobs', jobId), updateData as any);
+    } catch (error) {
+      console.error('Error assigning job:', error);
+      throw error;
+    }
   },
 };
 

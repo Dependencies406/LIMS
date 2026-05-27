@@ -13,6 +13,7 @@ import {
   type BackupResult,
   type BackupHistoryEntry,
 } from '../services/driveBackupService';
+import { DownloadIcon, XIcon, AlertTriangleIcon, CheckIcon, InfoIcon } from './common';
 
 interface DriveBackupModalProps {
   isOpen: boolean;
@@ -99,36 +100,32 @@ export const DriveBackupModal: React.FC<DriveBackupModalProps> = ({ isOpen, onCl
         onClick={(e) => e.stopPropagation()}
       >
         {/* ── Header ──────────────────────────────────────────────── */}
-        <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-          <div>
-            <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-              <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                  d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-              </svg>
-              Backup &amp; Export
-            </h2>
-            <p className="text-sm text-gray-500 mt-0.5">
-              Download all job data and attachment files as a ZIP archive.
-            </p>
+        <div className="sticky top-0 z-10 bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-10 h-10 bg-teal-100 rounded-xl flex items-center justify-center flex-shrink-0">
+              <DownloadIcon className="w-5 h-5 text-teal-600" />
+            </div>
+            <div className="min-w-0">
+              <h2 className="text-lg font-semibold text-gray-900 leading-tight">Backup &amp; Export</h2>
+              <p className="text-xs text-gray-400 mt-0.5">Download all job data and attachments as a ZIP archive</p>
+            </div>
           </div>
           <button
+            type="button"
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 text-2xl leading-none"
             disabled={status === 'running'}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-200 bg-white text-sm text-gray-600 hover:bg-gray-50 hover:border-gray-300 transition-colors disabled:opacity-50 flex-shrink-0"
           >
-            ×
+            <XIcon className="w-3.5 h-3.5" />
+            Close
           </button>
         </div>
 
         <div className="p-6 space-y-6 overflow-y-auto max-h-[80vh]">
 
           {/* ── Info box ────────────────────────────────────────── */}
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex gap-3">
-            <svg className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
+          <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex gap-3">
+            <InfoIcon className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
             <div className="text-sm text-blue-800 space-y-1">
               <p className="font-medium">What's included in the backup?</p>
               <ul className="text-xs text-blue-700 space-y-0.5 list-disc list-inside">
@@ -159,7 +156,7 @@ export const DriveBackupModal: React.FC<DriveBackupModalProps> = ({ isOpen, onCl
 
           {/* ── Progress ─────────────────────────────────────────── */}
           {status === 'running' && (
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-3">
+            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 space-y-3">
               <div className="flex items-center gap-3">
                 <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600 flex-shrink-0" />
                 <div className="flex-1 min-w-0">
@@ -194,11 +191,9 @@ export const DriveBackupModal: React.FC<DriveBackupModalProps> = ({ isOpen, onCl
 
           {/* ── Success ──────────────────────────────────────────── */}
           {status === 'success' && result && (
-            <div className="bg-green-50 border border-green-200 rounded-lg p-4 space-y-3">
+            <div className="bg-green-50 border border-green-200 rounded-xl p-4 space-y-3">
               <div className="flex items-start gap-2">
-                <svg className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
+                <CheckIcon className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
                 <div>
                   <p className="text-sm font-semibold text-green-900">Backup downloaded successfully</p>
                   <p className="text-xs text-green-700 mt-0.5">
@@ -227,11 +222,8 @@ export const DriveBackupModal: React.FC<DriveBackupModalProps> = ({ isOpen, onCl
 
           {/* ── Error ────────────────────────────────────────────── */}
           {status === 'error' && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-start gap-2">
-              <svg className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                  d="M12 9v2m0 4h.01M12 5a7 7 0 100 14A7 7 0 0012 5z" />
-              </svg>
+            <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-start gap-2">
+              <AlertTriangleIcon className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
               <div>
                 <p className="text-sm font-semibold text-red-900">Export failed</p>
                 <p className="text-xs text-red-700 mt-0.5">{errorMsg}</p>
@@ -292,32 +284,33 @@ export const DriveBackupModal: React.FC<DriveBackupModalProps> = ({ isOpen, onCl
         </div>
 
         {/* ── Footer ──────────────────────────────────────────────── */}
-        <div className="sticky bottom-0 bg-white border-t border-gray-200 px-6 py-4 flex justify-end gap-3">
+        <div className="sticky bottom-0 bg-white border-t border-gray-100 px-6 py-4 flex justify-end gap-3">
           <button
             type="button"
             onClick={onClose}
-            className="btn btn-secondary"
             disabled={status === 'running'}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-200 bg-white text-sm text-gray-600 hover:bg-gray-50 hover:border-gray-300 transition-colors disabled:opacity-50"
           >
+            <XIcon className="w-3.5 h-3.5" />
             Close
           </button>
           <button
             type="button"
             onClick={handleDownload}
             disabled={status === 'running'}
-            className="btn btn-primary flex items-center gap-2"
+            className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-teal-600 text-white text-sm font-medium hover:bg-teal-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {status === 'running' ? (
               <>
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
+                <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                </svg>
                 Running…
               </>
             ) : (
               <>
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                    d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                </svg>
+                <DownloadIcon className="w-3.5 h-3.5" />
                 Download Backup
               </>
             )}

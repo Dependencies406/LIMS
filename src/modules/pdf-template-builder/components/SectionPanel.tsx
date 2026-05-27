@@ -10,8 +10,11 @@ import type { PdfElementType } from '../types';
 
 export interface SectionPanelProps {
   selectedSectionId: string | null;
-  onSectionSelect: (sectionId: string) => void;
+  onSectionSelect: (sectionId: string | null) => void;
   onComponentAdd: (element: any) => void;
+  /** Currently placed elements on the active page (used by parent for context) */
+  currentElements?: any[];
+  className?: string;
 }
 
 export const SectionPanel: React.FC<SectionPanelProps> = ({

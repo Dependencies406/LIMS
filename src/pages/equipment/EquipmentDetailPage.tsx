@@ -28,12 +28,12 @@ function toAttachment(doc: EquipmentDocument): EquipmentAttachment {
 type Tab = 'overview' | 'documents' | 'usage-logs' | 'calibration' | 'history';
 
 function formatDate(d?: string): string {
-  if (!d) return 'â€”';
+  if (!d) return '—';
   return new Date(d).toLocaleDateString('en-GB');
 }
 
 function formatTs(d?: Date): string {
-  if (!d) return 'â€”';
+  if (!d) return '—';
   return (
     d.toLocaleDateString('en-GB') +
     ' ' +
@@ -41,7 +41,7 @@ function formatTs(d?: Date): string {
   );
 }
 
-// â”€â”€â”€ Shared sub-components â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Shared sub-components ────────────────────────────────────────────────────
 
 function SectionCard({ children, className = '' }: { children: React.ReactNode; className?: string }) {
   return (
@@ -81,7 +81,7 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
-// â”€â”€â”€ Overview Tab â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Overview Tab ─────────────────────────────────────────────────────────────
 
 function OverviewTab({
   eq,
@@ -115,7 +115,7 @@ function OverviewTab({
 
   const resolveName = (uid: string) => userMap.get(uid) || uid;
   const custodianDisplay = eq.custodianName || resolveName(eq.custodian);
-  const authorizedDisplay = eq.authorizedUsers.map(resolveName).join(', ') || 'â€”';
+  const authorizedDisplay = eq.authorizedUsers.map(resolveName).join(', ') || '—';
 
   async function handleSave() {
     setSaving(true);
@@ -200,7 +200,7 @@ function OverviewTab({
               disabled={saving}
               className="px-5 py-2 bg-primary-600 text-white text-sm font-semibold rounded-lg hover:bg-primary-700 disabled:opacity-40 transition-colors"
             >
-              {saving ? 'Savingâ€¦' : 'Save Changes'}
+              {saving ? 'Saving…' : 'Save Changes'}
             </button>
           </div>
         </SectionCard>
@@ -269,9 +269,9 @@ function OverviewTab({
             <>
               <FieldRow
                 label="Interval"
-                value={eq.calibrationInterval ? `${eq.calibrationInterval} months` : 'â€”'}
+                value={eq.calibrationInterval ? `${eq.calibrationInterval} months` : '—'}
               />
-              <FieldRow label="Procedure" value={eq.calibrationProcedure || 'â€”'} />
+              <FieldRow label="Procedure" value={eq.calibrationProcedure || '—'} />
               <FieldRow
                 label="External Provider"
                 value={eq.externalProvider ? 'Yes' : 'No'}
@@ -296,7 +296,7 @@ function OverviewTab({
                       {formatDate(eq.nextCalibrationDate)}
                     </span>
                   ) : (
-                    'â€”'
+                    '—'
                   )
                 }
               />
@@ -316,22 +316,22 @@ function OverviewTab({
   );
 }
 
-// â”€â”€â”€ Documents Tab â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Documents Tab ───────────────────────────────────────────────────────────
 
 const DOC_LABELS: Partial<Record<EquipmentDocument['docType'], string>> = {
-  verification: 'LAB-FM-QP-05-001 â€” Verification',
-  registration: 'LAB-FM-QP-05-002 â€” Registration Request',
+  verification: 'LAB-FM-QP-05-001 — Verification',
+  registration: 'LAB-FM-QP-05-002 — Registration Request',
   spec_sheet: 'Specification Sheet',
   certificate: 'Calibration Certificate',
-  retirement: 'LAB-FM-QP-05-008 â€” Retirement Request',
+  retirement: 'LAB-FM-QP-05-008 — Retirement Request',
 };
 
 const DOC_ICONS: Partial<Record<EquipmentDocument['docType'], string>> = {
-  verification: 'âœ“',
-  registration: 'ðŸ“‹',
-  spec_sheet: 'ðŸ“„',
-  certificate: 'ðŸ…',
-  retirement: 'ðŸ—„ï¸',
+  verification: '✓',
+  registration: '📋',
+  spec_sheet: '📄',
+  certificate: '🏅',
+  retirement: '🗄️',
 };
 
 function DocumentsTab({
@@ -422,7 +422,7 @@ function DocumentsTab({
                   {uploading === docType ? (
                     <>
                       <span className="inline-block w-3 h-3 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
-                      Uploadingâ€¦
+                      Uploading…
                     </>
                   ) : (
                     '+ Upload'
@@ -466,7 +466,7 @@ function DocumentsTab({
                           disabled={deleting === d.id}
                           className="text-xs font-medium text-red-500 hover:text-red-700 disabled:opacity-40 transition-colors"
                         >
-                          {deleting === d.id ? 'â€¦' : 'Delete'}
+                          {deleting === d.id ? '…' : 'Delete'}
                         </button>
                       )}
                     </div>
@@ -481,7 +481,7 @@ function DocumentsTab({
   );
 }
 
-// â”€â”€â”€ Usage Logs Tab â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Usage Logs Tab ───────────────────────────────────────────────────────────
 
 function UsageLogsTab({
   equipmentId,
@@ -521,7 +521,7 @@ function UsageLogsTab({
                   : 'text-red-600'
               }`}
             >
-              {passRate !== null ? `${passRate}%` : 'â€”'}
+              {passRate !== null ? `${passRate}%` : '—'}
             </p>
             <p className="text-xs text-gray-500 mt-0.5">Pass Rate</p>
           </SectionCard>
@@ -555,7 +555,7 @@ function UsageLogsTab({
               to={`/equipment/${equipmentId}/usage-log/new`}
               className="inline-block mt-3 text-xs font-medium text-primary-600 hover:underline"
             >
-              Record first usage â†’
+              Record first usage →
             </Link>
           </div>
         ) : (
@@ -576,7 +576,7 @@ function UsageLogsTab({
                         : 'bg-red-100 text-red-700'
                     }`}
                   >
-                    {log.overallResult === 'pass' ? 'âœ“' : 'âœ—'} {log.overallResult.toUpperCase()}
+                    {log.overallResult === 'pass' ? '✓' : '✗'} {log.overallResult.toUpperCase()}
                   </span>
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
@@ -597,7 +597,7 @@ function UsageLogsTab({
                         {log.equipmentCondition === 'abnormal' && log.abnormalDetails
                           ? `Abnormal: ${log.abnormalDetails}`
                           : 'One or more checks failed'}
-                        {log.actionTaken ? ` Â· ${log.actionTaken}` : ''}
+                        {log.actionTaken ? ` · ${log.actionTaken}` : ''}
                       </p>
                     )}
                   </div>
@@ -615,7 +615,7 @@ function UsageLogsTab({
                       disabled={deletingId === log.id}
                       className="text-xs font-medium text-red-500 hover:text-red-700 disabled:opacity-40 transition-colors"
                     >
-                      {deletingId === log.id ? 'â€¦' : 'Delete'}
+                      {deletingId === log.id ? '…' : 'Delete'}
                     </button>
                   </div>
                 )}
@@ -631,7 +631,7 @@ function UsageLogsTab({
               to={`/equipment/${equipmentId}/usage-log`}
               className="text-xs font-medium text-primary-600 hover:text-primary-800 transition-colors"
             >
-              View full history â†’
+              View full history →
             </Link>
           </div>
         )}
@@ -640,7 +640,7 @@ function UsageLogsTab({
   );
 }
 
-// â”€â”€â”€ Calibration Tab â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Calibration Tab ─────────────────────────────────────────────────────────
 
 function CalibrationTab({
   events,
@@ -656,6 +656,7 @@ function CalibrationTab({
   const [adding, setAdding] = useState(false);
   const [form, setForm] = useState({
     sentDate: '',
+    calibrationDate: '',
     receivedDate: '',
     calibrationLab: '',
     certificateNumber: '',
@@ -675,6 +676,7 @@ function CalibrationTab({
       await onAdd({
         equipmentId,
         sentDate: form.sentDate,
+        calibrationDate: form.calibrationDate || undefined,
         receivedDate: form.receivedDate || undefined,
         calibrationLab: form.calibrationLab,
         certificateNumber: form.certificateNumber || undefined,
@@ -687,7 +689,7 @@ function CalibrationTab({
       success('Calibration event recorded');
       setAdding(false);
       setForm({
-        sentDate: '', receivedDate: '', calibrationLab: '', certificateNumber: '',
+        sentDate: '', calibrationDate: '', receivedDate: '', calibrationLab: '', certificateNumber: '',
         result: '', conditionBeforeSend: '', conditionAfterReceive: '', notes: '',
       });
     } catch (err: unknown) {
@@ -727,6 +729,18 @@ function CalibrationTab({
               />
             </div>
             <div>
+              <label className="block text-xs font-semibold text-gray-600 mb-1.5">
+                Calibration Date
+                <span className="ml-1 text-xs font-normal text-gray-400">(used to compute next due)</span>
+              </label>
+              <input
+                type="date"
+                value={form.calibrationDate}
+                onChange={(e) => setForm((f) => ({ ...f, calibrationDate: e.target.value }))}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+              />
+            </div>
+            <div>
               <label className="block text-xs font-semibold text-gray-600 mb-1.5">Received Date</label>
               <input
                 type="date"
@@ -743,7 +757,7 @@ function CalibrationTab({
                 type="text"
                 value={form.calibrationLab}
                 onChange={(e) => setForm((f) => ({ ...f, calibrationLab: e.target.value }))}
-                placeholder="Lab name or providerâ€¦"
+                placeholder="Lab name or provider…"
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
               />
             </div>
@@ -764,7 +778,7 @@ function CalibrationTab({
                 onChange={(e) => setForm((f) => ({ ...f, result: e.target.value as any }))}
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
               >
-                <option value="">â€” Select result â€”</option>
+                <option value="">— Select result —</option>
                 <option value="pass">Pass</option>
                 <option value="fail">Fail</option>
               </select>
@@ -809,7 +823,7 @@ function CalibrationTab({
               disabled={!form.sentDate || !form.calibrationLab || saving}
               className="px-5 py-2 bg-primary-600 text-white text-sm font-semibold rounded-lg hover:bg-primary-700 disabled:opacity-40 transition-colors"
             >
-              {saving ? 'Savingâ€¦' : 'Save Event'}
+              {saving ? 'Saving…' : 'Save Event'}
             </button>
           </div>
         </SectionCard>
@@ -879,7 +893,7 @@ function CalibrationTab({
   );
 }
 
-// â”€â”€â”€ History Tab â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── History Tab ──────────────────────────────────────────────────────────────
 
 function HistoryTab({ equipment }: { equipment: EquipmentRecord }) {
   const events = [
@@ -909,14 +923,14 @@ function HistoryTab({ equipment }: { equipment: EquipmentRecord }) {
       </div>
       <div className="px-5 py-3 border-t border-gray-100">
         <p className="text-xs text-gray-400">
-          Full audit trail tracking â€” status changes, approvals, and document uploads.
+          Full audit trail tracking — status changes, approvals, and document uploads.
         </p>
       </div>
     </SectionCard>
   );
 }
 
-// â”€â”€â”€ Main Page â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Main Page ───────────────────────────────────────────────────────────────
 
 export const EquipmentDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -999,12 +1013,27 @@ export const EquipmentDetailPage: React.FC = () => {
     success(`${doc.name} deleted`);
   }
 
+  async function handlePreviewRecord() {
+    if (!equipment) return;
+    try {
+      const { generateEquipmentDatasheetBytes } = await import('../../services/equipmentExportService');
+      const bytes = await generateEquipmentDatasheetBytes(equipment, calibrationEvents);
+      const blob = new Blob([bytes], { type: 'application/pdf' });
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank');
+      setTimeout(() => URL.revokeObjectURL(url), 30_000);
+    } catch (err) {
+      showError('Failed to generate equipment record PDF');
+      console.error(err);
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex-1 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto mb-4" />
-          <p className="text-sm text-gray-500">Loading equipmentâ€¦</p>
+          <p className="text-sm text-gray-500">Loading equipment…</p>
         </div>
       </div>
     );
@@ -1028,9 +1057,9 @@ export const EquipmentDetailPage: React.FC = () => {
 
   return (
     <div className="flex-1 overflow-auto bg-gray-50">
-      {/* â”€â”€ Page Header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      {/* ── Page Header ─────────────────────────────────────────────────── */}
       <div className="bg-white border-b border-gray-200">
-        <div className="px-6 pt-4 pb-0">
+        <div className="max-w-6xl mx-auto px-6 pt-4 pb-0">
           {/* Breadcrumb */}
           <div className="flex items-center gap-2 text-sm mb-3">
             <button
@@ -1065,15 +1094,25 @@ export const EquipmentDetailPage: React.FC = () => {
                 <p className="text-sm text-gray-600 mt-0.5">{equipment.name}</p>
                 <p className="text-xs text-gray-400 mt-0.5">
                   {equipment.category}
-                  {equipment.manufacturer ? ` Â· ${equipment.manufacturer}` : ''}
+                  {equipment.manufacturer ? ` · ${equipment.manufacturer}` : ''}
                   {equipment.model ? ` ${equipment.model}` : ''}
-                  {equipment.location ? ` Â· ${equipment.location}` : ''}
+                  {equipment.location ? ` · ${equipment.location}` : ''}
                 </p>
               </div>
             </div>
 
             {/* Actions */}
             <div className="flex items-center gap-2 flex-shrink-0">
+              <button
+                onClick={handlePreviewRecord}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-gray-300 text-sm font-medium text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                </svg>
+                Preview Record
+              </button>
               <Link
                 to={`/equipment/${id}/usage-log/new`}
                 className="px-3 py-1.5 border border-gray-300 text-sm font-medium text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
@@ -1121,8 +1160,8 @@ export const EquipmentDetailPage: React.FC = () => {
         </div>
       </div>
 
-      {/* â”€â”€ Tab Content â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
-      <div className="px-6 py-5 max-w-4xl">
+      {/* ── Tab Content ──────────────────────────────────────────────────── */}
+      <div className="max-w-6xl mx-auto px-6 py-5">
         {activeTab === 'overview' && (
           <OverviewTab eq={equipment} onUpdate={handleUpdate} isAdmin={isAdmin} />
         )}

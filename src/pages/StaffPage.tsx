@@ -16,6 +16,9 @@ import { trainingRecordService } from '../services/trainingRecordService';
 import { staffDocumentService } from '../services/staffDocumentService';
 import { staffPerformanceService } from '../services/staffPerformanceService';
 import { jobLoggingService } from '../services/jobLoggingService';
+import { staffPdfService } from '../services/staffPdfService';
+import { TemplateSelectorModal } from '../components/TemplateSelectorModal';
+import type { PdfTemplate } from '../modules/pdf-template-builder/types';
 import { STAFF_DOCUMENT_CATEGORIES } from '../types';
 import type {
   User,
@@ -27,7 +30,7 @@ import type {
   StaffPerformanceMetrics,
 } from '../types';
 
-// â”€â”€â”€ Constants â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ──── Constants ────────────────────────────────────────────────────────────────
 
 const TRAINING_FORMATS: TrainingFormat[] = [
   'External Training', 'Internal Training', 'On-the-Job Training',
@@ -57,7 +60,7 @@ function initials(u: User): string {
   return `${u.firstName?.[0] ?? ''}${u.lastName?.[0] ?? ''}`.toUpperCase() || '?';
 }
 
-// â”€â”€â”€ Training Record Form â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ──── Training Record Form ─────────────────────────────────────────────────────
 
 interface RecordForm {
   courseName: string; trainingFormat: TrainingFormat;
@@ -70,7 +73,7 @@ const blankForm = (): RecordForm => ({
   completionDate: '', certificateUrl: '', remarks: '',
 });
 
-// â”€â”€â”€ Training Record Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ──── Training Record Modal ─────────────────────────────────────────────────────
 
 interface RecordModalProps {
   staffName: string;
@@ -161,7 +164,7 @@ const RecordModal: React.FC<RecordModalProps> = ({ staffName, record, onClose, o
   );
 };
 
-// â”€â”€â”€ Training Records Tab â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ──── Training Records Tab ──────────────────────────────────────────────────────
 
 const TrainingTab: React.FC<{
   staff: User; isAdmin: boolean; canManage: boolean;
@@ -326,7 +329,7 @@ const TrainingTab: React.FC<{
   );
 };
 
-// â”€â”€â”€ Documents Tab â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ──── Documents Tab ─────────────────────────────────────────────────────────────
 
 const DocumentsTab: React.FC<{
   staff: User; currentUser: User; isAdmin: boolean; canManage: boolean;
@@ -499,7 +502,7 @@ const DocumentsTab: React.FC<{
   );
 };
 
-// â”€â”€â”€ Performance Tab â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ──── Performance Tab ───────────────────────────────────────────────────────────
 
 const PerformanceTab: React.FC<{ staff: User; isAdmin: boolean; canExportLogs: boolean }> = ({ staff, isAdmin, canExportLogs }) => {
   const { success, error: showError } = useToast();
@@ -547,7 +550,7 @@ const PerformanceTab: React.FC<{ staff: User; isAdmin: boolean; canExportLogs: b
     { label: 'Assigned Jobs', value: metrics.totalJobsAssigned, color: 'text-blue-600' },
     { label: 'On Time', value: metrics.jobsCompletedOnTime, color: 'text-green-600' },
     { label: 'Overdue', value: metrics.jobsCompletedOverdue, color: 'text-red-600' },
-    { label: 'On-Time %', value: `${metrics.onTimePercentage.toFixed(1)}%`, color: 'text-purple-600' },
+    { label: 'On-Time %', value: `${(metrics.onTimePercentage ?? 0).toFixed(1)}%`, color: 'text-purple-600' },
     { label: 'In Progress', value: metrics.jobsInProgress, color: 'text-yellow-600' },
     { label: 'Avg Days', value: metrics.averageCompletionDays ? `${metrics.averageCompletionDays.toFixed(1)}d` : 'N/A', color: 'text-gray-700' },
   ];
@@ -574,16 +577,16 @@ const PerformanceTab: React.FC<{ staff: User; isAdmin: boolean; canExportLogs: b
         <h4 className="text-sm font-semibold text-gray-800 mb-3">On-Time Completion Rate</h4>
         <div className="flex items-center gap-3">
           <div className="flex-1 bg-gray-200 rounded-full h-3">
-            <div className="bg-green-500 h-3 rounded-full transition-all" style={{ width: `${metrics.onTimePercentage}%` }} />
+            <div className="bg-green-500 h-3 rounded-full transition-all" style={{ width: `${metrics.onTimePercentage ?? 0}%` }} />
           </div>
-          <span className="text-sm font-semibold text-gray-700 w-12 text-right">{metrics.onTimePercentage.toFixed(1)}%</span>
+          <span className="text-sm font-semibold text-gray-700 w-12 text-right">{(metrics.onTimePercentage ?? 0).toFixed(1)}%</span>
         </div>
       </div>
     </div>
   );
 };
 
-// â”€â”€â”€ Staff Detail View â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ──── Staff Detail View ─────────────────────────────────────────────────────────
 
 type DetailTab = 'training' | 'documents' | 'performance';
 
@@ -596,6 +599,24 @@ const StaffDetailView: React.FC<{
   onBack: () => void;
 }> = ({ staff, currentUser, isAdmin, canManageTraining, canExportLogs, onBack }) => {
   const [activeTab, setActiveTab] = useState<DetailTab>('training');
+  const [showPrintModal, setShowPrintModal] = useState(false);
+  const [printing, setPrinting] = useState(false);
+  const { error: showPrintError } = useToast();
+
+  const handlePrintPdf = async (template: PdfTemplate) => {
+    setShowPrintModal(false);
+    setPrinting(true);
+    try {
+      const records = await trainingRecordService.getRecordsForStaff(staff.uid);
+      const { blob } = await staffPdfService.generatePdfBlob(template, staff, records);
+      const safeName = staffDisplayName(staff).replace(/\s+/g, '-');
+      staffPdfService.openBlobForPrint(blob, `staff-${safeName}-${new Date().toISOString().slice(0, 10)}.pdf`);
+    } catch {
+      showPrintError('Failed to generate PDF. Please try again.');
+    } finally {
+      setPrinting(false);
+    }
+  };
 
   const tabs: { id: DetailTab; label: string; icon: string }[] = [
     { id: 'training', label: 'Training Records', icon: '📋' },
@@ -605,8 +626,8 @@ const StaffDetailView: React.FC<{
 
   return (
     <div className="space-y-6">
-      {/* Back button + staff header */}
-      <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+      {/* Back button + Print PDF */}
+      <div className="flex items-center justify-between gap-4">
         <button type="button" onClick={onBack}
           className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 transition-colors w-fit">
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -614,7 +635,28 @@ const StaffDetailView: React.FC<{
           </svg>
           Back to Staff List
         </button>
+        <button
+          type="button"
+          onClick={() => setShowPrintModal(true)}
+          disabled={printing}
+          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium transition-colors disabled:opacity-50"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+            strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="6 9 6 2 18 2 18 9"/>
+            <path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/>
+            <rect x="6" y="14" width="12" height="8"/>
+          </svg>
+          {printing ? 'Generating…' : 'Print PDF'}
+        </button>
       </div>
+
+      <TemplateSelectorModal
+        isOpen={showPrintModal}
+        onClose={() => setShowPrintModal(false)}
+        onSelect={handlePrintPdf}
+        scope="staff"
+      />
 
       {/* Profile card */}
       <div className="bg-white rounded-xl border border-gray-200 p-6">
@@ -661,7 +703,7 @@ const StaffDetailView: React.FC<{
   );
 };
 
-// â”€â”€â”€ Staff List View â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ──── Staff List View ───────────────────────────────────────────────────────────
 
 const StaffListView: React.FC<{
   users: User[];
@@ -741,7 +783,7 @@ const StaffListView: React.FC<{
   );
 };
 
-// â”€â”€â”€ Main StaffPage â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ──── Main StaffPage ────────────────────────────────────────────────────────────
 
 export const StaffPage: React.FC = () => {
   const { currentUser, isAdmin } = useAuth();

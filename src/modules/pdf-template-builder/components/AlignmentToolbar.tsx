@@ -278,104 +278,52 @@ export const AlignmentToolbar: React.FC<AlignmentToolbarProps> = ({
   const isDisabled = disabled || selectedElementIds.length < 2;
 
   return (
-    <div className="flex items-center gap-1 px-2 border-r" style={{ borderRightColor: '#E5E7EB' }}>
+    <div className="flex items-center gap-0.5" style={{ borderRight: '1px solid #e5e7eb', paddingRight: 8, marginRight: 4 }}>
       {/* Horizontal Alignment */}
-      <div className="flex items-center gap-0.5" title="Horizontal Alignment">
-        <button
-          onClick={alignLeft}
-          disabled={isDisabled || !canAlign}
-          className="w-8 h-8 flex items-center justify-center rounded hover:bg-gray-100 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-          title="Align Left (2+ elements)"
-        >
-          <svg className="w-4 h-4 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M4 12h16M4 8h8M4 16h8" />
-          </svg>
-        </button>
-        <button
-          onClick={alignCenter}
-          disabled={isDisabled || !canAlign}
-          className="w-8 h-8 flex items-center justify-center rounded hover:bg-gray-100 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-          title="Align Center (2+ elements)"
-        >
-          <svg className="w-4 h-4 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M4 12h16M7 8h10M7 16h10" />
-          </svg>
-        </button>
-        <button
-          onClick={alignRight}
-          disabled={isDisabled || !canAlign}
-          className="w-8 h-8 flex items-center justify-center rounded hover:bg-gray-100 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-          title="Align Right (2+ elements)"
-        >
-          <svg className="w-4 h-4 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M4 12h16M12 8h8M12 16h8" />
-          </svg>
-        </button>
-      </div>
+      <button onClick={alignLeft} disabled={isDisabled || !canAlign} className="w-8 h-8 flex items-center justify-center rounded hover:bg-gray-100 transition-colors disabled:opacity-30 disabled:cursor-not-allowed" style={{ color: '#374151' }} title="Align Left (2+ elements)">
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 12h16M4 8h8M4 16h8" /></svg>
+      </button>
+      <button onClick={alignCenter} disabled={isDisabled || !canAlign} className="w-8 h-8 flex items-center justify-center rounded hover:bg-gray-100 transition-colors disabled:opacity-30 disabled:cursor-not-allowed" style={{ color: '#374151' }} title="Align Center (2+ elements)">
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 12h16M7 8h10M7 16h10" /></svg>
+      </button>
+      <button onClick={alignRight} disabled={isDisabled || !canAlign} className="w-8 h-8 flex items-center justify-center rounded hover:bg-gray-100 transition-colors disabled:opacity-30 disabled:cursor-not-allowed" style={{ color: '#374151' }} title="Align Right (2+ elements)">
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 12h16M12 8h8M12 16h8" /></svg>
+      </button>
+
+      {/* Separator */}
+      <span style={{ width: 1, height: 20, backgroundColor: '#e5e7eb', flexShrink: 0, margin: '0 2px' }} />
 
       {/* Vertical Alignment */}
-      <div className="flex items-center gap-0.5 ml-1" title="Vertical Alignment">
-        <button
-          onClick={alignTop}
-          disabled={isDisabled || !canAlign}
-          className="w-8 h-8 flex items-center justify-center rounded hover:bg-gray-100 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-          title="Align Top (2+ elements)"
-        >
-          <svg className="w-4 h-4 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16M12 4h8M12 4H4" />
-          </svg>
-        </button>
-        <button
-          onClick={alignMiddle}
-          disabled={isDisabled || !canAlign}
-          className="w-8 h-8 flex items-center justify-center rounded hover:bg-gray-100 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-          title="Align Middle (2+ elements)"
-        >
-          <svg className="w-4 h-4 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16M8 11h8M8 18h8" />
-          </svg>
-        </button>
-        <button
-          onClick={alignBottom}
-          disabled={isDisabled || !canAlign}
-          className="w-8 h-8 flex items-center justify-center rounded hover:bg-gray-100 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-          title="Align Bottom (2+ elements)"
-        >
-          <svg className="w-4 h-4 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16M12 20h8M12 20H4" />
-          </svg>
-        </button>
-      </div>
+      <button onClick={alignTop} disabled={isDisabled || !canAlign} className="w-8 h-8 flex items-center justify-center rounded hover:bg-gray-100 transition-colors disabled:opacity-30 disabled:cursor-not-allowed" style={{ color: '#374151' }} title="Align Top (2+ elements)">
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16M12 4h8M12 4H4" /></svg>
+      </button>
+      <button onClick={alignMiddle} disabled={isDisabled || !canAlign} className="w-8 h-8 flex items-center justify-center rounded hover:bg-gray-100 transition-colors disabled:opacity-30 disabled:cursor-not-allowed" style={{ color: '#374151' }} title="Align Middle (2+ elements)">
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16M8 11h8M8 18h8" /></svg>
+      </button>
+      <button onClick={alignBottom} disabled={isDisabled || !canAlign} className="w-8 h-8 flex items-center justify-center rounded hover:bg-gray-100 transition-colors disabled:opacity-30 disabled:cursor-not-allowed" style={{ color: '#374151' }} title="Align Bottom (2+ elements)">
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16M12 20h8M12 20H4" /></svg>
+      </button>
+
+      {/* Separator */}
+      <span style={{ width: 1, height: 20, backgroundColor: '#e5e7eb', flexShrink: 0, margin: '0 2px' }} />
 
       {/* Distribution */}
-      <div className="flex items-center gap-0.5 ml-1 border-l pl-1" style={{ borderLeftColor: '#E5E7EB' }} title="Distribution">
-        <button
-          onClick={distributeHorizontally}
-          disabled={isDisabled || !canDistribute}
-          className="w-8 h-8 flex items-center justify-center rounded hover:bg-gray-100 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-          title="Distribute Horizontally"
-        >
-          <svg className="w-4 h-4 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 12h16" />
-            <circle cx="4" cy="12" r="2" fill="currentColor" />
-            <circle cx="12" cy="12" r="2" fill="currentColor" />
-            <circle cx="20" cy="12" r="2" fill="currentColor" />
-          </svg>
-        </button>
-        <button
-          onClick={distributeVertically}
-          disabled={isDisabled || !canDistribute}
-          className="w-8 h-8 flex items-center justify-center rounded hover:bg-gray-100 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-          title="Distribute Vertically"
-        >
-          <svg className="w-4 h-4 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16" />
-            <circle cx="12" cy="4" r="2" fill="currentColor" />
-            <circle cx="12" cy="12" r="2" fill="currentColor" />
-            <circle cx="12" cy="20" r="2" fill="currentColor" />
-          </svg>
-        </button>
-      </div>
+      <button onClick={distributeHorizontally} disabled={isDisabled || !canDistribute} className="w-8 h-8 flex items-center justify-center rounded hover:bg-gray-100 transition-colors disabled:opacity-30 disabled:cursor-not-allowed" style={{ color: '#374151' }} title="Distribute Horizontally (3+ elements)">
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 12h16" />
+          <circle cx="4" cy="12" r="2" fill="currentColor" />
+          <circle cx="12" cy="12" r="2" fill="currentColor" />
+          <circle cx="20" cy="12" r="2" fill="currentColor" />
+        </svg>
+      </button>
+      <button onClick={distributeVertically} disabled={isDisabled || !canDistribute} className="w-8 h-8 flex items-center justify-center rounded hover:bg-gray-100 transition-colors disabled:opacity-30 disabled:cursor-not-allowed" style={{ color: '#374151' }} title="Distribute Vertically (3+ elements)">
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16" />
+          <circle cx="12" cy="4" r="2" fill="currentColor" />
+          <circle cx="12" cy="12" r="2" fill="currentColor" />
+          <circle cx="12" cy="20" r="2" fill="currentColor" />
+        </svg>
+      </button>
     </div>
   );
 };

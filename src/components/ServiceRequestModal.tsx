@@ -25,16 +25,11 @@ function filterMasterListByQuery(names: string[], query: string, max = 25): stri
   return names.filter((n) => n.toLowerCase().includes(q)).slice(0, max);
 }
 
-/** Public URL: staff complete these on the job after intake */
+/** Public URL: only strip the certificate number — all other fields are filled by the customer */
 function stripStaffOnlyEquipmentFields(eq: ServiceRequestEquipment): ServiceRequestEquipment {
   return {
     ...eq,
-    calibrationMethods: '',
-    machineLocation: '',
-    calibrationDate: '',
     certificateNumber: '',
-    resolution: '',
-    note: '',
   };
 }
 
@@ -140,24 +135,14 @@ export const ServiceRequestModal: React.FC<ServiceRequestModalProps> = ({
         const customersData = await customerService.getAllCustomers();
         setCustomers(customersData);
 
-        if (standalone) {
-          const [manufacturersData, modelsData] = await Promise.all([
-            getManufacturerNames(),
-            getModelNames(),
-          ]);
-          setManufacturers(manufacturersData);
-          setModels(modelsData);
-          setCalibrationMethodNames([]);
-        } else {
-          const [manufacturersData, modelsData, calibrationMethodsData] = await Promise.all([
-            getManufacturerNames(),
-            getModelNames(),
-            getCalibrationMethodNames(),
-          ]);
-          setManufacturers(manufacturersData);
-          setModels(modelsData);
-          setCalibrationMethodNames(calibrationMethodsData);
-        }
+        const [manufacturersData, modelsData, calibrationMethodsData] = await Promise.all([
+          getManufacturerNames(),
+          getModelNames(),
+          getCalibrationMethodNames(),
+        ]);
+        setManufacturers(manufacturersData);
+        setModels(modelsData);
+        setCalibrationMethodNames(calibrationMethodsData);
       } catch (err) {
         console.error('Error loading data:', err);
       }
@@ -259,12 +244,12 @@ export const ServiceRequestModal: React.FC<ServiceRequestModalProps> = ({
             manufacturer: equipment.manufacturer,
             model: equipment.model,
             capacity: equipment.capacity || '',
-            calibrationPoint: equipment.calibrationPoint || '',
+            calibrationPoint: (equipment as any).calibrationPoint || '',
             serialNumber: equipment.serialNumber,
           };
           newEquipment[index] = standalone
             ? { ...base, note: '' }
-            : { ...base, note: equipment.note || '' };
+            : { ...base, note: equipment.notes || '' };
           return { ...prev, equipment: newEquipment };
         });
         success('Equipment information loaded from database');
@@ -397,28 +382,40 @@ export const ServiceRequestModal: React.FC<ServiceRequestModalProps> = ({
     setLoading(true);
 
     try {
-      // Check if customer exists, if not create it
+      // ── Customer lookup / auto-create ─────────────────────────────────────
+      // Trim both sides before comparing so trailing spaces never cause a miss.
+      const formName = form.customerCompanyName.trim().toLowerCase();
       const existingCustomer = customers.find(
-        c => c.name.toLowerCase() === form.customerCompanyName.toLowerCase()
+        c => c.name.trim().toLowerCase() === formName
       );
 
+      // resolvedCustomerCode: the code we'll attach to the service request.
+      // Start from whatever the user selected in the dropdown (may be empty for new customers).
+      let resolvedCustomerCode: string | undefined =
+        existingCustomer?.customerCode || form.customerCode || undefined;
+
       if (!existingCustomer) {
-        // Create new customer
+        // New customer — generate an ID and create the record.
+        // Errors are logged but do NOT abort the service request; the SR will
+        // still be saved with the resolved code so conversion can link it later.
         try {
           const { getNextCustomerId, incrementCustomerIdSequence } = await import('../services/customerIdService');
           const customerId = await getNextCustomerId();
           await customerService.createCustomer({
             customerCode: customerId,
-            name: form.customerCompanyName,
-            contact: '',
+            name: form.customerCompanyName.trim(),
+            contact: form.contactName || '',
             address: form.address || '',
+            email: form.email || '',
+            phone: form.phoneNumber || '',
           });
-          // Increment customer ID sequence
+          // Only increment after the record is safely written
           await incrementCustomerIdSequence();
+          resolvedCustomerCode = customerId;
           success('New customer created automatically');
         } catch (err) {
           console.error('Error creating customer:', err);
-          // Continue with service request even if customer creation fails
+          // resolvedCustomerCode remains undefined; conversion falls back to name search
         }
       }
 
@@ -436,8 +433,7 @@ export const ServiceRequestModal: React.FC<ServiceRequestModalProps> = ({
               manufacturer: eq.manufacturer,
               model: eq.model,
               capacity: eq.capacity,
-              calibrationPoint: eq.calibrationPoint,
-              note: eq.note,
+              notes: eq.note,
             });
           } catch (err) {
             console.error('Error storing equipment:', err);
@@ -446,9 +442,12 @@ export const ServiceRequestModal: React.FC<ServiceRequestModalProps> = ({
         }
       }
 
+      // Build payload — always include resolvedCustomerCode so the converting
+      // staff member never has to fall back to a fragile name search.
       const requestPayload: ServiceRequestInput = standalone
         ? {
             ...form,
+            customerCode: resolvedCustomerCode,
             equipment: equipmentForWrite,
             serviceInformation: {
               ...defaultServiceInformation(),
@@ -456,7 +455,7 @@ export const ServiceRequestModal: React.FC<ServiceRequestModalProps> = ({
               statementOfConformityRequirements: '',
             },
           }
-        : form;
+        : { ...form, customerCode: resolvedCustomerCode };
 
       // Create service request (allow without authentication for public access)
       await serviceRequestService.createServiceRequest(requestPayload, currentUser?.uid || undefined);
@@ -516,19 +515,21 @@ export const ServiceRequestModal: React.FC<ServiceRequestModalProps> = ({
   // Render form content (shared between modal and standalone modes)
   const renderFormContent = () => (
     <>
-      <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-gray-900">Customer Service Request</h2>
-        {!hideCloseButton && !standalone && (
-          <button
-            onClick={handleClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
-          >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        )}
-      </div>
+      {!standalone && (
+        <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+          <h2 className="text-2xl font-bold text-gray-900">Customer Service Request</h2>
+          {!hideCloseButton && (
+            <button
+              onClick={handleClose}
+              className="text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          )}
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="p-6 space-y-6">
           {error && (
@@ -546,7 +547,9 @@ export const ServiceRequestModal: React.FC<ServiceRequestModalProps> = ({
                 Company / organization name <span className="text-red-500">*</span>
               </label>
               <p className="text-xs text-gray-500 mb-1">
-                Type to search your customer directory (same field as the job form). Choosing a row links the customer code for conversion to a job.
+                {standalone
+                  ? 'Start typing your company name — existing customers will be suggested automatically.'
+                  : 'Type to search your customer directory (same field as the job form). Choosing a row links the customer code for conversion to a job.'}
               </p>
               <input
                 ref={customerInputRef}
@@ -663,7 +666,9 @@ export const ServiceRequestModal: React.FC<ServiceRequestModalProps> = ({
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Customer PO / reference
                 </label>
-                <p className="text-xs text-gray-500 mb-1">Maps to the job purchase order / reference field when converted</p>
+                <p className="text-xs text-gray-500 mb-1">
+                  {standalone ? 'Your internal purchase order or reference number (optional).' : 'Maps to the job purchase order / reference field when converted'}
+                </p>
                 <input
                   type="text"
                   value={form.customerReference || ''}
@@ -677,7 +682,7 @@ export const ServiceRequestModal: React.FC<ServiceRequestModalProps> = ({
                   Request calibration date
                 </label>
                 <p className="text-xs text-gray-500 mb-1">
-                  Preferred date for calibration. When this request is converted to a job, it becomes the job schedule date.
+                  {standalone ? 'Your preferred date for calibration service.' : 'Preferred date for calibration. When this request is converted to a job, it becomes the job schedule date.'}
                 </p>
                 <input
                   type="date"
@@ -778,11 +783,6 @@ export const ServiceRequestModal: React.FC<ServiceRequestModalProps> = ({
                 + Add Equipment
               </button>
             </div>
-            {standalone ? (
-              <p className="text-sm text-gray-600 rounded-md border border-gray-200 bg-gray-50 px-3 py-2">
-                Calibration methods, location, dates, certificate numbers, resolution, and per-item technical notes are completed by laboratory staff after intake—not on this public form.
-              </p>
-            ) : null}
 
             {form.equipment.map((eq, index) => {
               const calibrationMethodMatches = filterMasterListByQuery(
@@ -822,8 +822,8 @@ export const ServiceRequestModal: React.FC<ServiceRequestModalProps> = ({
                     </label>
                     <p className="text-xs text-gray-500 mb-1">
                       {certificateEquipmentTypeNames.length > 0
-                        ? 'Same types as Certificate Number Manager (matches the job form).'
-                        : 'No types in Certificate Number Manager yet—enter a name, or add types under Settings.'}
+                        ? (standalone ? 'Select the type of equipment to be calibrated.' : 'Same types as Certificate Number Manager (matches the job form).')
+                        : (standalone ? 'Enter the name of your equipment type.' : 'No types in Certificate Number Manager yet—enter a name, or add types under Settings.')}
                     </p>
                     {certificateEquipmentTypeNames.length > 0 ? (
                       <select
@@ -942,7 +942,9 @@ export const ServiceRequestModal: React.FC<ServiceRequestModalProps> = ({
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Serial number <span className="text-red-500">*</span>
                     </label>
-                    <p className="text-xs text-gray-500 mb-1">Serial or ID number (same as job form)</p>
+                    <p className="text-xs text-gray-500 mb-1">
+                      {standalone ? 'Unique identifier on the equipment nameplate or label.' : 'Serial or ID number (same as job form)'}
+                    </p>
                     <input
                       type="text"
                       value={eq.serialNumber || ''}
@@ -955,7 +957,9 @@ export const ServiceRequestModal: React.FC<ServiceRequestModalProps> = ({
 
                   <div className="md:col-span-2">
                     <label className="block text-sm font-medium text-gray-700 mb-1">Accessories</label>
-                    <p className="text-xs text-gray-500 mb-1">Included accessories or parts (maps to job equipment)</p>
+                    <p className="text-xs text-gray-500 mb-1">
+                      {standalone ? 'List any accessories, cables, or adapters included with the equipment.' : 'Included accessories or parts (maps to job equipment)'}
+                    </p>
                     <textarea
                       value={eq.accessories || ''}
                       onChange={(e) => handleEquipmentChange(index, 'accessories', e.target.value)}
@@ -989,106 +993,116 @@ export const ServiceRequestModal: React.FC<ServiceRequestModalProps> = ({
                     />
                   </div>
 
-                  {!standalone ? (
-                    <>
-                      <div className="md:col-span-2">
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Calibration methods</label>
-                        <p className="text-xs text-gray-500 mb-1">
-                          Type to match the calibration method list in Settings, or enter any text (same behavior as the job form).
-                        </p>
-                        <div className="relative">
-                          <input
-                            type="text"
-                            value={eq.calibrationMethods || ''}
-                            onChange={(e) => handleCalibrationMethodsFieldChange(index, e.target.value)}
-                            onFocus={() => {
-                              if ((eq.calibrationMethods || '').trim().length > 0) {
-                                setCalibrationMethodSuggestRow(index);
-                              }
-                            }}
-                            onBlur={() => {
-                              setTimeout(() => {
-                                setCalibrationMethodSuggestRow((cur) => (cur === index ? null : cur));
-                              }, 200);
-                            }}
-                            autoComplete="off"
-                            className="input w-full"
-                            placeholder="Calibration methods"
-                          />
-                          {calibrationMethodSuggestRow === index &&
-                          calibrationMethodMatches.length > 0 &&
-                          (eq.calibrationMethods || '').trim().length > 0 ? (
-                            <ul
-                              className="absolute z-20 mt-1 max-h-52 w-full overflow-y-auto rounded-lg border border-gray-200 bg-white py-1 shadow-lg"
-                              role="listbox"
-                            >
-                              {calibrationMethodMatches.map((m) => (
-                                <li key={`calm-${index}-${m}`} role="option">
-                                  <button
-                                    type="button"
-                                    className="w-full px-3 py-2 text-left text-sm hover:bg-primary-50 focus:bg-primary-50 focus:outline-none"
-                                    onMouseDown={(e) => {
-                                      e.preventDefault();
-                                      applyCalibrationMethodsFromMaster(index, m);
-                                    }}
-                                  >
-                                    {m}
-                                  </button>
-                                </li>
-                              ))}
-                            </ul>
-                          ) : null}
-                        </div>
-                      </div>
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      {standalone ? 'Preferred calibration method' : 'Calibration methods'}
+                    </label>
+                    <p className="text-xs text-gray-500 mb-1">
+                      {standalone
+                        ? 'If you have a preferred calibration method or standard, enter it here.'
+                        : 'Type to match the calibration method list in Settings, or enter any text (same behavior as the job form).'}
+                    </p>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={eq.calibrationMethods || ''}
+                        onChange={(e) => handleCalibrationMethodsFieldChange(index, e.target.value)}
+                        onFocus={() => {
+                          if ((eq.calibrationMethods || '').trim().length > 0) {
+                            setCalibrationMethodSuggestRow(index);
+                          }
+                        }}
+                        onBlur={() => {
+                          setTimeout(() => {
+                            setCalibrationMethodSuggestRow((cur) => (cur === index ? null : cur));
+                          }, 200);
+                        }}
+                        autoComplete="off"
+                        className="input w-full"
+                        placeholder={standalone ? 'e.g. ISO/IEC 17025, direct comparison (optional)' : 'Calibration methods'}
+                      />
+                      {calibrationMethodSuggestRow === index &&
+                      calibrationMethodMatches.length > 0 &&
+                      (eq.calibrationMethods || '').trim().length > 0 ? (
+                        <ul
+                          className="absolute z-20 mt-1 max-h-52 w-full overflow-y-auto rounded-lg border border-gray-200 bg-white py-1 shadow-lg"
+                          role="listbox"
+                        >
+                          {calibrationMethodMatches.map((m) => (
+                            <li key={`calm-${index}-${m}`} role="option">
+                              <button
+                                type="button"
+                                className="w-full px-3 py-2 text-left text-sm hover:bg-primary-50 focus:bg-primary-50 focus:outline-none"
+                                onMouseDown={(e) => {
+                                  e.preventDefault();
+                                  applyCalibrationMethodsFromMaster(index, m);
+                                }}
+                              >
+                                {m}
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : null}
+                    </div>
+                  </div>
 
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
-                        <p className="text-xs text-gray-500 mb-1">Machine or site location</p>
-                        <input
-                          type="text"
-                          value={eq.machineLocation || ''}
-                          onChange={(e) => handleEquipmentChange(index, 'machineLocation', e.target.value)}
-                          className="input w-full"
-                          placeholder="Optional"
-                        />
-                      </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      {standalone ? 'Equipment location / site' : 'Location'}
+                    </label>
+                    <p className="text-xs text-gray-500 mb-1">
+                      {standalone ? 'Where is this equipment located or used?' : 'Machine or site location'}
+                    </p>
+                    <input
+                      type="text"
+                      value={eq.machineLocation || ''}
+                      onChange={(e) => handleEquipmentChange(index, 'machineLocation', e.target.value)}
+                      className="input w-full"
+                      placeholder="Optional"
+                    />
+                  </div>
 
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Calibration date</label>
-                        <p className="text-xs text-gray-500 mb-1">If known (optional)</p>
-                        <input
-                          type="date"
-                          value={eq.calibrationDate || ''}
-                          onChange={(e) => handleEquipmentChange(index, 'calibrationDate', e.target.value)}
-                          className="input w-full"
-                        />
-                      </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      {standalone ? 'Previous calibration date' : 'Calibration date'}
+                    </label>
+                    <p className="text-xs text-gray-500 mb-1">
+                      {standalone ? 'Date of last calibration, if known.' : 'If known (optional)'}
+                    </p>
+                    <input
+                      type="date"
+                      value={eq.calibrationDate || ''}
+                      onChange={(e) => handleEquipmentChange(index, 'calibrationDate', e.target.value)}
+                      className="input w-full"
+                    />
+                  </div>
 
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Certificate number</label>
-                        <p className="text-xs text-gray-500 mb-1">Optional; lab may assign on the job</p>
-                        <input
-                          type="text"
-                          value={eq.certificateNumber || ''}
-                          onChange={(e) => handleEquipmentChange(index, 'certificateNumber', e.target.value)}
-                          className="input w-full font-mono"
-                          placeholder="Optional"
-                          autoComplete="off"
-                        />
-                      </div>
+                  {!standalone && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Certificate number</label>
+                      <p className="text-xs text-gray-500 mb-1">Optional; lab may assign on the job</p>
+                      <input
+                        type="text"
+                        value={eq.certificateNumber || ''}
+                        onChange={(e) => handleEquipmentChange(index, 'certificateNumber', e.target.value)}
+                        className="input w-full font-mono"
+                        placeholder="Optional"
+                        autoComplete="off"
+                      />
+                    </div>
+                  )}
 
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Resolution</label>
-                        <input
-                          type="text"
-                          value={eq.resolution || ''}
-                          onChange={(e) => handleEquipmentChange(index, 'resolution', e.target.value)}
-                          className="input w-full"
-                          placeholder="Optional"
-                        />
-                      </div>
-                    </>
-                  ) : null}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Resolution</label>
+                    <input
+                      type="text"
+                      value={eq.resolution || ''}
+                      onChange={(e) => handleEquipmentChange(index, 'resolution', e.target.value)}
+                      className="input w-full"
+                      placeholder="Optional"
+                    />
+                  </div>
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -1103,19 +1117,23 @@ export const ServiceRequestModal: React.FC<ServiceRequestModalProps> = ({
                     />
                   </div>
 
-                  {!standalone ? (
-                    <div className="md:col-span-2">
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Note
-                      </label>
-                      <textarea
-                        value={eq.note || ''}
-                        onChange={(e) => handleEquipmentChange(index, 'note', e.target.value)}
-                        className="input w-full"
-                        rows={2}
-                      />
-                    </div>
-                  ) : null}
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      {standalone ? 'Special instructions / remarks' : 'Note'}
+                    </label>
+                    {standalone && (
+                      <p className="text-xs text-gray-500 mb-1">
+                        Any special handling requirements, known issues, or additional details for this item.
+                      </p>
+                    )}
+                    <textarea
+                      value={eq.note || ''}
+                      onChange={(e) => handleEquipmentChange(index, 'note', e.target.value)}
+                      className="input w-full"
+                      rows={2}
+                      placeholder={standalone ? 'Optional' : ''}
+                    />
+                  </div>
                 </div>
               </div>
             );
@@ -1136,23 +1154,27 @@ export const ServiceRequestModal: React.FC<ServiceRequestModalProps> = ({
             )}
             <button
               type="submit"
-              className="btn btn-primary"
+              className={standalone ? 'btn btn-primary px-10 py-3 text-base' : 'btn btn-primary'}
               disabled={loading}
             >
-              {loading ? 'Submitting...' : 'Submit Request'}
+              {loading ? (
+                <span className="flex items-center gap-2">
+                  <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Submitting…
+                </span>
+              ) : (standalone ? 'Submit Service Request' : 'Submit Request')}
             </button>
           </div>
         </form>
     </>
   );
 
-  // Standalone mode (for public page) - no overlay
+  // Standalone mode (for public page) — no overlay, no wrapper (page controls styling)
   if (standalone) {
-    return (
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl overflow-y-auto">
-        {renderFormContent()}
-      </div>
-    );
+    return <>{renderFormContent()}</>;
   }
 
   // Modal mode (default) - with overlay

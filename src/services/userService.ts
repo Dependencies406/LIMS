@@ -485,6 +485,16 @@ export const userService = {
    * @param email Current user's email
    * @returns Promise with updated user data
    */
+  async debugFirestoreAccess(): Promise<void> {
+    try {
+      const q = query(collection(db, 'users'));
+      const snapshot = await getDocs(q);
+      console.log('[Debug] Firestore users collection accessible. Count:', snapshot.size);
+    } catch (error: any) {
+      console.error('[Debug] Firestore access error:', error?.code, error?.message);
+    }
+  },
+
   async ensureUserDocument(uid: string, email: string): Promise<User> {
     try {
       if (!db) {

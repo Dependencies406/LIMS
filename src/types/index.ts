@@ -16,6 +16,7 @@ export type PermissionAction =
   | 'settings.companyInfo'
   | 'certificateNumbers.view' | 'certificateNumbers.edit'
   | 'staffPerformance.view' | 'staffPerformance.viewOwn' | 'staffPerformance.exportLogs'
+  | 'staffTraining.view' | 'staffTraining.manage'
   | 'equipmentControl.view' | 'equipmentControl.register' | 'equipmentControl.edit'
   | 'equipmentControl.approve' | 'equipmentControl.logUsage' | 'equipmentControl.calibrate'
   | 'equipmentControl.uploadDocuments' | 'equipmentControl.deleteDocuments' | 'equipmentControl.retire';
@@ -141,6 +142,8 @@ export interface FileAttachment {
   size: number;
   type: string;
   url: string;
+  /** Firebase Storage path — required for deletion. */
+  storagePath?: string;
   uploadedAt: Date;
   uploadedBy: string;
 }
@@ -260,6 +263,10 @@ export interface JobActionLog {
   action: string;
   performedBy: string;
   performedByName?: string;
+  /** Legacy field stored by jobLoggingService */
+  userName?: string;
+  /** Legacy field stored by jobLoggingService */
+  userEmail?: string;
   timestamp: Date;
   details?: Record<string, unknown>;
 }
@@ -275,11 +282,39 @@ export interface JobAssignmentLog {
 
 // ─── Job Share Token ──────────────────────────────────────────────────────────
 
+/** Snapshot of job data embedded in a share token */
+export interface JobSnapshot {
+  title?: string;
+  status?: string;
+  customerName?: string;
+  customerContact?: string;
+  customerAddress?: string;
+  customerPhone?: string;
+  customerEmail?: string;
+  scheduleDate?: string;
+  equipment?: Array<{
+    name?: string;
+    manufacturer?: string;
+    model?: string;
+    serialNumber?: string;
+    [key: string]: unknown;
+  }>;
+  serviceInformation?: {
+    serviceRequested?: string;
+    reportingFormat?: string;
+    statementOfConformity?: string;
+    [key: string]: unknown;
+  };
+  workAuthorizationStatement?: string;
+  comments?: string;
+  [key: string]: unknown;
+}
+
 export interface JobShareToken {
   id: string;
   jobId: string;
   jobNumber?: string;
-  jobSnapshot?: unknown;
+  jobSnapshot?: JobSnapshot;
   expiresAt: Date;
   createdAt: Date;
   createdBy: string;
@@ -447,17 +482,31 @@ export interface StaffDocument {
 export interface StaffPerformanceMetrics {
   userId: string;
   userName: string;
+  /** Staff user ID (used by staffPerformanceService) */
+  staffId?: string;
+  /** Staff display name (used by staffPerformanceService) */
+  staffName?: string;
   totalAssigned: number;
-  /** Alias for totalAssigned (legacy field name) */
   totalJobsAssigned?: number;
   completed: number;
   inProgress: number;
-  /** Alias for inProgress (legacy field name) */
   jobsInProgress?: number;
+  /** Jobs completed on time (used by staffPerformanceService) */
+  jobsCompletedOnTime?: number;
+  /** Jobs completed overdue (used by staffPerformanceService) */
+  jobsCompletedOverdue?: number;
+  /** Pending jobs count (used by staffPerformanceService) */
+  jobsPending?: number;
   overdue: number;
   onTimeCompletionRate: number;
+  /** On-time completion percentage 0–100 (used by staffPerformanceService) */
+  onTimePercentage?: number;
+  /** Overdue percentage 0–100 (used by staffPerformanceService) */
+  overduePercentage?: number;
   averageCompletionDays?: number;
   jobIds?: string[];
+  /** Last time metrics were recalculated */
+  lastUpdated?: Date;
 }
 
 // ─── ID Settings Types ────────────────────────────────────────────────────────

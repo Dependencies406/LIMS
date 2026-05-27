@@ -97,6 +97,7 @@ export const staffPerformanceService = {
         (canonicalStaffId.trim() ? canonicalStaffId.trim() : 'Unknown');
 
       metrics.push({
+        // New field names used by pages
         staffId: canonicalStaffId,
         staffName,
         totalJobsAssigned,
@@ -108,10 +109,18 @@ export const staffPerformanceService = {
         overduePercentage: Math.round(overduePercentage * 100) / 100,
         averageCompletionDays,
         lastUpdated: new Date(),
+        // Legacy field aliases required by StaffPerformanceMetrics
+        userId: canonicalStaffId,
+        userName: staffName,
+        totalAssigned: totalJobsAssigned,
+        completed: completedOnTime.length + completedOverdue.length,
+        inProgress: staffJobs.filter(job => job.status === 'Proceeding' || job.status === 'In Progress').length,
+        overdue: completedOverdue.length,
+        onTimeCompletionRate: Math.round(onTimePercentage * 100) / 100,
       });
     });
 
-    return metrics.sort((a, b) => b.totalJobsAssigned - a.totalJobsAssigned);
+    return metrics.sort((a, b) => (b.totalJobsAssigned ?? 0) - (a.totalJobsAssigned ?? 0));
   },
 
   async getStaffPerformance(staffId: string): Promise<StaffPerformanceMetrics | null> {

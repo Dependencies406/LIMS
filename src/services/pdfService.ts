@@ -131,7 +131,7 @@ const logoUrlToBase64 = async (url: string): Promise<string> => {
     if (!storagePath) throw firstError;
 
     const bytes = await getBytes(storageRef(storage, storagePath));
-    return bytesToDataUrl(bytes, guessContentTypeFromPath(storagePath));
+    return bytesToDataUrl(new Uint8Array(bytes), guessContentTypeFromPath(storagePath));
   }
 };
 

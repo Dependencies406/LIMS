@@ -2201,9 +2201,9 @@ export const EquipmentSpreadsheetModal: React.FC<EquipmentSpreadsheetModalProps>
             {/* Equipment context: which item the user is working on */}
             <div className="flex-shrink-0 mb-4 flex flex-wrap items-center gap-x-6 gap-y-1 rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm shadow-sm">
               <span className="font-medium text-gray-500">Equipment:</span>
-              <span><strong className="text-gray-700">Name</strong>: {equipment.name || 'â€”'}</span>
-              <span><strong className="text-gray-700">Model</strong>: {equipment.model || 'â€”'}</span>
-              <span><strong className="text-gray-700">Serial Number</strong>: {equipment.serialNumber || 'â€”'}</span>
+              <span><strong className="text-gray-700">Name</strong>: {equipment.name || '—'}</span>
+              <span><strong className="text-gray-700">Model</strong>: {equipment.model || '—'}</span>
+              <span><strong className="text-gray-700">Serial Number</strong>: {equipment.serialNumber || '—'}</span>
             </div>
             {/* Main Content - Top-layer spreadsheet editor (shared with template manager for consistency) */}
             <div className="flex-1 min-h-0 flex flex-col max-h-[100vh]">

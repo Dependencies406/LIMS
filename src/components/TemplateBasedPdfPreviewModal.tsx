@@ -51,6 +51,12 @@ export const TemplateBasedPdfPreviewModal: React.FC<TemplateBasedPdfPreviewModal
   const [showBuilder, setShowBuilder] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [localMissingData, setLocalMissingData] = useState<MissingDataReport[]>([]);
+  /**
+   * True while the default (linked) template is being auto-fetched on modal open.
+   * Prevents the user from clicking "Generate Preview" and triggering the selector
+   * before the auto-fetch completes, which would cause it to flash open and close.
+   */
+  const [isLoadingDefaultTemplate, setIsLoadingDefaultTemplate] = useState(false);
   const iframeRef = React.useRef<HTMLIFrameElement>(null);
   /** Stable ref to handleTemplateSelect so the "open" effect doesn't need it as a dep */
   const handleTemplateSelectRef = React.useRef<((tpl: PdfTemplate) => Promise<void>) | null>(null);
@@ -84,8 +90,14 @@ export const TemplateBasedPdfPreviewModal: React.FC<TemplateBasedPdfPreviewModal
     });
 
     if (defaultTemplateId) {
-      // Silently fetch the linked template and select it — no selector shown
+      // Silently fetch the linked template and select it — no selector shown.
+      // Set isLoadingDefaultTemplate so the UI shows a spinner instead of the
+      // "No preview available / Generate Preview" state, preventing the user from
+      // clicking "Generate Preview" while the fetch is in-flight (which would open
+      // the selector only for it to be immediately closed by the arriving fetch result).
+      setIsLoadingDefaultTemplate(true);
       pdfTemplateService.getTemplate(defaultTemplateId).then((tpl) => {
+        setIsLoadingDefaultTemplate(false);
         if (tpl && handleTemplateSelectRef.current) {
           void handleTemplateSelectRef.current(tpl);
         } else {
@@ -93,6 +105,7 @@ export const TemplateBasedPdfPreviewModal: React.FC<TemplateBasedPdfPreviewModal
           setShowTemplateSelector(true);
         }
       }).catch(() => {
+        setIsLoadingDefaultTemplate(false);
         setShowTemplateSelector(true);
       });
     } else {
@@ -108,6 +121,7 @@ export const TemplateBasedPdfPreviewModal: React.FC<TemplateBasedPdfPreviewModal
       reset();
       setShowTemplateSelector(false);
       setShowMissingDataWarning(false);
+      setIsLoadingDefaultTemplate(false);
       setPreviewUrl((prev) => {
         if (prev) URL.revokeObjectURL(prev);
         return null;
@@ -354,16 +368,18 @@ export const TemplateBasedPdfPreviewModal: React.FC<TemplateBasedPdfPreviewModal
         <div className="space-y-4">
           {/* Preview Area */}
           <div className="bg-gray-100 rounded-lg overflow-auto p-2" style={{ height: '600px' }}>
-            {isGenerating && (
+            {(isGenerating || isLoadingDefaultTemplate) && (
               <div className="flex items-center justify-center h-full">
                 <div className="text-center">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mx-auto mb-4"></div>
-                  <p className="text-sm text-gray-600">Generating preview...</p>
+                  <p className="text-sm text-gray-600">
+                    {isLoadingDefaultTemplate ? 'Loading template…' : 'Generating preview…'}
+                  </p>
                 </div>
               </div>
             )}
 
-            {error && (
+            {error && !isLoadingDefaultTemplate && (
               <div className="flex items-center justify-center h-full">
                 <div className="text-center">
                   <div className="text-red-600 mb-2">⚠️</div>
@@ -379,7 +395,7 @@ export const TemplateBasedPdfPreviewModal: React.FC<TemplateBasedPdfPreviewModal
               </div>
             )}
 
-            {!isGenerating && !error && previewUrl && (
+            {!isGenerating && !isLoadingDefaultTemplate && !error && previewUrl && (
               <iframe
                 ref={iframeRef}
                 src={previewUrl}
@@ -388,7 +404,7 @@ export const TemplateBasedPdfPreviewModal: React.FC<TemplateBasedPdfPreviewModal
               />
             )}
 
-            {!isGenerating && !error && !previewUrl && (
+            {!isGenerating && !isLoadingDefaultTemplate && !error && !previewUrl && (
               <div className="flex items-center justify-center h-full">
                 <div className="text-center">
                   <p className="text-gray-600 mb-4">No preview available</p>
@@ -420,7 +436,7 @@ export const TemplateBasedPdfPreviewModal: React.FC<TemplateBasedPdfPreviewModal
                 <Button
                   variant="secondary"
                   onClick={() => setShowTemplateSelector(true)}
-                  disabled={isGenerating}
+                  disabled={isGenerating || isLoadingDefaultTemplate}
                 >
                   Change Template
                 </Button>
@@ -429,7 +445,7 @@ export const TemplateBasedPdfPreviewModal: React.FC<TemplateBasedPdfPreviewModal
                 variant="secondary"
                 icon={<PrinterIcon />}
                 onClick={handlePrint}
-                disabled={!previewUrl || isGenerating}
+                disabled={!previewUrl || isGenerating || isLoadingDefaultTemplate}
               >
                 Print
               </Button>
@@ -437,7 +453,7 @@ export const TemplateBasedPdfPreviewModal: React.FC<TemplateBasedPdfPreviewModal
                 variant="primary"
                 icon={<DownloadIcon />}
                 onClick={handleDownload}
-                disabled={!previewUrl || isGenerating}
+                disabled={!previewUrl || isGenerating || isLoadingDefaultTemplate}
               >
                 Download PDF
               </Button>

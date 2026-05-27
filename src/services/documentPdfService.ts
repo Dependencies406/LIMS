@@ -166,16 +166,16 @@ const generateDocumentHTML = (
       <!-- Document Header Info -->
       <div style="border-bottom: 2px solid #333; padding-bottom: 10px; margin-bottom: 20px;">
         <h1 style="margin: 0 0 10px 0; font-size: 24px; font-weight: bold; color: #1a1a1a;">
-          ${escapeHtml(docData.title)}
+          ${escapeHtml(docData.title ?? docData.documentName)}
         </h1>
         <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
           <tr>
             <td style="padding: 4px 10px 4px 0; font-weight: bold; width: 150px;">Document ID:</td>
-            <td style="padding: 4px 0;">${escapeHtml(docData.documentId)}</td>
+            <td style="padding: 4px 0;">${escapeHtml(docData.documentId ?? docData.documentCode)}</td>
           </tr>
           <tr>
             <td style="padding: 4px 10px 4px 0; font-weight: bold;">Revision:</td>
-            <td style="padding: 4px 0;">${escapeHtml(docData.revision)}</td>
+            <td style="padding: 4px 0;">${escapeHtml(docData.revision ?? docData.revisionNumber)}</td>
           </tr>
           <tr>
             <td style="padding: 4px 10px 4px 0; font-weight: bold;">Effective Date:</td>
@@ -225,7 +225,7 @@ const generateDocumentHTML = (
       <div style="border-top: 1px solid #ddd; padding-top: 20px; margin-top: 40px; font-size: 11px; color: #666;">
         <table style="width: 100%; border-collapse: collapse;">
           <tr>
-            <td style="padding: 4px 0;">Created by: ${escapeHtml(docData.createdByName)}</td>
+            <td style="padding: 4px 0;">Created by: ${escapeHtml(docData.createdByName ?? docData.createdBy)}</td>
             <td style="padding: 4px 0; text-align: right;">Created: ${formatDate(docData.createdAt)}</td>
           </tr>
           ${docData.reviewSignature ? `
@@ -255,11 +255,11 @@ const addDocumentHeader = (pdf: jsPDF, docData: Document, pageNum: number, total
   // Document ID and Title
   pdf.setFontSize(10);
   pdf.setTextColor(100, 100, 100);
-  pdf.text(docData.documentId, 10, 10);
-  pdf.text(docData.title, pageWidth / 2, 10, { align: 'center' });
-  
+  pdf.text(docData.documentId ?? docData.documentCode, 10, 10);
+  pdf.text(docData.title ?? docData.documentName, pageWidth / 2, 10, { align: 'center' });
+
   // Revision and Page number
-  pdf.text(docData.revision, pageWidth - 10, 10, { align: 'right' });
+  pdf.text(docData.revision ?? docData.revisionNumber, pageWidth - 10, 10, { align: 'right' });
   pdf.text(`Page ${pageNum} of ${totalPages}`, pageWidth - 10, 15, { align: 'right' });
   
   // Effective date if available
@@ -284,9 +284,9 @@ const addDocumentFooter = (pdf: jsPDF, docData: Document, pageNum: number, total
   pdf.line(10, pageHeight - 15, pageWidth - 10, pageHeight - 15);
   
   // Footer text
-  pdf.text(docData.documentId, 10, pageHeight - 10);
+  pdf.text(docData.documentId ?? docData.documentCode, 10, pageHeight - 10);
   pdf.text(`Page ${pageNum} of ${totalPages}`, pageWidth / 2, pageHeight - 10, { align: 'center' });
-  pdf.text(docData.revision, pageWidth - 10, pageHeight - 10, { align: 'right' });
+  pdf.text(docData.revision ?? docData.revisionNumber, pageWidth - 10, pageHeight - 10, { align: 'right' });
 };
 
 /**
@@ -368,7 +368,7 @@ export const generateAndDownloadDocumentPDF = async (
     const doc = window.document;
     const a = doc.createElement('a');
     a.href = url;
-    a.download = `${docData.documentId}_${docData.revision.replace(' ', '_')}.pdf`;
+    a.download = `${docData.documentId ?? docData.documentCode}_${(docData.revision ?? docData.revisionNumber).replace(' ', '_')}.pdf`;
     doc.body.appendChild(a);
     a.click();
     doc.body.removeChild(a);

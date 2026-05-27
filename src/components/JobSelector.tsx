@@ -1,9 +1,9 @@
 ﻿/**
- * JobSelector â€” searchable dropdown that lets users link a usage log to a job.
+ * JobSelector — searchable dropdown that lets users link a usage log to a job.
  *
  * Props:
- *   value      â€“ currently selected Firestore doc ID (or '' for none)
- *   onChange   â€“ called with { id, jobId, title, customerName } | null
+ *   value      – currently selected Firestore doc ID (or '' for none)
+ *   onChange   – called with { id, jobId, title, customerName } | null
  */
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { jobService } from '../services/jobService';
@@ -128,7 +128,7 @@ export const JobSelector: React.FC<Props> = ({ value, onChange }) => {
             {statusBadge(selected.status)}
           </div>
         ) : (
-          <span className="text-gray-400">No job linked â€” select to link</span>
+          <span className="text-gray-400">No job linked — select to link</span>
         )}
         <svg
           className={`w-4 h-4 text-gray-400 flex-shrink-0 transition-transform ${open ? 'rotate-180' : ''}`}

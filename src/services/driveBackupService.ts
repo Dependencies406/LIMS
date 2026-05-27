@@ -159,7 +159,7 @@ export async function downloadBackup(options: BackupOptions = {}): Promise<Backu
     ? allDocs
     : allDocs.filter((d) => d.data().isDeleted !== true);
 
-  const jobs = filteredDocs.map((d) => ({
+  const jobs: Array<Record<string, unknown> & { _docId: string }> = filteredDocs.map((d) => ({
     _docId: d.id,
     ...(serializeFirestore(d.data()) as Record<string, unknown>),
   }));

@@ -1,5 +1,5 @@
 ﻿/**
- * UsageLogEditModal â€” shared edit modal for usage log records.
+ * UsageLogEditModal — shared edit modal for usage log records.
  * Used on both EquipmentDetailPage (Usage Logs tab) and UsageLogHistoryPage.
  *
  * Layout: fixed-height modal (max 90 vh) with a sticky header + footer and
@@ -125,7 +125,7 @@ export const UsageLogEditModal: React.FC<Props> = ({ log, onSave, onClose }) => 
   }
 
   return (
-    /* Backdrop â€” clicking outside closes */
+    /* Backdrop — clicking outside closes */
     <div
       className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
       onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}
@@ -173,14 +173,14 @@ export const UsageLogEditModal: React.FC<Props> = ({ log, onSave, onClose }) => 
             />
           </div>
 
-          {/* Section B â€” Pre-use Checks */}
+          {/* Section B — Pre-use Checks */}
           <div className="space-y-3">
             <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Pre-use Checks</p>
 
             <div className="bg-gray-50 rounded-xl border border-gray-200 p-4 space-y-4">
               <ToggleGroup
                 label="Visual Inspection"
-                sublabel="Physical condition â€” no cracks, damage or contamination"
+                sublabel="Physical condition — no cracks, damage or contamination"
                 options={[
                   { value: 'pass', label: 'âœ“ Pass', activeClass: 'bg-green-100 text-green-800' },
                   { value: 'fail', label: 'âœ— Fail', activeClass: 'bg-red-100 text-red-800' },
@@ -218,7 +218,7 @@ export const UsageLogEditModal: React.FC<Props> = ({ log, onSave, onClose }) => 
             </div>
           </div>
 
-          {/* Section C â€” Equipment Condition */}
+          {/* Section C — Equipment Condition */}
           <div className="space-y-3">
             <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Equipment Condition</p>
 
@@ -259,7 +259,7 @@ export const UsageLogEditModal: React.FC<Props> = ({ log, onSave, onClose }) => 
                         onChange={(e) => set('actionTaken', e.target.value)}
                         className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
                       >
-                        <option value="">â€” Select action â€”</option>
+                        <option value="">— Select action —</option>
                         <option value="Tagged Out of Service">Tagged Out of Service</option>
                         <option value="Repair Requested">Repair Requested</option>
                         <option value="Sent for Verification">Sent for Verification</option>
@@ -315,7 +315,7 @@ export const UsageLogEditModal: React.FC<Props> = ({ log, onSave, onClose }) => 
           <p className="text-xs text-gray-400">
             {hasFailure
               ? 'âš  Saving with FAIL will mark equipment Out of Service'
-              : 'All checks pass â€” result will be recorded as PASS'}
+              : 'All checks pass — result will be recorded as PASS'}
           </p>
           <div className="flex gap-2 flex-shrink-0">
             <button
