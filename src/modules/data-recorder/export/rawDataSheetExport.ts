@@ -14,7 +14,7 @@
  */
 
 import { z } from 'zod';
-import type { CalibrationRawDataSheet } from '../../types';
+import type { CalibrationRawDataSheet } from '../../../types';
 
 export const EXPORT_FORMAT = 'lims-data-recorder';
 export const EXPORT_SCHEMA_VERSION = 1;
