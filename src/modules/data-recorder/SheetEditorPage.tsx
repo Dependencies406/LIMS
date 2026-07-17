@@ -51,6 +51,7 @@ import { buildRawDataSheetPdfBlobUrl, rawDataSheetPdfFileName } from './pdf/rawD
 import { JobInfoBlock, StandardsBlock, UucBlock } from './components/SheetHeaderBlocks';
 import { PdfPreviewModal } from './components/PdfPreviewModal';
 import { VoidSheetModal } from './components/VoidSheetModal';
+import { DeleteSheetModal } from './components/DeleteSheetModal';
 import { EnvironmentBlock, ReadOnlyEnvironmentBlock } from './components/EnvironmentBlock';
 import { MeasurementGrid, ReadOnlyMeasurementGrid } from './components/MeasurementGrid';
 import { SaveConfirmModal } from './components/SaveConfirmModal';
@@ -113,7 +114,7 @@ function uucFromJobEquipment(job: Job, index: number): { uuc: Draft['uuc']; rang
 export const SheetEditorPage: React.FC<{ mode: SheetEditorMode }> = ({ mode }) => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { currentUser } = useAuth();
+  const { currentUser, isAdmin } = useAuth();
   const { toasts, removeToast, error: toastError, success: toastSuccess } = useToast();
 
   const editable = mode !== 'view';
@@ -137,6 +138,8 @@ export const SheetEditorPage: React.FC<{ mode: SheetEditorMode }> = ({ mode }) =
   const [voidRecord, setVoidRecord] = useState<SheetVoidRecord | null>(null);
   const [voidModalOpen, setVoidModalOpen] = useState(false);
   const [voidBusy, setVoidBusy] = useState(false);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [deleteBusy, setDeleteBusy] = useState(false);
 
   const optionByKey = useMemo(() => new Map(options.map((o) => [o.key, o])), [options]);
 
@@ -414,6 +417,12 @@ export const SheetEditorPage: React.FC<{ mode: SheetEditorMode }> = ({ mode }) =
               ยกเลิกชีต
             </button>
           )}
+          {mode === 'view' && viewSheet && isAdmin && (
+            <button className="rounded-lg bg-rose-700 px-4 py-1.5 text-sm font-medium text-white hover:bg-rose-800"
+                    onClick={() => setDeleteModalOpen(true)}>
+              ลบถาวร
+            </button>
+          )}
           {editable && (
             <button className="rounded-lg bg-emerald-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-emerald-700"
                     onClick={requestSave}>
@@ -657,6 +666,29 @@ export const SheetEditorPage: React.FC<{ mode: SheetEditorMode }> = ({ mode }) =
             toastError(`ยกเลิกไม่สำเร็จ: ${err instanceof Error ? err.message : String(err)}`);
           } finally {
             setVoidBusy(false);
+          }
+        }}
+      />
+
+      <DeleteSheetModal
+        open={deleteModalOpen}
+        sheetLabel={viewSheet ? `${shortId(viewSheet.id)} (${viewSheet.requestNo})` : ''}
+        busy={deleteBusy}
+        onCancel={() => setDeleteModalOpen(false)}
+        onConfirm={async () => {
+          if (!viewSheet) return;
+          setDeleteBusy(true);
+          try {
+            await rawDataSheetService.deleteSheetPermanently(viewSheet.id);
+            toastSuccess(`ลบชีต ${shortId(viewSheet.id)} ถาวรแล้ว`);
+            navigate('/data-records');
+          } catch (err) {
+            setDeleteBusy(false);
+            setDeleteModalOpen(false);
+            const message = err instanceof Error ? err.message : String(err);
+            toastError(message.includes('amendments referencing')
+              ? 'ลบไม่ได้: มีชีตแก้ไขอ้างอิงชีตนี้อยู่ — ต้องลบชีตแก้ไขก่อน'
+              : `ลบไม่สำเร็จ: ${message}`);
           }
         }}
       />

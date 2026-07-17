@@ -85,14 +85,16 @@ beforeEach(() => {
 // ─── Append-only invariant ───────────────────────────────────────────────────
 
 describe('append-only invariant', () => {
-  it('exposes no update/delete/mutating methods', () => {
+  it('exposes no update methods; the ONLY delete is the guarded admin hard delete', () => {
     const keys = Object.keys(rawDataSheetService);
     for (const key of keys) {
-      expect(key).not.toMatch(/update|delete|remove|set(?!tings)/i);
+      expect(key).not.toMatch(/update|remove|set(?!tings)/i);
     }
+    expect(keys.filter((k) => /delete/i.test(k))).toEqual(['deleteSheetPermanently']);
     expect(keys.sort()).toEqual(
-      ['add', 'amend', 'exportAll', 'exportAllVoids', 'getAmendmentsOf', 'getById',
-       'getPage', 'getVoidsForSheets', 'importSheets', 'importVoids', 'voidSheet'].sort(),
+      ['add', 'amend', 'deleteSheetPermanently', 'exportAll', 'exportAllVoids',
+       'getAmendmentsOf', 'getById', 'getPage', 'getVoidsForSheets',
+       'importSheets', 'importVoids', 'voidSheet'].sort(),
     );
   });
 
@@ -230,5 +232,35 @@ describe('voidSheet', () => {
     await expect(rawDataSheetService.voidSheet('sheet-9', 'x', 'u', 'n'))
       .rejects.toThrow(/already voided/);
     expect(addDoc).not.toHaveBeenCalled();
+  });
+});
+
+// ─── deleteSheetPermanently() (admin-only hard delete) ───────────────────────
+
+describe('deleteSheetPermanently', () => {
+  it('deletes the sheet and its void marker when no amendments reference it', async () => {
+    getDoc.mockResolvedValue({ exists: () => true });
+    getDocs
+      .mockResolvedValueOnce({ empty: true, docs: [] })            // amendments probe
+      .mockResolvedValueOnce({ docs: [{ id: 'void-1' }] });        // void markers
+    await rawDataSheetService.deleteSheetPermanently('sheet-9');
+    expect(deleteDoc).toHaveBeenCalledTimes(2);
+    expect((deleteDoc.mock.calls[0][0] as { id: string }).id).toBe('void-1');
+    expect((deleteDoc.mock.calls[1][0] as { id: string }).id).toBe('sheet-9');
+  });
+
+  it('refuses to delete a sheet that amendments still reference', async () => {
+    getDoc.mockResolvedValue({ exists: () => true });
+    getDocs.mockResolvedValueOnce({ empty: false, docs: [{ id: 'amend-1' }] });
+    await expect(rawDataSheetService.deleteSheetPermanently('sheet-9'))
+      .rejects.toThrow(/amendments referencing/);
+    expect(deleteDoc).not.toHaveBeenCalled();
+  });
+
+  it('refuses to delete a non-existent sheet', async () => {
+    getDoc.mockResolvedValue({ exists: () => false });
+    await expect(rawDataSheetService.deleteSheetPermanently('ghost'))
+      .rejects.toThrow(/not found/);
+    expect(deleteDoc).not.toHaveBeenCalled();
   });
 });

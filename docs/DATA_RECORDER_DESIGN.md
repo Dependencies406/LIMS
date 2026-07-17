@@ -172,6 +172,13 @@ forces recomputed from raw signals with current equations).
   still importable. Owner explicitly chose this over hard delete.
 - **PDF preview:** real jsPDF output shown in-app (blob URL in an iframe modal)
   with download from the modal; replaces the direct-download button.
+- **ADMIN-ONLY hard delete (owner decision — explicit R3 relaxation for admins):**
+  `deleteSheetPermanently()` + a rules-level gate
+  (`allow delete: if ... role == 'admin'`, same get() pattern as the roles
+  collection) on both rawDataSheets and rawDataSheetVoids. Guardrails: refused
+  while amendments reference the sheet; the sheet's void marker is deleted with
+  it; UI button visible to admins only, behind an acknowledgement checkbox that
+  states the audit-trail consequence. Updates remain impossible for everyone.
 
 ## 7. Trade-offs / carried-over flags (unchanged from v1 unless noted)
 

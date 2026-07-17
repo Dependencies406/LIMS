@@ -212,19 +212,25 @@ service cloud.firestore {
       }
     }
 
-    // Data Recorder — calibration raw-data sheets. APPEND-ONLY audit records:
-    // never updated or deleted; corrections are new "amendment" documents
-    // referencing the original sheet's ID (see docs/DATA_RECORDER_DESIGN.md).
+    // Data Recorder — calibration raw-data sheets. Append-only audit records:
+    // never updated; corrections are new "amendment" documents referencing the
+    // original sheet's ID, cancellation is a void marker (below). Hard delete
+    // is ADMIN-ONLY by owner decision (see docs/DATA_RECORDER_DESIGN.md §6b).
     match /rawDataSheets/{sheetId} {
       allow read, create: if request.auth != null;
-      allow update, delete: if false;
+      allow update: if false;
+      allow delete: if request.auth != null &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
     // Void markers: append-only cancellation records referencing a sheet by ID.
     // "Deleting" a sheet = creating one of these; the sheet itself is untouched.
+    // Admin delete allowed so hard-deleting a sheet can clean up its marker.
     match /rawDataSheetVoids/{voidId} {
       allow read, create: if request.auth != null;
-      allow update, delete: if false;
+      allow update: if false;
+      allow delete: if request.auth != null &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
     // Service Requests collection - allow public writes for customer submissions

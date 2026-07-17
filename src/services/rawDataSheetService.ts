@@ -5,11 +5,15 @@
  * Firestore path: rawDataSheets/{id}   (top-level collection)
  *
  * APPEND-ONLY BY DESIGN (audit trail):
- *   - Sheets are never updated or deleted; this service intentionally has no
- *     update/delete methods, and firestore.rules denies update/delete too.
+ *   - Sheets are never updated; there is no update method and firestore.rules
+ *     denies updates.
  *   - Corrections are new "amendment" sheets whose `amends` field references
  *     the original sheet's document ID, with a mandatory amendmentReason.
+ *   - Cancellation is a void marker (rawDataSheetVoids), not a deletion.
  *   - Every sheet stores recorder identity and a serverTimestamp createdAt.
+ *   - EXCEPTION (owner decision 2026-07-14): deleteSheetPermanently() exists
+ *     for admins only — firestore.rules restricts delete to role == 'admin',
+ *     and deletion is refused while amendments reference the sheet.
  *
  * Each sheet snapshots the reference standards/equations and thermo-hygrometer
  * used, so saved records stay audit-true after later recalibrations.
@@ -25,6 +29,7 @@ import {
   collection,
   doc,
   addDoc,
+  deleteDoc,
   getDoc,
   getDocs,
   query,
@@ -221,6 +226,29 @@ export const rawDataSheetService = {
       createdAt: serverTimestamp(),
     });
     return ref.id;
+  },
+
+  /**
+   * ADMIN-ONLY hard delete (owner decision — relaxes R3 for admins).
+   * firestore.rules is the real gate (delete requires role == 'admin');
+   * this method additionally refuses to delete a sheet that amendments still
+   * reference (delete the amendments first), and removes the sheet's void
+   * marker so no orphan is left behind.
+   */
+  async deleteSheetPermanently(sheetId: string): Promise<void> {
+    const snap = await getDoc(doc(sheetsCol(), sheetId));
+    if (!snap.exists()) throw new Error(`sheet not found: ${sheetId}`);
+    const amendments = await getDocs(
+      query(sheetsCol(), where('amends', '==', sheetId), limit(1)),
+    );
+    if (!amendments.empty) {
+      throw new Error('sheet has amendments referencing it; delete those first');
+    }
+    const voidSnap = await getDocs(query(voidsCol(), where('sheetId', '==', sheetId)));
+    for (const voidDoc of voidSnap.docs) {
+      await deleteDoc(doc(voidsCol(), voidDoc.id));
+    }
+    await deleteDoc(doc(sheetsCol(), sheetId));
   },
 
   /** Void markers for the given sheet IDs, keyed by sheetId (chunked 'in' queries). */
