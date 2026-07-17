@@ -69,6 +69,9 @@ function mapSheet(id: string, data: Record<string, unknown>): CalibrationRawData
   return {
     ...(data as unknown as CalibrationRawDataSheet),
     id,
+    // Legacy normalization (house pattern): sheets written before the
+    // multi-type discriminator existed are force / ISO 7500-1 sheets.
+    sheetType: (data.sheetType as string) || 'force-iso7500-1',
     createdAt: toDate(data.createdAt),
   };
 }

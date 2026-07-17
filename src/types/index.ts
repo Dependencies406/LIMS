@@ -876,6 +876,13 @@ export interface EnvRound {
 
 export interface CalibrationRawDataSheet {
   id: string;
+  /**
+   * Calibration work type discriminator. Absent on early documents — readers
+   * must default to 'force-iso7500-1' (see rawDataSheetService.mapSheet).
+   * Future work types (temperature, pressure, torque, …) add their own value
+   * and register a payload editor/renderer in the data-recorder module.
+   */
+  sheetType?: string;
   kind: SheetKind;
   /** Original sheet ID when kind === 'amendment'; null for originals. */
   amends: string | null;

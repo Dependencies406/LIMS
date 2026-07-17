@@ -22,6 +22,9 @@ import { convertForce } from './forceUnits';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
+/** Sheet-type discriminator for the current (force / ISO 7500-1) implementation. */
+export const FORCE_SHEET_TYPE = 'force-iso7500-1';
+
 /** Equipment categories treated as force reference standards. */
 export const STANDARD_CATEGORIES = ['FRC'];
 /** Equipment categories treated as environment (thermo-hygrometer) standards.

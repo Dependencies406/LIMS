@@ -200,6 +200,37 @@ forces recomputed from raw signals with current equations).
 5. Import idempotency (skip-existing split counts).
 6. PDF smoke: 0 / 1 / 12-row sheets, landscape, font setup called first, no throw.
 
+## 8b. Multi-type extension plan (owner request, 2026-07-17)
+
+The lab will add other calibration work types (temperature, pressure,
+dimensional, torque, …). Strategy — decided now, implemented per-type later:
+
+- **Discriminator (implemented):** `sheetType?: string` on every sheet;
+  current sheets are `'force-iso7500-1'`. Readers default absent values via
+  the mapper (house legacy-normalization pattern), so no data migration is
+  ever needed. New types pick a new value.
+- **Already type-agnostic (reuse untouched):** append-only service +
+  amendments + voids + admin delete (documents are opaque to them), the
+  rawDataSheets collection + rules + indexes, the list page, export/import
+  envelope, job linkage, environment block (temp/%RH + thermo-hygrometer),
+  save-confirmation flow, recorder identity, PDF font/header/signature
+  scaffolding.
+- **Force-specific today (to make pluggable when the 2nd type arrives):**
+  the measurement payload (`rows` with inc1..dec3 mV/V cells), the polynomial
+  force conversion + `ForceUnit` handler, `STANDARD_CATEGORIES = ['FRC']`,
+  Tension/Compression, and the PDF measurement-grid section.
+- **Blueprint for the 2nd type:** introduce a per-type registry
+  `src/modules/data-recorder/types/<type>/` exporting
+  `{ sheetType, label, MeasurementEditor, MeasurementView, standardCategories,
+  unitTable, validatePayload (zod), pdfSection }`. SheetEditorPage/PDF/export
+  dispatch on `sheetType`; the generic envelope (header blocks, env, save,
+  amend, void) stays shared. Move type-specific fields (`rows`, `direction`,
+  `calibrationRange`, force units) into a per-type `payload` object for NEW
+  types only — force sheets keep their current shape forever (mapper knows).
+- **Unit handling:** replicate the forceUnits pattern per quantity
+  (temperature °C/°F/K, pressure bar/kPa/psi, …); conversionEquationService
+  is already unit-string-agnostic and reusable as-is.
+
 ## 9. Stage B preconditions
 
 - Repo was on detached HEAD at `51295f9` with uncommitted work — create

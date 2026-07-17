@@ -33,6 +33,7 @@ import { ToastContainer } from '../../components/Toast';
 import { isForceUnit } from './forceUnits';
 import {
   ENV_CATEGORIES,
+  FORCE_SHEET_TYPE,
   STANDARD_CATEGORIES,
   buildStandardOptions,
   defaultRows,
@@ -284,6 +285,7 @@ export const SheetEditorPage: React.FC<{ mode: SheetEditorMode }> = ({ mode }) =
   const buildInput = (): CalibrationRawDataSheetInput => {
     const thermo = thermos.find((t) => t.id === draft.envStandardId);
     return {
+      sheetType: FORCE_SHEET_TYPE,
       kind: mode === 'amend' ? 'amendment' : 'original',
       amends: mode === 'amend' && sheet ? sheet.id : null,
       amendmentReason: mode === 'amend' ? draft.amendmentReason.trim() : undefined,

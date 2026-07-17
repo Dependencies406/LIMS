@@ -37,6 +37,7 @@ const rowSchema = z.object({
 
 const recordSchema = z.object({
   id: z.string().min(1),
+  sheetType: z.string().optional(),      // absent on early exports = force-iso7500-1
   kind: z.enum(['original', 'amendment']),
   amends: z.union([z.string(), z.null()]),
   requestNo: z.string().min(1),
