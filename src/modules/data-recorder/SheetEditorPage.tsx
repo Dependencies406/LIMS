@@ -46,6 +46,7 @@ import {
   type EditableRow,
   type StandardOption,
 } from './sheetLogic';
+import { downloadRawDataSheetPdf } from './pdf/rawDataSheetPdf';
 import { JobInfoBlock, StandardsBlock, UucBlock } from './components/SheetHeaderBlocks';
 import { EnvironmentBlock, ReadOnlyEnvironmentBlock } from './components/EnvironmentBlock';
 import { MeasurementGrid, ReadOnlyMeasurementGrid } from './components/MeasurementGrid';
@@ -128,6 +129,7 @@ export const SheetEditorPage: React.FC<{ mode: SheetEditorMode }> = ({ mode }) =
   const [draft, setDraft] = useState<Draft>(emptyDraft());
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [pdfBusy, setPdfBusy] = useState(false);
 
   const optionByKey = useMemo(() => new Map(options.map((o) => [o.key, o])), [options]);
 
@@ -370,6 +372,22 @@ export const SheetEditorPage: React.FC<{ mode: SheetEditorMode }> = ({ mode }) =
           </span>
         )}
         <div className="ml-auto flex gap-2">
+          {mode === 'view' && viewSheet && (
+            <button className="rounded-lg border border-gray-300 px-4 py-1.5 text-sm font-medium hover:bg-gray-50 disabled:opacity-50"
+                    disabled={pdfBusy}
+                    onClick={async () => {
+                      setPdfBusy(true);
+                      try {
+                        await downloadRawDataSheetPdf(viewSheet);
+                      } catch (err) {
+                        toastError(`สร้าง PDF ไม่สำเร็จ: ${err instanceof Error ? err.message : String(err)}`);
+                      } finally {
+                        setPdfBusy(false);
+                      }
+                    }}>
+              {pdfBusy ? 'กำลังสร้าง PDF…' : 'ดาวน์โหลด PDF'}
+            </button>
+          )}
           {mode === 'view' && viewSheet && (
             <button className="rounded-lg border border-gray-300 px-4 py-1.5 text-sm font-medium hover:bg-gray-50"
                     onClick={() => navigate(`/data-records/${viewSheet.id}/amend`)}>
