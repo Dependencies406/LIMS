@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { serializeExport, parseExport, EXPORT_FORMAT } from '../export/rawDataSheetExport';
-import type { CalibrationRawDataSheet } from '../../../types';
+import type { CalibrationRawDataSheet, SheetVoidRecord } from '../../../types';
 
 function fixtureSheet(id: string, overrides: Partial<CalibrationRawDataSheet> = {}): CalibrationRawDataSheet {
   return {
@@ -50,8 +50,16 @@ function fixtureSheet(id: string, overrides: Partial<CalibrationRawDataSheet> = 
   };
 }
 
+function fixtureVoid(id: string, sheetId: string): SheetVoidRecord {
+  return {
+    id, sheetId, reason: 'duplicate entry',
+    recordedByUid: 'uid-nattawat', recordedByName: 'Nattawat Rooplor',
+    createdAt: new Date('2026-07-16T02:15:30.500Z'), schemaVersion: 1,
+  };
+}
+
 describe('export → import round-trip (R4 losslessness)', () => {
-  it('parseExport(serializeExport(x)) deep-equals x, incl. Dates, IDs, amends links', () => {
+  it('parseExport(serializeExport(x)) deep-equals x, incl. Dates, IDs, amends links, voids', () => {
     const sheets = [
       fixtureSheet('sheet-original'),
       fixtureSheet('sheet-fix', {
@@ -60,17 +68,20 @@ describe('export → import round-trip (R4 losslessness)', () => {
         createdAt: new Date('2026-07-15T09:00:00.999Z'),
       }),
     ];
-    const roundTripped = parseExport(serializeExport(sheets, 'uid-nattawat'));
-    expect(roundTripped).toEqual(sheets);
-    expect(roundTripped[0].createdAt).toBeInstanceOf(Date);
-    expect(roundTripped[0].createdAt.getTime()).toBe(sheets[0].createdAt.getTime());
-    expect(roundTripped[1].amends).toBe('sheet-original');
+    const voids = [fixtureVoid('void-1', 'sheet-original')];
+    const roundTripped = parseExport(serializeExport(sheets, voids, 'uid-nattawat'));
+    expect(roundTripped.sheets).toEqual(sheets);
+    expect(roundTripped.voids).toEqual(voids);
+    expect(roundTripped.sheets[0].createdAt).toBeInstanceOf(Date);
+    expect(roundTripped.sheets[0].createdAt.getTime()).toBe(sheets[0].createdAt.getTime());
+    expect(roundTripped.sheets[1].amends).toBe('sheet-original');
+    expect(roundTripped.voids[0].createdAt.getTime()).toBe(voids[0].createdAt.getTime());
   });
 
   it('preserves nulls and absent optional fields distinctly', () => {
     const sheet = fixtureSheet('s1');
     delete (sheet as Partial<CalibrationRawDataSheet>).receivedDate;
-    const [back] = parseExport(serializeExport([sheet], 'u'));
+    const { sheets: [back] } = parseExport(serializeExport([sheet], [], 'u'));
     expect('receivedDate' in back).toBe(false);
     expect(back.rows[0].cells.dec3.sig).toBeNull();
   });
@@ -78,17 +89,28 @@ describe('export → import round-trip (R4 losslessness)', () => {
   it('preserves fields the validator does not know about (forward compatibility)', () => {
     const sheet = fixtureSheet('s1') as CalibrationRawDataSheet & { futureField?: string };
     sheet.futureField = 'keep me';
-    const [back] = parseExport(serializeExport([sheet], 'u')) as (CalibrationRawDataSheet & { futureField?: string })[];
+    const { sheets: [back] } = parseExport(serializeExport([sheet], [], 'u')) as
+      { sheets: (CalibrationRawDataSheet & { futureField?: string })[] };
     expect(back.futureField).toBe('keep me');
   });
 
+  it('accepts v1 files (no voids array) for backward compatibility', () => {
+    const envelope = JSON.parse(serializeExport([fixtureSheet('s1')], [], 'u'));
+    envelope.schemaVersion = 1;
+    delete envelope.voids;
+    const parsed = parseExport(JSON.stringify(envelope));
+    expect(parsed.sheets).toHaveLength(1);
+    expect(parsed.voids).toEqual([]);
+  });
+
   it('writes the correct envelope', () => {
-    const parsedEnvelope = JSON.parse(serializeExport([fixtureSheet('s1')], 'uid-x'));
+    const parsedEnvelope = JSON.parse(serializeExport([fixtureSheet('s1')], [fixtureVoid('v1', 's1')], 'uid-x'));
     expect(parsedEnvelope.format).toBe(EXPORT_FORMAT);
-    expect(parsedEnvelope.schemaVersion).toBe(1);
+    expect(parsedEnvelope.schemaVersion).toBe(2);
     expect(parsedEnvelope.exportedByUid).toBe('uid-x');
     expect(parsedEnvelope.recordCount).toBe(1);
     expect(typeof parsedEnvelope.records[0].createdAt).toBe('string');
+    expect(typeof parsedEnvelope.voids[0].createdAt).toBe('string');
   });
 });
 
@@ -103,19 +125,25 @@ describe('parseExport rejection', () => {
   });
 
   it('rejects an unsupported schema version', () => {
-    const file = serializeExport([fixtureSheet('s1')], 'u').replace('"schemaVersion": 1,', '"schemaVersion": 99,');
+    const file = serializeExport([fixtureSheet('s1')], [], 'u').replace('"schemaVersion": 2,', '"schemaVersion": 99,');
     expect(() => parseExport(file)).toThrow(/เวอร์ชันไฟล์ไม่รองรับ/);
   });
 
   it('rejects a record with missing required fields, naming the record', () => {
-    const envelope = JSON.parse(serializeExport([fixtureSheet('s1')], 'u'));
+    const envelope = JSON.parse(serializeExport([fixtureSheet('s1')], [], 'u'));
     delete envelope.records[0].recordedByUid;
     expect(() => parseExport(JSON.stringify(envelope))).toThrow(/รายการที่ 1/);
   });
 
   it('rejects env with the wrong number of rounds', () => {
-    const envelope = JSON.parse(serializeExport([fixtureSheet('s1')], 'u'));
+    const envelope = JSON.parse(serializeExport([fixtureSheet('s1')], [], 'u'));
     envelope.records[0].env = [{ t: 25, h: 50 }];
     expect(() => parseExport(JSON.stringify(envelope))).toThrow(/ข้อมูลไม่ครบ/);
+  });
+
+  it('rejects a void record missing its reason', () => {
+    const envelope = JSON.parse(serializeExport([fixtureSheet('s1')], [fixtureVoid('v1', 's1')], 'u'));
+    delete envelope.voids[0].reason;
+    expect(() => parseExport(JSON.stringify(envelope))).toThrow(/รายการยกเลิก/);
   });
 });

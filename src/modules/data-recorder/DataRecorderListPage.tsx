@@ -8,7 +8,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import type { CalibrationRawDataSheet } from '../../types';
+import type { CalibrationRawDataSheet, SheetVoidRecord } from '../../types';
 import { rawDataSheetService, type SheetPageFilter } from '../../services/rawDataSheetService';
 import { serializeExport, parseExport } from './export/rawDataSheetExport';
 import { useAuth } from '../../contexts/AuthContext';
@@ -29,7 +29,17 @@ export const DataRecorderListPage: React.FC = () => {
   const [requestNoFilter, setRequestNoFilter] = useState('');
   const [kindFilter, setKindFilter] = useState<'' | 'original' | 'amendment'>('');
   const [busy, setBusy] = useState<'' | 'export' | 'import'>('');
+  const [voids, setVoids] = useState<Map<string, SheetVoidRecord>>(new Map());
+  const [showVoided, setShowVoided] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
+
+  const mergeVoidsFor = useCallback(async (list: CalibrationRawDataSheet[]) => {
+    if (list.length === 0) return;
+    const found = await rawDataSheetService.getVoidsForSheets(list.map((s) => s.id));
+    if (found.size > 0) {
+      setVoids((prev) => new Map([...prev, ...found]));
+    }
+  }, []);
 
   const loadFirstPage = useCallback(async (filter: SheetPageFilter) => {
     setLoading(true);
@@ -37,12 +47,13 @@ export const DataRecorderListPage: React.FC = () => {
       const page = await rawDataSheetService.getPage(filter);
       setSheets(page.sheets);
       setCursor(page.nextCursor);
+      await mergeVoidsFor(page.sheets);
     } catch (err) {
       toastError(`โหลดรายการไม่สำเร็จ: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setLoading(false);
     }
-  }, [toastError]);
+  }, [toastError, mergeVoidsFor]);
 
   const activeFilter = useMemo<SheetPageFilter>(() => ({
     requestNo: requestNoFilter.trim() || undefined,
@@ -61,6 +72,7 @@ export const DataRecorderListPage: React.FC = () => {
       const page = await rawDataSheetService.getPage(activeFilter, cursor);
       setSheets((prev) => [...prev, ...page.sheets]);
       setCursor(page.nextCursor);
+      await mergeVoidsFor(page.sheets);
     } catch (err) {
       toastError(`โหลดเพิ่มเติมไม่สำเร็จ: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
@@ -78,14 +90,17 @@ export const DataRecorderListPage: React.FC = () => {
     setBusy('export');
     try {
       toastInfo('กำลังรวบรวมข้อมูลเพื่อส่งออก…');
-      const all = await rawDataSheetService.exportAll();
-      const blob = new Blob([serializeExport(all, currentUser?.uid ?? '')], { type: 'application/json' });
+      const [all, allVoids] = await Promise.all([
+        rawDataSheetService.exportAll(),
+        rawDataSheetService.exportAllVoids(),
+      ]);
+      const blob = new Blob([serializeExport(all, allVoids, currentUser?.uid ?? '')], { type: 'application/json' });
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
       a.download = `raw-data-sheets-${new Date().toISOString().slice(0, 10)}.json`;
       a.click();
       URL.revokeObjectURL(a.href);
-      toastSuccess(`ส่งออก ${all.length} ชีตเป็นไฟล์ JSON แล้ว`);
+      toastSuccess(`ส่งออก ${all.length} ชีต + ${allVoids.length} รายการยกเลิก เป็นไฟล์ JSON แล้ว`);
     } catch (err) {
       toastError(`ส่งออกไม่สำเร็จ: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
@@ -97,8 +112,12 @@ export const DataRecorderListPage: React.FC = () => {
     setBusy('import');
     try {
       const parsed = parseExport(await file.text());
-      const result = await rawDataSheetService.importSheets(parsed);
-      toastSuccess(`นำเข้าเสร็จ: เพิ่มใหม่ ${result.imported} ชีต · ข้ามชีตที่มีอยู่แล้ว ${result.skipped} ชีต`);
+      const result = await rawDataSheetService.importSheets(parsed.sheets);
+      const voidResult = await rawDataSheetService.importVoids(parsed.voids);
+      toastSuccess(
+        `นำเข้าเสร็จ: เพิ่มใหม่ ${result.imported} ชีต (ข้าม ${result.skipped})`
+        + (parsed.voids.length > 0 ? ` · รายการยกเลิกใหม่ ${voidResult.imported} (ข้าม ${voidResult.skipped})` : ''),
+      );
       await loadFirstPage(activeFilter);
     } catch (err) {
       toastError(`นำเข้าไม่สำเร็จ: ${err instanceof Error ? err.message : String(err)}`);
@@ -108,6 +127,9 @@ export const DataRecorderListPage: React.FC = () => {
   };
 
   const badge = (sheet: CalibrationRawDataSheet) => {
+    if (voids.has(sheet.id)) {
+      return <span className="rounded-full bg-rose-100 px-2.5 py-0.5 text-xs font-semibold text-rose-700" title={voids.get(sheet.id)?.reason}>ยกเลิก</span>;
+    }
     if (sheet.kind === 'amendment') {
       return <span className="rounded-full bg-violet-100 px-2.5 py-0.5 text-xs font-semibold text-violet-700">แก้ไขของ {shortId(sheet.amends ?? '')}</span>;
     }
@@ -172,6 +194,12 @@ export const DataRecorderListPage: React.FC = () => {
             <option value="amendment">ชีตแก้ไข</option>
           </select>
         </div>
+        <label className="flex items-center gap-1.5 pb-1.5 text-sm text-gray-600">
+          <input type="checkbox" className="rounded border-gray-300"
+                 checked={showVoided}
+                 onChange={(e) => setShowVoided(e.target.checked)} />
+          แสดงชีตที่ถูกยกเลิก
+        </label>
         {(requestNoFilter || kindFilter) && (
           <button className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm hover:bg-gray-50"
                   onClick={() => { setRequestNoFilter(''); setKindFilter(''); }}>
@@ -197,7 +225,7 @@ export const DataRecorderListPage: React.FC = () => {
               </tr>
             </thead>
             <tbody>
-              {sheets.map((sheet) => (
+              {(showVoided ? sheets : sheets.filter((s) => !voids.has(s.id))).map((sheet) => (
                 <tr key={sheet.id}
                     className="cursor-pointer border-t border-gray-100 hover:bg-emerald-50"
                     onClick={() => navigate(`/data-records/${sheet.id}`)}>

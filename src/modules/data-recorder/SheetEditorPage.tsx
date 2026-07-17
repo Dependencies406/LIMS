@@ -21,6 +21,7 @@ import type {
   EquipmentRecord,
   ForceUnit,
   Job,
+  SheetVoidRecord,
 } from '../../types';
 import { rawDataSheetService } from '../../services/rawDataSheetService';
 import { equipmentControlService } from '../../services/equipmentControlService';
@@ -46,8 +47,10 @@ import {
   type EditableRow,
   type StandardOption,
 } from './sheetLogic';
-import { downloadRawDataSheetPdf } from './pdf/rawDataSheetPdf';
+import { buildRawDataSheetPdfBlobUrl, rawDataSheetPdfFileName } from './pdf/rawDataSheetPdf';
 import { JobInfoBlock, StandardsBlock, UucBlock } from './components/SheetHeaderBlocks';
+import { PdfPreviewModal } from './components/PdfPreviewModal';
+import { VoidSheetModal } from './components/VoidSheetModal';
 import { EnvironmentBlock, ReadOnlyEnvironmentBlock } from './components/EnvironmentBlock';
 import { MeasurementGrid, ReadOnlyMeasurementGrid } from './components/MeasurementGrid';
 import { SaveConfirmModal } from './components/SaveConfirmModal';
@@ -130,6 +133,10 @@ export const SheetEditorPage: React.FC<{ mode: SheetEditorMode }> = ({ mode }) =
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [pdfBusy, setPdfBusy] = useState(false);
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const [voidRecord, setVoidRecord] = useState<SheetVoidRecord | null>(null);
+  const [voidModalOpen, setVoidModalOpen] = useState(false);
+  const [voidBusy, setVoidBusy] = useState(false);
 
   const optionByKey = useMemo(() => new Map(options.map((o) => [o.key, o])), [options]);
 
@@ -171,7 +178,12 @@ export const SheetEditorPage: React.FC<{ mode: SheetEditorMode }> = ({ mode }) =
         if (loadedSheet) {
           setSheet(loadedSheet);
           if (mode === 'view') {
-            setAmendments(await rawDataSheetService.getAmendmentsOf(loadedSheet.id));
+            const [amendmentList, voids] = await Promise.all([
+              rawDataSheetService.getAmendmentsOf(loadedSheet.id),
+              rawDataSheetService.getVoidsForSheets([loadedSheet.id]),
+            ]);
+            setAmendments(amendmentList);
+            setVoidRecord(voids.get(loadedSheet.id) ?? null);
           }
           if (mode === 'amend') {
             setDraft({
@@ -378,20 +390,28 @@ export const SheetEditorPage: React.FC<{ mode: SheetEditorMode }> = ({ mode }) =
                     onClick={async () => {
                       setPdfBusy(true);
                       try {
-                        await downloadRawDataSheetPdf(viewSheet);
+                        const url = await buildRawDataSheetPdfBlobUrl(viewSheet,
+                          voidRecord ? { voidInfo: voidRecord } : {});
+                        setPdfUrl(url);
                       } catch (err) {
                         toastError(`สร้าง PDF ไม่สำเร็จ: ${err instanceof Error ? err.message : String(err)}`);
                       } finally {
                         setPdfBusy(false);
                       }
                     }}>
-              {pdfBusy ? 'กำลังสร้าง PDF…' : 'ดาวน์โหลด PDF'}
+              {pdfBusy ? 'กำลังสร้าง PDF…' : 'ดูตัวอย่าง PDF'}
             </button>
           )}
-          {mode === 'view' && viewSheet && (
+          {mode === 'view' && viewSheet && !voidRecord && (
             <button className="rounded-lg border border-gray-300 px-4 py-1.5 text-sm font-medium hover:bg-gray-50"
                     onClick={() => navigate(`/data-records/${viewSheet.id}/amend`)}>
               สร้างชีตแก้ไข
+            </button>
+          )}
+          {mode === 'view' && viewSheet && !voidRecord && (
+            <button className="rounded-lg border border-rose-300 px-4 py-1.5 text-sm font-medium text-rose-700 hover:bg-rose-50"
+                    onClick={() => setVoidModalOpen(true)}>
+              ยกเลิกชีต
             </button>
           )}
           {editable && (
@@ -409,6 +429,16 @@ export const SheetEditorPage: React.FC<{ mode: SheetEditorMode }> = ({ mode }) =
           {editable && 'ระบบจะประทับเวลาและชื่อผู้บันทึกอัตโนมัติเมื่อยืนยันการบันทึก'}
         </p>
       </div>
+
+      {mode === 'view' && voidRecord && (
+        <div className="mb-3 rounded-lg bg-rose-50 p-3 text-sm text-rose-800">
+          <b>ชีตนี้ถูกยกเลิกแล้ว</b> — เหตุผล: {voidRecord.reason}
+          <span className="block text-xs">
+            โดย {voidRecord.recordedByName} · {fmtDateTime(voidRecord.createdAt)} ·
+            ชีตยังคงอยู่ในระบบตามข้อกำหนด audit trail แต่ถูกซ่อนจากรายการปกติ
+          </span>
+        </div>
+      )}
 
       {mode === 'amend' && sheet && (
         <div className="mb-3 rounded-lg bg-amber-50 p-3 text-sm text-amber-800">
@@ -595,6 +625,40 @@ export const SheetEditorPage: React.FC<{ mode: SheetEditorMode }> = ({ mode }) =
         }
         onCancel={() => setConfirmOpen(false)}
         onConfirm={confirmSave}
+      />
+
+      <PdfPreviewModal
+        open={pdfUrl !== null}
+        url={pdfUrl}
+        fileName={viewSheet ? rawDataSheetPdfFileName(viewSheet) : 'raw-data.pdf'}
+        onClose={() => {
+          if (pdfUrl) URL.revokeObjectURL(pdfUrl);
+          setPdfUrl(null);
+        }}
+      />
+
+      <VoidSheetModal
+        open={voidModalOpen}
+        sheetLabel={viewSheet ? `${shortId(viewSheet.id)} (${viewSheet.requestNo}, ${viewSheet.direction})` : ''}
+        busy={voidBusy}
+        onCancel={() => setVoidModalOpen(false)}
+        onConfirm={async (reason) => {
+          if (!viewSheet) return;
+          setVoidBusy(true);
+          try {
+            await rawDataSheetService.voidSheet(
+              viewSheet.id, reason, currentUser?.uid ?? '', recordedByName,
+            );
+            const voids = await rawDataSheetService.getVoidsForSheets([viewSheet.id]);
+            setVoidRecord(voids.get(viewSheet.id) ?? null);
+            setVoidModalOpen(false);
+            toastSuccess(`ยกเลิกชีต ${shortId(viewSheet.id)} แล้ว (ชีตยังอยู่ในระบบ)`);
+          } catch (err) {
+            toastError(`ยกเลิกไม่สำเร็จ: ${err instanceof Error ? err.message : String(err)}`);
+          } finally {
+            setVoidBusy(false);
+          }
+        }}
       />
     </div>
   );

@@ -161,6 +161,18 @@ forces recomputed from raw signals with current equations).
   Recorded by / Reviewed by / Date signature row. `pdfFontManager.ensureFontsReadyForPdf`
   before any text (Thai requires Sarabun).
 
+## 6b. Post-launch additions (owner-requested, 2026-07-14)
+
+- **Void/cancel ("delete" without deleting, R3-compatible):** a `SheetVoidRecord`
+  in its own append-only collection `rawDataSheetVoids/{id}` (rules deny
+  update/delete) referencing the sheet by ID with a mandatory reason. Voided
+  sheets: hidden from the default list (toggle "แสดงชีตที่ถูกยกเลิก"), badge
+  'ยกเลิก', banner + red VOIDED marker on the PDF, amend/void buttons hidden.
+  Export format bumped to **v2**: envelope gains a `voids` array; v1 files are
+  still importable. Owner explicitly chose this over hard delete.
+- **PDF preview:** real jsPDF output shown in-app (blob URL in an iframe modal)
+  with download from the modal; replaces the direct-download button.
+
 ## 7. Trade-offs / carried-over flags (unchanged from v1 unless noted)
 
 1. No update/delete + rules deny — intentional break from house conventions (R3).

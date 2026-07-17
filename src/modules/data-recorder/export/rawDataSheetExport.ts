@@ -14,10 +14,11 @@
  */
 
 import { z } from 'zod';
-import type { CalibrationRawDataSheet } from '../../../types';
+import type { CalibrationRawDataSheet, SheetVoidRecord } from '../../../types';
 
 export const EXPORT_FORMAT = 'lims-data-recorder';
-export const EXPORT_SCHEMA_VERSION = 1;
+/** v2 adds the `voids` array (append-only cancellation markers). v1 files are still accepted. */
+export const EXPORT_SCHEMA_VERSION = 2;
 
 // ─── Validation schema (structure check only — output is not used) ──────────
 
@@ -52,19 +53,39 @@ const recordSchema = z.object({
   schemaVersion: z.number(),
 });
 
+const voidSchema = z.object({
+  id: z.string().min(1),
+  sheetId: z.string().min(1),
+  reason: z.string().min(1),
+  recordedByUid: z.string().min(1),
+  recordedByName: z.string().min(1),
+  createdAt: z.string().min(1),
+  schemaVersion: z.number(),
+});
+
 const envelopeSchema = z.object({
   format: z.literal(EXPORT_FORMAT),
-  schemaVersion: z.literal(EXPORT_SCHEMA_VERSION),
+  schemaVersion: z.union([z.literal(1), z.literal(2)]),
   exportedAt: z.string(),
   exportedByUid: z.string(),
   recordCount: z.number(),
   records: z.array(z.unknown()),
+  voids: z.array(z.unknown()).optional(),   // absent in v1 files
 });
 
 // ─── Public API ──────────────────────────────────────────────────────────────
 
-/** Serialize sheets to the export file content (pretty-printed JSON). */
-export function serializeExport(sheets: CalibrationRawDataSheet[], exportedByUid: string): string {
+export interface ParsedExport {
+  sheets: CalibrationRawDataSheet[];
+  voids: SheetVoidRecord[];
+}
+
+/** Serialize sheets + void markers to the export file content (pretty-printed JSON). */
+export function serializeExport(
+  sheets: CalibrationRawDataSheet[],
+  voids: SheetVoidRecord[],
+  exportedByUid: string,
+): string {
   return JSON.stringify(
     {
       format: EXPORT_FORMAT,
@@ -73,6 +94,7 @@ export function serializeExport(sheets: CalibrationRawDataSheet[], exportedByUid
       exportedByUid,
       recordCount: sheets.length,
       records: sheets.map((s) => ({ ...s, createdAt: s.createdAt.toISOString() })),
+      voids: voids.map((v) => ({ ...v, createdAt: v.createdAt.toISOString() })),
     },
     null,
     2,
@@ -80,10 +102,11 @@ export function serializeExport(sheets: CalibrationRawDataSheet[], exportedByUid
 }
 
 /**
- * Parse and validate an export file. Returns the sheets with createdAt
- * revived to Date. Throws Error with a Thai, user-displayable message.
+ * Parse and validate an export file (v1 or v2). Returns sheets and void
+ * markers with createdAt revived to Date. Throws Error with a Thai,
+ * user-displayable message.
  */
-export function parseExport(text: string): CalibrationRawDataSheet[] {
+export function parseExport(text: string): ParsedExport {
   let data: unknown;
   try {
     data = JSON.parse(text);
@@ -105,16 +128,29 @@ export function parseExport(text: string): CalibrationRawDataSheet[] {
 
   // Validate each record's structure, then return the ORIGINAL objects so
   // fields the validator doesn't know about are preserved losslessly.
-  const rawRecords = (data as { records: Record<string, unknown>[] }).records;
-  rawRecords.forEach((raw, i) => {
+  const parsed = data as { records: Record<string, unknown>[]; voids?: Record<string, unknown>[] };
+  parsed.records.forEach((raw, i) => {
     const check = recordSchema.safeParse(raw);
     if (!check.success) {
       throw new Error(`พบชีตที่ข้อมูลไม่ครบในไฟล์ (รายการที่ ${i + 1}: ${String(raw?.id ?? 'ไม่มี id')})`);
     }
   });
+  const rawVoids = parsed.voids ?? [];
+  rawVoids.forEach((raw, i) => {
+    const check = voidSchema.safeParse(raw);
+    if (!check.success) {
+      throw new Error(`พบรายการยกเลิกที่ข้อมูลไม่ครบในไฟล์ (รายการที่ ${i + 1})`);
+    }
+  });
 
-  return rawRecords.map((raw) => ({
-    ...(raw as unknown as CalibrationRawDataSheet),
-    createdAt: new Date(raw.createdAt as string),
-  }));
+  return {
+    sheets: parsed.records.map((raw) => ({
+      ...(raw as unknown as CalibrationRawDataSheet),
+      createdAt: new Date(raw.createdAt as string),
+    })),
+    voids: rawVoids.map((raw) => ({
+      ...(raw as unknown as SheetVoidRecord),
+      createdAt: new Date(raw.createdAt as string),
+    })),
+  };
 }

@@ -912,6 +912,24 @@ export interface CalibrationRawDataSheet {
 
 export type CalibrationRawDataSheetInput = Omit<CalibrationRawDataSheet, 'id' | 'createdAt'>;
 
+/**
+ * Append-only VOID marker: cancels a sheet without deleting it (R3).
+ * Stored in its own collection (rawDataSheetVoids); the voided sheet document
+ * is never touched. Voided sheets are hidden from the default list view but
+ * remain in the audit trail and in exports.
+ */
+export interface SheetVoidRecord {
+  id: string;
+  sheetId: string;                 // the voided sheet's document ID
+  reason: string;                  // required, like amendmentReason
+  recordedByUid: string;
+  recordedByName: string;
+  createdAt: Date;                 // serverTimestamp
+  schemaVersion: number;
+}
+
+export type SheetVoidRecordInput = Omit<SheetVoidRecord, 'id' | 'createdAt'>;
+
 // ─── Re-exports ───────────────────────────────────────────────────────────────
 
 export * from './template';

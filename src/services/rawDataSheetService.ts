@@ -15,7 +15,11 @@
  * used, so saved records stay audit-true after later recalibrations.
  */
 
-import type { CalibrationRawDataSheet, CalibrationRawDataSheetInput } from '../types';
+import type {
+  CalibrationRawDataSheet,
+  CalibrationRawDataSheetInput,
+  SheetVoidRecord,
+} from '../types';
 import {
   db,
   collection,
@@ -66,6 +70,18 @@ function mapSheet(id: string, data: Record<string, unknown>): CalibrationRawData
 
 function sheetsCol() {
   return collection(db, 'rawDataSheets');
+}
+
+function voidsCol() {
+  return collection(db, 'rawDataSheetVoids');
+}
+
+function mapVoid(id: string, data: Record<string, unknown>): SheetVoidRecord {
+  return {
+    ...(data as unknown as SheetVoidRecord),
+    id,
+    createdAt: toDate(data.createdAt),
+  };
 }
 
 export interface SheetPageFilter {
@@ -177,6 +193,89 @@ export const rawDataSheetService = {
       cursor = snap.docs[snap.docs.length - 1];
     }
     return out;
+  },
+
+  /**
+   * VOID a sheet: append a cancellation marker to rawDataSheetVoids.
+   * The sheet document itself is never modified or deleted (R3). Requires a
+   * reason and an existing, not-already-voided sheet.
+   */
+  async voidSheet(
+    sheetId: string,
+    reason: string,
+    recordedByUid: string,
+    recordedByName: string,
+  ): Promise<string> {
+    const trimmed = reason.trim();
+    if (!trimmed) throw new Error('reason is required to void a sheet');
+    const sheetSnap = await getDoc(doc(sheetsCol(), sheetId));
+    if (!sheetSnap.exists()) throw new Error(`sheet not found: ${sheetId}`);
+    const existing = await getDocs(query(voidsCol(), where('sheetId', '==', sheetId)));
+    if (!existing.empty) throw new Error('sheet is already voided');
+    const ref = await addDoc(voidsCol(), {
+      sheetId,
+      reason: trimmed,
+      recordedByUid,
+      recordedByName,
+      schemaVersion: RAW_DATA_SHEET_SCHEMA_VERSION,
+      createdAt: serverTimestamp(),
+    });
+    return ref.id;
+  },
+
+  /** Void markers for the given sheet IDs, keyed by sheetId (chunked 'in' queries). */
+  async getVoidsForSheets(sheetIds: string[]): Promise<Map<string, SheetVoidRecord>> {
+    const out = new Map<string, SheetVoidRecord>();
+    for (let i = 0; i < sheetIds.length; i += ID_QUERY_CHUNK) {
+      const ids = sheetIds.slice(i, i + ID_QUERY_CHUNK);
+      if (ids.length === 0) continue;
+      const snap = await getDocs(query(voidsCol(), where('sheetId', 'in', ids)));
+      snap.docs.forEach((d) => {
+        const record = mapVoid(d.id, d.data() as Record<string, unknown>);
+        out.set(record.sheetId, record);
+      });
+    }
+    return out;
+  },
+
+  /** Fetch every void marker (for JSON export), oldest first. */
+  async exportAllVoids(): Promise<SheetVoidRecord[]> {
+    const out: SheetVoidRecord[] = [];
+    let cursor: QueryDocumentSnapshot | undefined;
+    for (;;) {
+      const constraints: QueryConstraint[] = [orderBy('createdAt', 'asc')];
+      if (cursor) constraints.push(startAfter(cursor));
+      constraints.push(limit(EXPORT_PAGE_SIZE));
+      const snap = await getDocs(query(voidsCol(), ...constraints));
+      snap.docs.forEach((d) => out.push(mapVoid(d.id, d.data() as Record<string, unknown>)));
+      if (snap.docs.length < EXPORT_PAGE_SIZE) break;
+      cursor = snap.docs[snap.docs.length - 1];
+    }
+    return out;
+  },
+
+  /** Import void markers, preserving IDs and skipping existing (idempotent). */
+  async importVoids(voids: SheetVoidRecord[]): Promise<{ imported: number; skipped: number }> {
+    const existing = new Set<string>();
+    for (let i = 0; i < voids.length; i += ID_QUERY_CHUNK) {
+      const ids = voids.slice(i, i + ID_QUERY_CHUNK).map((v) => v.id);
+      if (ids.length === 0) continue;
+      const snap = await getDocs(query(voidsCol(), where(documentId(), 'in', ids)));
+      snap.docs.forEach((d) => existing.add(d.id));
+    }
+    const toWrite = voids.filter((v) => !existing.has(v.id));
+    for (let i = 0; i < toWrite.length; i += IMPORT_BATCH_SIZE) {
+      const batch = writeBatch(db);
+      for (const record of toWrite.slice(i, i + IMPORT_BATCH_SIZE)) {
+        const { id, createdAt, ...rest } = record;
+        batch.set(doc(voidsCol(), id), {
+          ...stripUndefined(rest),
+          createdAt: Timestamp.fromDate(toDate(createdAt)),
+        });
+      }
+      await batch.commit();
+    }
+    return { imported: toWrite.length, skipped: existing.size };
   },
 
   /**

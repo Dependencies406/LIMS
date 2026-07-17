@@ -91,7 +91,8 @@ describe('append-only invariant', () => {
       expect(key).not.toMatch(/update|delete|remove|set(?!tings)/i);
     }
     expect(keys.sort()).toEqual(
-      ['add', 'amend', 'exportAll', 'getAmendmentsOf', 'getById', 'getPage', 'importSheets'].sort(),
+      ['add', 'amend', 'exportAll', 'exportAllVoids', 'getAmendmentsOf', 'getById',
+       'getPage', 'getVoidsForSheets', 'importSheets', 'importVoids', 'voidSheet'].sort(),
     );
   });
 
@@ -190,5 +191,44 @@ describe('importSheets', () => {
     expect(result).toEqual({ imported: 0, skipped: 2 });
     expect(batchSet).not.toHaveBeenCalled();
     expect(batchCommit).not.toHaveBeenCalled();
+  });
+});
+
+// ─── voidSheet() (append-only "delete") ──────────────────────────────────────
+
+describe('voidSheet', () => {
+  it('creates a void marker without touching the sheet document', async () => {
+    getDoc.mockResolvedValue({ exists: () => true });
+    getDocs.mockResolvedValue({ empty: true, docs: [] });     // not yet voided
+    const id = await rawDataSheetService.voidSheet('sheet-9', 'duplicate entry', 'uid-1', 'Nattawat');
+    expect(id).toBe('new-sheet-1');
+    const payload = addDoc.mock.calls[0][1];
+    expect(payload.sheetId).toBe('sheet-9');
+    expect(payload.reason).toBe('duplicate entry');
+    expect(payload.createdAt).toBe('SERVER_TS');
+    expect(updateDoc).not.toHaveBeenCalled();
+    expect(deleteDoc).not.toHaveBeenCalled();
+    expect(setDoc).not.toHaveBeenCalled();
+  });
+
+  it('rejects an empty reason', async () => {
+    await expect(rawDataSheetService.voidSheet('sheet-9', '  ', 'u', 'n'))
+      .rejects.toThrow(/reason/);
+    expect(addDoc).not.toHaveBeenCalled();
+  });
+
+  it('rejects voiding a non-existent sheet', async () => {
+    getDoc.mockResolvedValue({ exists: () => false });
+    await expect(rawDataSheetService.voidSheet('ghost', 'x', 'u', 'n'))
+      .rejects.toThrow(/not found/);
+    expect(addDoc).not.toHaveBeenCalled();
+  });
+
+  it('rejects voiding an already-voided sheet', async () => {
+    getDoc.mockResolvedValue({ exists: () => true });
+    getDocs.mockResolvedValue({ empty: false, docs: [{ id: 'v1' }] });
+    await expect(rawDataSheetService.voidSheet('sheet-9', 'x', 'u', 'n'))
+      .rejects.toThrow(/already voided/);
+    expect(addDoc).not.toHaveBeenCalled();
   });
 });

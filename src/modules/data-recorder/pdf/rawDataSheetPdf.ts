@@ -9,17 +9,26 @@
 
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import type { CalibrationRawDataSheet } from '../../../types';
+import type { CalibrationRawDataSheet, SheetVoidRecord } from '../../../types';
 import { pdfFontManager } from '../../../services/pdfFontManager';
 import { SERIES, fmtDate, fmtDateTime, fmtForce, shortId, snapshotForRow } from '../sheetLogic';
 
 const MARGIN = 10;
 const BLACK: [number, number, number] = [23, 33, 28];
 const GRAY: [number, number, number] = [91, 102, 96];
+const RED: [number, number, number] = [179, 55, 62];
 const HEAD_FILL: [number, number, number] = [234, 241, 237];
 
+export interface RawDataSheetPdfOptions {
+  /** When the sheet has been voided, a prominent cancellation marker is printed. */
+  voidInfo?: SheetVoidRecord;
+}
+
 /** Build the PDF document for a saved sheet. Exported for testing. */
-export async function buildRawDataSheetPdf(sheet: CalibrationRawDataSheet): Promise<jsPDF> {
+export async function buildRawDataSheetPdf(
+  sheet: CalibrationRawDataSheet,
+  options: RawDataSheetPdfOptions = {},
+): Promise<jsPDF> {
   const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
 
   // Thai text renders as garbage without Sarabun — register before ANY text.
@@ -45,7 +54,19 @@ export async function buildRawDataSheetPdf(sheet: CalibrationRawDataSheet): Prom
     ? `${sheet.requestNo} · ${sheet.direction} · Amendment of ${shortId(sheet.amends ?? '')} — ${sheet.amendmentReason ?? ''}`
     : `${sheet.requestNo} · ${sheet.direction} · Original record`;
   pdf.text(subtitle, pageWidth / 2, y, { align: 'center' });
-  y += 6;
+  y += 5;
+
+  if (options.voidInfo) {
+    pdf.setFont(fontName, 'bold');
+    pdf.setFontSize(10);
+    pdf.setTextColor(...RED);
+    pdf.text(
+      `ยกเลิก (VOIDED) — ${options.voidInfo.reason} · โดย ${options.voidInfo.recordedByName} · ${fmtDateTime(options.voidInfo.createdAt)}`,
+      pageWidth / 2, y, { align: 'center' },
+    );
+    y += 5;
+  }
+  y += 1;
 
   // ── Header blocks (Job / UUC) as a two-column field table ──
   autoTable(pdf, {
@@ -190,8 +211,24 @@ export async function buildRawDataSheetPdf(sheet: CalibrationRawDataSheet): Prom
   return pdf;
 }
 
+export function rawDataSheetPdfFileName(sheet: CalibrationRawDataSheet): string {
+  return `raw-data-${sheet.requestNo}-${shortId(sheet.id).slice(1)}.pdf`;
+}
+
+/** Generate the PDF and return a blob URL for in-app preview (caller revokes it). */
+export async function buildRawDataSheetPdfBlobUrl(
+  sheet: CalibrationRawDataSheet,
+  options: RawDataSheetPdfOptions = {},
+): Promise<string> {
+  const pdf = await buildRawDataSheetPdf(sheet, options);
+  return pdf.output('bloburl').toString();
+}
+
 /** Generate and download the PDF for a sheet. */
-export async function downloadRawDataSheetPdf(sheet: CalibrationRawDataSheet): Promise<void> {
-  const pdf = await buildRawDataSheetPdf(sheet);
-  pdf.save(`raw-data-${sheet.requestNo}-${shortId(sheet.id).slice(1)}.pdf`);
+export async function downloadRawDataSheetPdf(
+  sheet: CalibrationRawDataSheet,
+  options: RawDataSheetPdfOptions = {},
+): Promise<void> {
+  const pdf = await buildRawDataSheetPdf(sheet, options);
+  pdf.save(rawDataSheetPdfFileName(sheet));
 }
