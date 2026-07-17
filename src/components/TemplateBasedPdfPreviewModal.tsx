@@ -480,16 +480,19 @@ export const TemplateBasedPdfPreviewModal: React.FC<TemplateBasedPdfPreviewModal
         }}
       />
 
-      {/* Template Builder — lets users create a new jobs-scoped template inline */}
-      <PdfTemplateBuilderModal
-        isOpen={showBuilder}
-        onClose={() => setShowBuilder(false)}
-        initialScope="jobs"
-        onSave={() => {
-          setShowBuilder(false);
-          setShowTemplateSelector(true);
-        }}
-      />
+      {/* Template Builder — lets users create a new jobs-scoped template inline.
+          Mounted only while open: the builder is heavyweight and requires AuthProvider. */}
+      {showBuilder && (
+        <PdfTemplateBuilderModal
+          isOpen={showBuilder}
+          onClose={() => setShowBuilder(false)}
+          initialScope="jobs"
+          onSave={() => {
+            setShowBuilder(false);
+            setShowTemplateSelector(true);
+          }}
+        />
+      )}
 
       {/* Missing Data Warning Modal */}
       <MissingDataWarningModal

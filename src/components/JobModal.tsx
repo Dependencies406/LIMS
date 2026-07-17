@@ -18,6 +18,8 @@ import { TemplateBasedPdfPreviewModal } from './TemplateBasedPdfPreviewModal';
 import { StatementOfConformityPdfUpload } from './StatementOfConformityPdfUpload';
 import { matchUserFromAssignedStaffValue } from '../services/userService';
 import { jobService } from '../services/jobService';
+import { customerService } from '../services/customerService';
+import { getNextCustomerId, incrementCustomerIdSequence } from '../services/customerIdService';
 import { IconButton, PlusIcon, DuplicateIcon } from './common';
 import { JobAttachmentsPanel } from './JobAttachmentsPanel';
 
@@ -306,6 +308,8 @@ export const JobModal: React.FC<JobModalProps> = ({
   const [showCustomerSignatureModal, setShowCustomerSignatureModal] = useState(false);
   const [showStaffSignatureModal, setShowStaffSignatureModal] = useState(false);
   const [showTechnicalReviewerSignatureModal, setShowTechnicalReviewerSignatureModal] = useState(false);
+  const [savingCustomerToDb, setSavingCustomerToDb] = useState(false);
+  const [customerSavedCode, setCustomerSavedCode] = useState<string | null>(null);
 
   // Work Authorization signatures
   const [customerSignature, setCustomerSignature] = useState<WorkAuthorization['customerSignature']>();
@@ -705,6 +709,30 @@ export const JobModal: React.FC<JobModalProps> = ({
     setCustomerSuggestOpen(false);
   }, []);
 
+  const handleSaveCustomerToDb = useCallback(async () => {
+    if (!form.customerName.trim()) return;
+    setSavingCustomerToDb(true);
+    setError('');
+    try {
+      const customerId = await getNextCustomerId();
+      await customerService.createCustomer({
+        customerCode: customerId,
+        name: form.customerName.trim(),
+        contact: form.customerContact.trim(),
+        address: form.customerAddress.trim(),
+        email: form.customerEmail.trim(),
+        phone: form.customerPhone.trim(),
+      });
+      await incrementCustomerIdSequence();
+      setForm((prev) => ({ ...prev, customerCode: customerId }));
+      setCustomerSavedCode(customerId);
+    } catch (err: any) {
+      setError(err?.message || 'Failed to save customer to database.');
+    } finally {
+      setSavingCustomerToDb(false);
+    }
+  }, [form.customerName, form.customerContact, form.customerAddress, form.customerEmail, form.customerPhone]);
+
   /** Company name: free text; clears linked customer code if it no longer matches the saved record. */
   const handleCompanyNameChange = useCallback(
     (value: string) => {
@@ -999,23 +1027,22 @@ export const JobModal: React.FC<JobModalProps> = ({
 
   const duplicateEquipment = (index: number) => {
     const source = equipment[index];
+    // Do NOT copy spreadsheetData, attachments, or certificateNumber —
+    // and never set them to `undefined` (Firestore rejects undefined values).
     const duplicate: typeof source = {
       name: source.name,
       manufacturer: source.manufacturer,
       model: source.model,
       serialNumber: source.serialNumber,
-      assetTag: (source as any).assetTag,
+      ...(source.assetTag !== undefined ? { assetTag: source.assetTag } : {}),
       calibrationPoint: source.calibrationPoint,
       calibrationMethods: source.calibrationMethods,
       accessories: source.accessories,
       machineLocation: source.machineLocation,
       remark: source.remark,
-      calibrationDate: (source as any).calibrationDate,
-      unit: (source as any).unit,
-      resolution: (source as any).resolution,
-      spreadsheetData: undefined,
-      attachments: undefined,
-      // certificateNumber intentionally omitted
+      ...((source as any).calibrationDate !== undefined ? { calibrationDate: (source as any).calibrationDate } : {}),
+      ...((source as any).unit !== undefined ? { unit: (source as any).unit } : {}),
+      ...((source as any).resolution !== undefined ? { resolution: (source as any).resolution } : {}),
     };
     const newEquipment = [...equipment];
     newEquipment.splice(index + 1, 0, duplicate);
@@ -1179,10 +1206,18 @@ export const JobModal: React.FC<JobModalProps> = ({
         ...(technicalReviewerSignature ? { technicalReviewerSignature } : {})
       };
 
+      // Strip undefined values from each equipment item — Firestore rejects them.
+      const stripUndefined = <T extends Record<string, unknown>>(obj: T): T =>
+        Object.fromEntries(
+          Object.entries(obj).filter(([, v]) => v !== undefined)
+        ) as T;
+
       const jobData = {
         ...restForm,
         poNumber: form.poNumber.trim(),
-        equipment: equipment.filter(eq => eq.name || eq.model), // Filter empty equipment
+        equipment: equipment
+          .filter(eq => eq.name || eq.model)
+          .map(eq => stripUndefined(eq as unknown as Record<string, unknown>)), // strip undefined
         serviceInformation,
         workAuthorization,
         ...(linkedPdfTemplateId ? { pdfTemplateId: linkedPdfTemplateId } : {}),
@@ -2230,6 +2265,59 @@ export const JobModal: React.FC<JobModalProps> = ({
                   />
                 </div>
               </div>
+
+              {/* Save to Customer Database */}
+              {form.customerName.trim() && (
+                <div className="pt-3 border-t border-gray-200">
+                  {form.customerCode ? (
+                    <div className="flex items-center gap-2 text-sm text-green-700 bg-green-50 border border-green-200 rounded-lg px-4 py-2.5">
+                      <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                      <span>
+                        Linked to customer database —{' '}
+                        <span className="font-mono font-semibold">{form.customerCode}</span>
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-medium text-gray-700">Save to Customer Database</p>
+                        <p className="text-xs text-gray-500">
+                          This customer is not in the directory yet. Save to create a reusable record.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        disabled={savingCustomerToDb || formDisabled}
+                        onClick={() => void handleSaveCustomerToDb()}
+                        className="flex shrink-0 items-center gap-2 px-4 py-2 rounded-lg bg-primary-600 text-white text-sm font-medium hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      >
+                        {savingCustomerToDb ? (
+                          <>
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
+                            <span>Saving…</span>
+                          </>
+                        ) : customerSavedCode ? (
+                          <>
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                            </svg>
+                            <span>Saved as {customerSavedCode}</span>
+                          </>
+                        ) : (
+                          <>
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                            </svg>
+                            <span>Save to Database</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
           )}

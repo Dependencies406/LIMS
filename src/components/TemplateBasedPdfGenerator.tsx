@@ -143,17 +143,20 @@ export const TemplateBasedPdfGenerator: React.FC<TemplateBasedPdfGeneratorProps>
         </div>
       )}
 
-      {/* Template Builder — opens when user clicks "Create New Template" in the selector */}
-      <PdfTemplateBuilderModal
-        isOpen={showBuilder}
-        onClose={() => setShowBuilder(false)}
-        initialScope="jobs"
-        onSave={() => {
-          // After saving, close builder and re-open selector so user can pick the new template
-          setShowBuilder(false);
-          wf.setShowTemplateSelector(true);
-        }}
-      />
+      {/* Template Builder — opens when user clicks "Create New Template" in the selector.
+          Mounted only while open: the builder is heavyweight and requires AuthProvider. */}
+      {showBuilder && (
+        <PdfTemplateBuilderModal
+          isOpen={showBuilder}
+          onClose={() => setShowBuilder(false)}
+          initialScope="jobs"
+          onSave={() => {
+            // After saving, close builder and re-open selector so user can pick the new template
+            setShowBuilder(false);
+            wf.setShowTemplateSelector(true);
+          }}
+        />
+      )}
     </>
   );
 };

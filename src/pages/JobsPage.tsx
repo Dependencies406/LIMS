@@ -95,17 +95,23 @@ export const JobsPage: React.FC = () => {
     }
   };
 
-  // Filter jobs
-  const filteredJobs = jobs.filter(job => {
-    const matchesSearch = 
-      job.jobId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      job.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      job.customerCode.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchesStatus = statusFilter === 'all' || job.status === statusFilter;
-    
-    return matchesSearch && matchesStatus;
-  });
+  // Filter jobs and sort by Job ID numeric suffix descending (e.g. SCS-CAL-26011 first)
+  const filteredJobs = jobs
+    .filter(job => {
+      const matchesSearch =
+        job.jobId.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        job.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        job.customerCode.toLowerCase().includes(searchTerm.toLowerCase());
+
+      const matchesStatus = statusFilter === 'all' || job.status === statusFilter;
+
+      return matchesSearch && matchesStatus;
+    })
+    .sort((a, b) => {
+      const numA = parseInt(a.jobId.match(/(\d+)$/)?.[1] ?? '0', 10);
+      const numB = parseInt(b.jobId.match(/(\d+)$/)?.[1] ?? '0', 10);
+      return numB - numA;
+    });
 
   const getStatusColor = (status: string) => {
     switch (status) {

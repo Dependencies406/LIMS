@@ -202,6 +202,14 @@ service cloud.firestore {
       match /documents/{docId} {
         allow read, write: if request.auth != null;
       }
+
+      match /conversionEquations/{equationId} {
+        allow read, write: if request.auth != null;
+      }
+
+      match /constants/{constantId} {
+        allow read, write: if request.auth != null;
+      }
     }
 
     // Service Requests collection - allow public writes for customer submissions
@@ -359,6 +367,11 @@ service cloud.firestore {
       
       // Notifications subcollection
       match /notifications/{notificationId} {
+        allow read, write: if request.auth != null;
+      }
+
+      // Calibration sessions subcollection (written by lab-recorder desktop app)
+      match /calibrations/{calibrationId} {
         allow read, write: if request.auth != null;
       }
     }

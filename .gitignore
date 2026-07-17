@@ -1,3 +1,6 @@
+# Google OAuth client secret files — NEVER commit these
+client_secret*.json
+
 # Logs
 logs
 *.log

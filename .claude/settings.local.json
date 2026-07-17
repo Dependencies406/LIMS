@@ -12,7 +12,19 @@
       "Bash(do echo:*)",
       "Read(//c/Users/seela/OneDrive/Desktop/LIMS-New/**)",
       "Bash(done)",
-      "Bash(npm run:*)"
+      "Bash(npm run:*)",
+      "Bash(netstat -ano)",
+      "Skill(artifact-design)",
+      "Skill(artifact-design:*)",
+      "Read(//i/My Drive/QMS_LIMS/Calibration/Calibration Job/2026-ISO/SCS-CAL-26024 - Cal Load Cell สำนักทดสอบยานยนต์/Raw Data/Demo//**)",
+      "Bash(cp '/i/My Drive/QMS_LIMS/Calibration/Calibration Job/2026-ISO/SCS-CAL-26024 - Cal Load Cell สำนักทดสอบยานยนต์/Raw Data/Demo/Demo File.xlsb' __TRACKED_VAR__/demo-file.xlsb)",
+      "Bash(cp \"/i/My Drive/QMS_LIMS/Calibration/Calibration Job/2026-ISO/SCS-CAL-26024 - Cal Load Cell สำนักทดสอบยานยนต์/Raw Data/Demo/Demo File.xlsb\" \"C:\\\\Users\\\\seela\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-seela-Desktop-LIMS-New\\\\cf282701-3c6d-4968-be7b-2d5b6051a5bb\\\\scratchpad\\\\demo-file.xlsb\")",
+      "Bash(python -c \"import pyxlsb; print\\('pyxlsb ok'\\)\")",
+      "Bash(pip install *)",
+      "Bash(python -)",
+      "Bash(git switch *)",
+      "Bash(git add *)",
+      "Bash(git commit -m 'backup: checkpoint pre-existing uncommitted work before data-recorder implementation *)"
     ]
   }
 }
