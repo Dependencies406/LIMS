@@ -35,7 +35,6 @@ export const SERIES: { key: SeriesKey; label: string; group: 'inc' | 'dec' }[] =
   { key: 'dec3', label: 'Decreasing 3', group: 'dec' },
 ];
 
-export const DEFAULT_CAL_POINTS = [0, 4000, 8000, 12000, 16000, 20000, 25000, 30000, 35000, 40000];
 
 // ─── Standard options (equipment × equation) ─────────────────────────────────
 
@@ -155,8 +154,9 @@ export function blankRow(standardKey = ''): EditableRow {
   };
 }
 
+/** New sheets start with a single empty row — calibration points are never preset. */
 export function defaultRows(): EditableRow[] {
-  return DEFAULT_CAL_POINTS.map((p) => ({ ...blankRow(), calPoint: String(p) }));
+  return [blankRow()];
 }
 
 /** Convert a saved sheet's rows back into the editable model (for amendments). */
