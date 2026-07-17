@@ -131,7 +131,18 @@ const PRIMARY_NAV: NavItem[] = [
   { path: '/staff',       label: 'Staff',             Icon: StaffIcon,     activeColor: 'text-violet-600', activeBg: 'bg-violet-50' },
 ];
 
+const DataRecorderIcon: React.FC<{ className?: string }> = ({ className = 'w-5 h-5' }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round">
+    <rect x="4" y="3" width="16" height="18" rx="2" />
+    <line x1="8" y1="8" x2="16" y2="8" />
+    <line x1="8" y1="12" x2="16" y2="12" />
+    <line x1="8" y1="16" x2="12" y2="16" />
+    <polyline points="14.5 16.5 16 18 19 15" />
+  </svg>
+);
+
 const SECONDARY_NAV: NavItem[] = [
+  { path: '/data-records', label: 'บันทึกข้อมูล',      Icon: DataRecorderIcon, activeColor: 'text-teal-600', activeBg: 'bg-teal-50' },
   { path: '/documents',   label: 'Documents',         Icon: DocumentsIcon, activeColor: 'text-slate-600',  activeBg: 'bg-slate-50'  },
   { path: '/recycle-bin', label: 'Recycle Bin',       Icon: RecycleBinIcon,activeColor: 'text-rose-600',   activeBg: 'bg-rose-50'   },
   { path: '/settings',   label: 'Settings',           Icon: SettingsIcon,  activeColor: 'text-gray-700',   activeBg: 'bg-gray-100', adminOnly: true },

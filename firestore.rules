@@ -212,6 +212,14 @@ service cloud.firestore {
       }
     }
 
+    // Data Recorder — calibration raw-data sheets. APPEND-ONLY audit records:
+    // never updated or deleted; corrections are new "amendment" documents
+    // referencing the original sheet's ID (see docs/DATA_RECORDER_DESIGN.md).
+    match /rawDataSheets/{sheetId} {
+      allow read, create: if request.auth != null;
+      allow update, delete: if false;
+    }
+
     // Service Requests collection - allow public writes for customer submissions
     // Authenticated users can read/write, unauthenticated users can only create
     // Stores customer service requests before conversion to jobs

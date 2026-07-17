@@ -24,6 +24,7 @@ import { UsageLogNewPage } from './pages/equipment/UsageLogNewPage';
 import { UsageLogHistoryPage } from './pages/equipment/UsageLogHistoryPage';
 import { CalibrationPlanPage } from './pages/equipment/CalibrationPlanPage';
 import { RetirementPage } from './pages/equipment/RetirementPage';
+import { DataRecorderListPage, SheetEditorPage } from './modules/data-recorder';
 import { ToastContainer } from './components/Toast';
 import { useToast } from './hooks/useToast';
 import './index.css';
@@ -113,6 +114,12 @@ const AppContent: React.FC = () => {
 
           {/* Documents */}
           <Route path="documents" element={<DocumentIndexPage />} />
+
+          {/* Data Recorder (calibration raw-data sheets) */}
+          <Route path="data-records" element={<DataRecorderListPage />} />
+          <Route path="data-records/new" element={<SheetEditorPage mode="new" />} />
+          <Route path="data-records/:id" element={<SheetEditorPage mode="view" />} />
+          <Route path="data-records/:id/amend" element={<SheetEditorPage mode="amend" />} />
 
           {/* Recycle Bin */}
           <Route path="recycle-bin" element={<RecycleBinPage />} />
