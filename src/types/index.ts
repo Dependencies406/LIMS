@@ -605,6 +605,10 @@ export interface EquipmentRecord {
   requiresCalibration: boolean;
   calibrationInterval?: number;    // months
   calibrationProcedure?: string;
+  /** Numeric calibration point values (numbers only; unit stored in calibrationUnit) */
+  calibrationPoints?: number[];
+  /** Physical unit for all calibration points, e.g. "N", "kN", "kg" */
+  calibrationUnit?: string;
   externalProvider: boolean;
   capacity?: string;
   usageRange?: string;
@@ -727,6 +731,72 @@ export interface PdfSettings {
   footerContent: { left: string; center: string; right: string };
 }
 
+// ─── Conversion Equations ─────────────────────────────────────────────────────
+
+/** Coefficient entry — stores numeric value and remembers how the user typed it */
+export interface EquationCoefficient {
+  value: number;
+  /** 'decimal' | 'scientific' — drives which input style is shown */
+  inputMode: 'decimal' | 'scientific';
+  /** Raw string the user typed (preserved for display round-trip) */
+  raw: string;
+}
+
+/**
+ * A polynomial conversion equation stored per equipment.
+ * Firestore path: equipmentControl/{equipmentId}/conversionEquations/{id}
+ *
+ * Equation form: output = (A·xⁿ + B·xⁿ⁻¹ + … + constant) / divisor
+ *
+ * coefficients[0] = highest-degree coefficient (A)
+ * coefficients[degree] = constant term
+ */
+export interface ConversionEquation {
+  id: string;
+  name: string;
+  inputUnit: string;
+  outputUnit: string;
+  /** Polynomial degree 1–5 */
+  degree: number;
+  /** Length = degree + 1. Index 0 = highest-degree coeff, last = constant */
+  coefficients: EquationCoefficient[];
+  divisor: number;
+  notes?: string;
+  createdAt: Date;
+  updatedAt: Date;
+  createdBy: string;
+}
+
+export type ConversionEquationInput = Omit<ConversionEquation, 'id' | 'createdAt' | 'updatedAt'>;
+
+// ─── Equipment Constants ──────────────────────────────────────────────────────
+
+/**
+ * A named constant bound to an equipment record.
+ * Keys are assigned sequentially: k1, k2, k3, …
+ * Firestore path: equipmentControl/{equipmentId}/constants/{id}
+ */
+export interface EquipmentConstant {
+  id: string;
+  /** Sequential label: "k1", "k2", "k3", … */
+  key: string;
+  /** Numeric value of the constant */
+  value: number;
+  /** Raw string the user typed (preserves formatting e.g. "2.12230E+01") */
+  rawValue: string;
+  /** Optional physical unit, e.g. "N/mV/V", "kg", "°C/mV" */
+  unit?: string;
+  /** Human-readable description of what this constant represents */
+  description?: string;
+  /** Any additional notes (source document, reference standard, etc.) */
+  notes?: string;
+  createdAt: Date;
+  updatedAt: Date;
+  createdBy: string;
+}
+
+export type EquipmentConstantInput = Omit<EquipmentConstant, 'id' | 'createdAt' | 'updatedAt'>;
+
 // ─── Misc Types ───────────────────────────────────────────────────────────────
 
 export type ModalType = 'JobFormModal' | 'CustomerModal' | 'CompleteJobModal' | 'SettingsModal';
@@ -737,6 +807,110 @@ export interface Toast {
   type: 'success' | 'error' | 'info' | 'warning';
   duration?: number;
 }
+
+// ─── Data Recorder (Calibration Raw Data Sheets) ──────────────────────────────
+
+/** Force units supported by the recorder's unit handler. */
+export type ForceUnit = 'N' | 'kN' | 'kgf' | 'gf';
+
+/** 'original' = first recording; 'amendment' = correction referencing a prior sheet. */
+export type SheetKind = 'original' | 'amendment';
+
+export type CalDirection = 'Tension' | 'Compression';
+
+/** Measurement series columns, matching the ISO 7500-1 raw-data workbook layout. */
+export type SeriesKey = 'inc1' | 'inc2' | 'inc3' | 'dec3';
+
+export interface MeasurementCell {
+  /** UUC reading, in the sheet's uuc.readingUnit. */
+  uuc: number | null;
+  /** Reference standard indicator signal (mV/V) — the raw source of truth. */
+  sig: number | null;
+  /** Computed at save: convertForce(evaluate(equation, sig), equation.outputUnit, readingUnit). */
+  force: number | null;
+}
+
+export interface SheetRow {
+  calPoint: number;
+  /** Reference-standard equipment doc ID (equipmentControl collection). */
+  standardEquipmentId: string;
+  /** conversionEquations doc ID under that equipment. */
+  equationId: string;
+  cells: Record<SeriesKey, MeasurementCell>;
+}
+
+/** Audit snapshot of one reference standard + equation exactly as used at save time. */
+export interface StandardSnapshot {
+  equipmentId: string;
+  equationId: string;
+  /** Display label, e.g. "CAL-FRC-004 — Tensile 10-100 kN". */
+  code: string;
+  name: string;
+  manufacturer?: string;
+  model?: string;
+  serial?: string;
+  dueDate?: string;                // ISO date (mirrors EquipmentRecord.nextCalibrationDate)
+  equationName: string;
+  degree: number;
+  /** Coefficient values, highest power first (same order conversionEquationService.evaluate uses). */
+  coefficients: number[];
+  divisor: number;
+  inputUnit: string;
+  outputUnit: string;
+}
+
+/** Thermo-hygrometer used for the environment readings — required on every sheet. */
+export interface EnvStandardSnapshot {
+  equipmentId: string;
+  code: string;                    // equipment ID, e.g. CAL-THM-001
+  name: string;
+  serial?: string;
+  range?: string;
+  dueDate?: string;                // ISO date
+}
+
+export interface EnvRound {
+  t: number;                       // temperature °C
+  h: number;                       // relative humidity %RH
+}
+
+export interface CalibrationRawDataSheet {
+  id: string;
+  kind: SheetKind;
+  /** Original sheet ID when kind === 'amendment'; null for originals. */
+  amends: string | null;
+  /** Required free-text reason when kind === 'amendment'. */
+  amendmentReason?: string;
+  jobId: string | null;
+  requestNo: string;               // e.g. SCS-CAL-26024
+  receivedDate?: string;           // ISO date
+  calibrationDate: string;         // ISO date
+  uuc: {
+    equipmentName: string;
+    manufacturer?: string;
+    model?: string;
+    serial?: string;
+    readingUnit: ForceUnit;
+    resolution?: number;
+  };
+  calibrationRange: string;
+  direction: CalDirection;
+  /** Snapshots of every standard/equation the rows actually use (derived, stamped at save). */
+  standards: StandardSnapshot[];
+  envStandard: EnvStandardSnapshot;
+  /** Exactly 3 rounds, all required before save. */
+  env: EnvRound[];
+  machineCondition: string;
+  decimalPlaces: number;
+  rows: SheetRow[];
+  recordedByUid: string;
+  recordedByName: string;
+  /** serverTimestamp — authoritative audit write time. Sheets are never updated. */
+  createdAt: Date;
+  schemaVersion: number;
+}
+
+export type CalibrationRawDataSheetInput = Omit<CalibrationRawDataSheet, 'id' | 'createdAt'>;
 
 // ─── Re-exports ───────────────────────────────────────────────────────────────
 
