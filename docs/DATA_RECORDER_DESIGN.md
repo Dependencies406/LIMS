@@ -231,6 +231,65 @@ dimensional, torque, …). Strategy — decided now, implemented per-type later:
   (temperature °C/°F/K, pressure bar/kPa/psi, …); conversionEquationService
   is already unit-string-agnostic and reusable as-is.
 
+## 8c. Relative Error & Uncertainty calculation handler (planned — owner request 2026-07-19)
+
+The workbook's downstream sheets (Relative Error, Unc. Budget, Report per
+ISO 7500-1:2018) are ANALYSIS over the recorded raw data. Design position:
+
+**Architecture**
+- Pure, deterministic functions in `src/modules/data-recorder/analysis/`
+  (`relativeError.ts`, `uncertaintyBudget.ts`), computed ON DEMAND from a
+  saved sheet — derived values are NOT stored in the sheet document. The raw
+  signals + snapshotted coefficients already stored are sufficient inputs to
+  reproduce the numbers forever; storing results would just create a second
+  source of truth. (Exception: when the future certificate/report is issued,
+  the report generator may snapshot the computed table into its own document
+  for the issued artifact.)
+- Per sheetType (registry of §8b): the formulas below are the
+  `force-iso7500-1` implementation; other work types plug in their own.
+- UI: a read-only "ผลการวิเคราะห์" section/tab on the saved-sheet view +
+  a section in the future certificate PDF. Amendments re-derive automatically
+  since analysis always reads the referenced sheet's raw data.
+- Fully unit-testable against the demo workbook's numbers (golden tests:
+  feed the seeded SCS-CAL-26024 tension data, expect the workbook's q/b/U
+  values within rounding).
+
+**Relative Error (ISO 7500-1:2018) — per cal point, from the workbook's
+Relative Error sheet columns:**
+- Fi1..Fi3 = STD-Force of Increasing 1..3; F'i3 = Decreasing; F_avg = mean.
+- q1..q3 (%) = relative indication error per series; q_avg; b (%) = relative
+  repeatability error; v (%) = relative reversibility error (needs the
+  decreasing series); f0 (%) = relative zero error (zero-point rows);
+  a (%) = relative resolution (uses uuc.resolution — already stored).
+- Class determination: compare against the ISO 7500-1 class table
+  (0.5 / 1 / 2 / 3 with max permissible q, b, v, f0, a — the table printed in
+  the workbook and certificate) → per-point and overall machine class.
+- [UNVERIFIED] The .xlsb dump exposed computed VALUES, not formula text —
+  exact formula definitions must be lifted from the workbook formulas or
+  ISO 7500-1 itself at implementation time, then locked in by golden tests.
+
+**Uncertainty Budget — per cal point, from the workbook's Unc. Budget sheet:**
+- u_rep: type A from the 3 increasing readings (S.D.-based, normal, √(n−1)
+  factor per the workbook's Distribution rows); u_res: resolution, rectangular
+  (√3); u_cal, A, B, C: standard's calibration uncertainty + contribution
+  terms, rectangular (√3) → u_std; combined u_c; V_eff (Welch–Satterthwaite);
+  coverage factor k at 95.45 %; U = k·u_c; Report-U = max(U, CMC) truncated
+  to 2 significant figures.
+- **Prerequisite A — uncertainty parameters per standard:** the LCDB columns
+  u_cal(%), A(%), B(%), C(%) are NOT yet stored in the app or in
+  StandardSnapshot. Home: extend the ConversionEquation document (fields
+  uCal/uA/uB/uC) + snapshot them onto StandardSnapshot at save. Until sheets
+  carry them, the budget can only be computed for sheets recorded after that
+  field exists (or by reading the CURRENT equation values, clearly labeled).
+- **Prerequisite B — CMC table:** per direction/range CMC values (the
+  workbook's R/S/T columns) need a storage home (suggest a small
+  `settings/cmc` document or constants file maintained with the scope of
+  accreditation) before Report-U can be finalized.
+
+Implementation order when commissioned: extract exact formulas → analysis
+module + golden tests vs Demo File.xlsb → equation-document uncertainty
+fields + snapshot extension (schemaVersion bump) → UI tab → certificate PDF.
+
 ## 9. Stage B preconditions
 
 - Repo was on detached HEAD at `51295f9` with uncommitted work — create
