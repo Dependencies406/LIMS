@@ -121,7 +121,7 @@ describe('add', () => {
     expect(payload.kind).toBe('original');
     expect(payload.amends).toBeNull();
     expect(payload.createdAt).toBe('SERVER_TS');
-    expect(payload.schemaVersion).toBe(1);
+    expect(payload.schemaVersion).toBe(2);
     expect(payload).not.toHaveProperty('updatedAt');
   });
 
@@ -262,5 +262,32 @@ describe('deleteSheetPermanently', () => {
     await expect(rawDataSheetService.deleteSheetPermanently('ghost'))
       .rejects.toThrow(/not found/);
     expect(deleteDoc).not.toHaveBeenCalled();
+  });
+});
+
+// ─── mapSheet legacy normalization (Stage D Session 2, v1 → v2) ────────────────
+
+describe('mapSheet legacy normalization', () => {
+  it('loads a v1 sheet (no uCal/uA/uB/uC on its standards) unchanged, fields undefined', async () => {
+    const v1Data = { ...sheetInput(), schemaVersion: 1 };
+    getDoc.mockResolvedValue({ exists: () => true, id: 'sheet-v1', data: () => v1Data });
+    const sheet = await rawDataSheetService.getById('sheet-v1');
+    expect(sheet).not.toBeNull();
+    expect(sheet!.schemaVersion).toBe(1);
+    expect(sheet!.standards[0].uCal).toBeUndefined();
+    expect(sheet!.standards[0].uA).toBeUndefined();
+    expect(sheet!.standards[0].uB).toBeUndefined();
+    expect(sheet!.standards[0].uC).toBeUndefined();
+  });
+
+  it('loads a v2 sheet carrying uCal/uA/uB/uC on its standards', async () => {
+    const v2Data = {
+      ...sheetInput(),
+      schemaVersion: 2,
+      standards: [{ ...sheetInput().standards[0], uCal: 0.15, uA: 0.05, uB: 0.03, uC: 0.02 }],
+    };
+    getDoc.mockResolvedValue({ exists: () => true, id: 'sheet-v2', data: () => v2Data });
+    const sheet = await rawDataSheetService.getById('sheet-v2');
+    expect(sheet!.standards[0]).toMatchObject({ uCal: 0.15, uA: 0.05, uB: 0.03, uC: 0.02 });
   });
 });
