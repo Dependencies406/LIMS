@@ -1182,6 +1182,10 @@ function EquationConfigModal({ equipmentId, editing, onSave, onClose, currentUse
   const [coefficients, setCoefficients] = useState<EquationCoefficient[]>(
     editing?.coefficients ?? makeCoefficients(2)
   );
+  const [uCalRaw, setUCalRaw] = useState(editing?.uCal !== undefined ? String(editing.uCal) : '');
+  const [uARaw, setUARaw] = useState(editing?.uA !== undefined ? String(editing.uA) : '');
+  const [uBRaw, setUBRaw] = useState(editing?.uB !== undefined ? String(editing.uB) : '');
+  const [uCRaw, setUCRaw] = useState(editing?.uC !== undefined ? String(editing.uC) : '');
 
   function setError(msg: string) {
     setInlineError(msg);
@@ -1223,9 +1227,19 @@ function EquationConfigModal({ equipmentId, editing, onSave, onClose, currentUse
     const divisorNum = parseCoeffValue(divisorRaw);
     if (divisorNum === 0) { setError('Divisor cannot be zero.'); return; }
 
+    const uFields: [string, string][] = [
+      ['u_cal (%)', uCalRaw], ['A (%)', uARaw], ['B (%)', uBRaw], ['C (%)', uCRaw],
+    ];
+    for (const [label, raw] of uFields) {
+      if (raw.trim() !== '' && (Number.isNaN(Number(raw)) || Number(raw) < 0)) {
+        setError(`${label} must be a non-negative number.`);
+        return;
+      }
+    }
+
     setSaving(true);
     try {
-      // Build payload — omit notes if empty (avoid storing empty string)
+      // Build payload — omit notes/uncertainty fields if empty (avoid storing empty/undefined)
       const payload: Parameters<typeof conversionEquationService.add>[1] = {
         name: name.trim(),
         inputUnit: inputUnit.trim(),
@@ -1235,6 +1249,10 @@ function EquationConfigModal({ equipmentId, editing, onSave, onClose, currentUse
         divisor: divisorNum,
         createdBy: currentUser,
         ...(notes.trim() ? { notes: notes.trim() } : {}),
+        ...(uCalRaw.trim() !== '' ? { uCal: Number(uCalRaw) } : {}),
+        ...(uARaw.trim() !== '' ? { uA: Number(uARaw) } : {}),
+        ...(uBRaw.trim() !== '' ? { uB: Number(uBRaw) } : {}),
+        ...(uCRaw.trim() !== '' ? { uC: Number(uCRaw) } : {}),
       };
 
       let saved: ConversionEquation;
@@ -1433,6 +1451,58 @@ function EquationConfigModal({ equipmentId, editing, onSave, onClose, currentUse
                 );
               })}
             </div>
+          </div>
+
+          {/* Uncertainty parameters (Stage D — LCDB u_cal/A/B/C) */}
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-2">
+              ค่าความไม่แน่นอน (%) — Stage D
+            </label>
+            <div className="grid grid-cols-4 gap-3">
+              <div>
+                <label className="block text-[11px] text-gray-500 mb-1">u_cal (%)</label>
+                <input
+                  type="text"
+                  value={uCalRaw}
+                  onChange={(e) => setUCalRaw(e.target.value)}
+                  placeholder="e.g. 0.15"
+                  className="input-field w-full font-mono text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] text-gray-500 mb-1">A (%)</label>
+                <input
+                  type="text"
+                  value={uARaw}
+                  onChange={(e) => setUARaw(e.target.value)}
+                  placeholder="e.g. 0.05"
+                  className="input-field w-full font-mono text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] text-gray-500 mb-1">B (%)</label>
+                <input
+                  type="text"
+                  value={uBRaw}
+                  onChange={(e) => setUBRaw(e.target.value)}
+                  placeholder="e.g. 0.03"
+                  className="input-field w-full font-mono text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] text-gray-500 mb-1">C (%)</label>
+                <input
+                  type="text"
+                  value={uCRaw}
+                  onChange={(e) => setUCRaw(e.target.value)}
+                  placeholder="e.g. 0.02"
+                  className="input-field w-full font-mono text-sm"
+                />
+              </div>
+            </div>
+            <p className="text-[11px] text-gray-400 mt-1">
+              ค่าจาก LCDB ของมาตรฐานอ้างอิง ใช้คำนวณ Uncertainty Budget — เว้นว่างได้หากยังไม่ทราบค่า
+            </p>
           </div>
 
           {/* Notes */}

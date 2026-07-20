@@ -23,7 +23,7 @@ import type {
   Job,
   SheetVoidRecord,
 } from '../../types';
-import { rawDataSheetService } from '../../services/rawDataSheetService';
+import { rawDataSheetService, RAW_DATA_SHEET_SCHEMA_VERSION } from '../../services/rawDataSheetService';
 import { equipmentControlService } from '../../services/equipmentControlService';
 import { conversionEquationService } from '../../services/conversionEquationService';
 import { jobService } from '../../services/jobService';
@@ -311,7 +311,7 @@ export const SheetEditorPage: React.FC<{ mode: SheetEditorMode }> = ({ mode }) =
       rows: editableToRows(draft.rows, optionByKey, draft.uuc.readingUnit),
       recordedByUid: currentUser?.uid ?? '',
       recordedByName,
-      schemaVersion: 1,
+      schemaVersion: RAW_DATA_SHEET_SCHEMA_VERSION,
     };
   };
 

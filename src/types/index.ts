@@ -762,6 +762,14 @@ export interface ConversionEquation {
   coefficients: EquationCoefficient[];
   divisor: number;
   notes?: string;
+  /** Standard's calibration uncertainty (%), from the LCDB — used by the Stage D uncertainty budget. */
+  uCal?: number;
+  /** LCDB uncertainty contribution A (%). */
+  uA?: number;
+  /** LCDB uncertainty contribution B (%). */
+  uB?: number;
+  /** LCDB uncertainty contribution C (%). */
+  uC?: number;
   createdAt: Date;
   updatedAt: Date;
   createdBy: string;
@@ -857,6 +865,11 @@ export interface StandardSnapshot {
   divisor: number;
   inputUnit: string;
   outputUnit: string;
+  /** Uncertainty parameters (%) from the equation at save time — absent on sheets recorded before D7. */
+  uCal?: number;
+  uA?: number;
+  uB?: number;
+  uC?: number;
 }
 
 /** Thermo-hygrometer used for the environment readings — required on every sheet. */
@@ -918,6 +931,24 @@ export interface CalibrationRawDataSheet {
 }
 
 export type CalibrationRawDataSheetInput = Omit<CalibrationRawDataSheet, 'id' | 'createdAt'>;
+
+/** One CMC scope step: cal points up to `toN` newtons use `cmcPercent`. */
+export interface CmcScopeStep {
+  toN: number;
+  cmcPercent: number;
+}
+
+/**
+ * Force CMC (Calibration and Measurement Capability) table, per ISO 7500-1
+ * direction. Firestore doc: system/cmc.
+ */
+export interface CmcSettings {
+  schemaVersion: number;
+  directions: {
+    tension: CmcScopeStep[];
+    compression: CmcScopeStep[];
+  };
+}
 
 /**
  * Append-only VOID marker: cancels a sheet without deleting it (R3).

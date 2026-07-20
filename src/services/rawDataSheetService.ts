@@ -44,7 +44,9 @@ import {
 import { startAfter, writeBatch, documentId } from 'firebase/firestore';
 import type { QueryDocumentSnapshot, QueryConstraint } from 'firebase/firestore';
 
-export const RAW_DATA_SHEET_SCHEMA_VERSION = 1;
+// v2 (Stage D Session 2): standards[] snapshots may carry uCal/uA/uB/uC.
+// Fields are optional — older (v1) sheets load unchanged with them undefined.
+export const RAW_DATA_SHEET_SCHEMA_VERSION = 2;
 
 const PAGE_SIZE = 50;
 const EXPORT_PAGE_SIZE = 500;

@@ -92,6 +92,10 @@ export function snapshotFromOption(option: StandardOption): StandardSnapshot {
     divisor: equation.divisor,
     inputUnit: equation.inputUnit,
     outputUnit: equation.outputUnit,
+    uCal: equation.uCal,
+    uA: equation.uA,
+    uB: equation.uB,
+    uC: equation.uC,
   };
 }
 
