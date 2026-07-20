@@ -90,7 +90,7 @@ export const MeasurementGrid: React.FC<EditableGridProps> = ({
                   <input
                     className={`${inputCls} w-[4.5rem] font-semibold`}
                     inputMode="decimal"
-                    aria-label={`Cal. Point แถวที่ ${i + 1}`}
+                    aria-label={`Cal. Point row ${i + 1}`}
                     value={row.calPoint}
                     onChange={(e) => setRow(i, { ...row, calPoint: e.target.value })}
                   />
@@ -98,11 +98,11 @@ export const MeasurementGrid: React.FC<EditableGridProps> = ({
                 <td className={`${cellBorder} bg-white px-1 py-1`}>
                   <select
                     className="max-w-[180px] rounded border border-gray-300 px-1 py-1 text-xs focus:border-emerald-500 focus:outline-none"
-                    aria-label={`มาตรฐานอ้างอิง แถวที่ ${i + 1}`}
+                    aria-label={`Reference standard row ${i + 1}`}
                     value={row.standardKey}
                     onChange={(e) => setRow(i, { ...row, standardKey: e.target.value })}
                   >
-                    <option value="">— เลือกมาตรฐาน —</option>
+                    <option value="">— Select standard —</option>
                     {options.map((o) => (
                       <option key={o.key} value={o.key}>{o.code}</option>
                     ))}
@@ -118,12 +118,12 @@ export const MeasurementGrid: React.FC<EditableGridProps> = ({
                     <React.Fragment key={s.key}>
                       <td className={`${cellBorder} bg-white px-1 py-1 text-center`}>
                         <input className={inputCls} inputMode="decimal" value={cell.uuc}
-                               aria-label={`UUC ${s.label} แถวที่ ${i + 1}`}
+                               aria-label={`UUC ${s.label} row ${i + 1}`}
                                onChange={(e) => setCell(i, s.key, 'uuc', e.target.value)} />
                       </td>
                       <td className={`${cellBorder} bg-white px-1 py-1 text-center`}>
                         <input className={inputCls} inputMode="decimal" value={cell.sig}
-                               aria-label={`STD-Signal ${s.label} แถวที่ ${i + 1}`}
+                               aria-label={`STD-Signal ${s.label} row ${i + 1}`}
                                onChange={(e) => setCell(i, s.key, 'sig', e.target.value)} />
                       </td>
                       <td className={`${cellBorder} bg-emerald-50/50 px-2 py-1 text-right tabular-nums`}>
@@ -135,7 +135,7 @@ export const MeasurementGrid: React.FC<EditableGridProps> = ({
                 <td className={`${cellBorder} bg-white px-1 py-1 text-center`}>
                   <button type="button"
                           className="px-1.5 text-sm text-rose-500 hover:text-rose-700"
-                          title="ลบแถวนี้"
+                          title="Delete this row"
                           onClick={() => onChange(rows.filter((_, j) => j !== i))}>
                     ✕
                   </button>

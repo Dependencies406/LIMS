@@ -25,33 +25,33 @@ export const VoidSheetModal: React.FC<Props> = ({ open, sheetLabel, busy, onCanc
          role="dialog" aria-modal="true" aria-labelledby="void-title"
          onClick={(e) => { if (e.target === e.currentTarget && !busy) onCancel(); }}>
       <div className="w-full max-w-lg rounded-xl bg-white p-5 shadow-xl">
-        <h2 id="void-title" className="text-lg font-semibold text-gray-900">ยกเลิกชีต {sheetLabel}</h2>
+        <h2 id="void-title" className="text-lg font-semibold text-gray-900">Void sheet {sheetLabel}</h2>
         <div className="mt-3 rounded-lg bg-rose-50 p-3 text-sm text-rose-800">
-          <p className="font-semibold">การยกเลิกไม่ใช่การลบ</p>
+          <p className="font-semibold">Voiding is not deleting</p>
           <p className="mt-1">
-            ชีตจะถูกทำเครื่องหมาย “ยกเลิก” และซ่อนจากรายการปกติ
-            แต่<b>ยังคงอยู่ในระบบถาวร</b>ตามข้อกำหนด audit trail —
-            การยกเลิกนี้เป็นรายการถาวรเช่นกัน ถอนคืนไม่ได้
+            The sheet will be marked "voided" and hidden from the default list,
+            but <b>remains in the system permanently</b> per the audit trail requirement —
+            this void action is itself a permanent record and cannot be undone.
           </p>
         </div>
         <label className="mt-3 block text-xs text-gray-500" htmlFor="void-reason">
-          เหตุผลการยกเลิก <span className="text-rose-600">*</span>
+          Reason for voiding <span className="text-rose-600">*</span>
         </label>
         <textarea id="void-reason"
                   className="mt-1 min-h-[64px] w-full rounded border border-gray-300 px-2 py-1.5 text-sm focus:border-rose-500 focus:outline-none"
-                  placeholder="จำเป็นต้องระบุ เช่น บันทึกซ้ำกับชีต #xxxxxx / งานถูกยกเลิกโดยลูกค้า"
+                  placeholder="Required, e.g. duplicate of sheet #xxxxxx / job cancelled by customer"
                   value={reason}
                   onChange={(e) => setReason(e.target.value)} />
         <div className="mt-4 flex justify-end gap-2">
           <button type="button" disabled={busy}
                   className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
                   onClick={onCancel}>
-            กลับ
+            Back
           </button>
           <button type="button" disabled={busy || !reason.trim()}
                   className="rounded-lg bg-rose-600 px-4 py-2 text-sm font-medium text-white hover:bg-rose-700 disabled:opacity-50"
                   onClick={() => onConfirm(reason.trim())}>
-            {busy ? 'กำลังยกเลิก…' : 'ยืนยันการยกเลิกชีต'}
+            {busy ? 'Voiding…' : 'Confirm void sheet'}
           </button>
         </div>
       </div>

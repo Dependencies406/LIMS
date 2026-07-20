@@ -116,34 +116,34 @@ describe('export → import round-trip (R4 losslessness)', () => {
 
 describe('parseExport rejection', () => {
   it('rejects non-JSON', () => {
-    expect(() => parseExport('not json {')).toThrow('ไฟล์ไม่ใช่ JSON ที่ถูกต้อง');
+    expect(() => parseExport('not json {')).toThrow('File is not valid JSON');
   });
 
   it('rejects a wrong format marker', () => {
     const file = JSON.stringify({ format: 'other-app', schemaVersion: 1, records: [] });
-    expect(() => parseExport(file)).toThrow(/format ไม่ตรง/);
+    expect(() => parseExport(file)).toThrow(/format mismatch/);
   });
 
   it('rejects an unsupported schema version', () => {
     const file = serializeExport([fixtureSheet('s1')], [], 'u').replace('"schemaVersion": 2,', '"schemaVersion": 99,');
-    expect(() => parseExport(file)).toThrow(/เวอร์ชันไฟล์ไม่รองรับ/);
+    expect(() => parseExport(file)).toThrow(/Unsupported file version/);
   });
 
   it('rejects a record with missing required fields, naming the record', () => {
     const envelope = JSON.parse(serializeExport([fixtureSheet('s1')], [], 'u'));
     delete envelope.records[0].recordedByUid;
-    expect(() => parseExport(JSON.stringify(envelope))).toThrow(/รายการที่ 1/);
+    expect(() => parseExport(JSON.stringify(envelope))).toThrow(/record 1/);
   });
 
   it('rejects env with the wrong number of rounds', () => {
     const envelope = JSON.parse(serializeExport([fixtureSheet('s1')], [], 'u'));
     envelope.records[0].env = [{ t: 25, h: 50 }];
-    expect(() => parseExport(JSON.stringify(envelope))).toThrow(/ข้อมูลไม่ครบ/);
+    expect(() => parseExport(JSON.stringify(envelope))).toThrow(/incomplete data/);
   });
 
   it('rejects a void record missing its reason', () => {
     const envelope = JSON.parse(serializeExport([fixtureSheet('s1')], [fixtureVoid('v1', 's1')], 'u'));
     delete envelope.voids[0].reason;
-    expect(() => parseExport(JSON.stringify(envelope))).toThrow(/รายการยกเลิก/);
+    expect(() => parseExport(JSON.stringify(envelope))).toThrow(/void record with incomplete data/);
   });
 });

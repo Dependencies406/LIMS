@@ -104,7 +104,7 @@ export function serializeExport(
 
 /**
  * Parse and validate an export file (v1 or v2). Returns sheets and void
- * markers with createdAt revived to Date. Throws Error with a Thai,
+ * markers with createdAt revived to Date. Throws Error with a
  * user-displayable message.
  */
 export function parseExport(text: string): ParsedExport {
@@ -112,19 +112,19 @@ export function parseExport(text: string): ParsedExport {
   try {
     data = JSON.parse(text);
   } catch {
-    throw new Error('ไฟล์ไม่ใช่ JSON ที่ถูกต้อง');
+    throw new Error('File is not valid JSON');
   }
 
   const env = envelopeSchema.safeParse(data);
   if (!env.success) {
     const d = data as Record<string, unknown> | null;
     if (d && d.format !== EXPORT_FORMAT) {
-      throw new Error('ไม่ใช่ไฟล์ส่งออกของโมดูลบันทึกข้อมูล (format ไม่ตรง)');
+      throw new Error('Not a Data Recorder module export file (format mismatch)');
     }
     if (d && d.schemaVersion !== EXPORT_SCHEMA_VERSION) {
-      throw new Error(`เวอร์ชันไฟล์ไม่รองรับ: ${String(d.schemaVersion)}`);
+      throw new Error(`Unsupported file version: ${String(d.schemaVersion)}`);
     }
-    throw new Error('โครงสร้างไฟล์ไม่ถูกต้อง');
+    throw new Error('Invalid file structure');
   }
 
   // Validate each record's structure, then return the ORIGINAL objects so
@@ -133,14 +133,14 @@ export function parseExport(text: string): ParsedExport {
   parsed.records.forEach((raw, i) => {
     const check = recordSchema.safeParse(raw);
     if (!check.success) {
-      throw new Error(`พบชีตที่ข้อมูลไม่ครบในไฟล์ (รายการที่ ${i + 1}: ${String(raw?.id ?? 'ไม่มี id')})`);
+      throw new Error(`Found a sheet with incomplete data in the file (record ${i + 1}: ${String(raw?.id ?? 'no id')})`);
     }
   });
   const rawVoids = parsed.voids ?? [];
   rawVoids.forEach((raw, i) => {
     const check = voidSchema.safeParse(raw);
     if (!check.success) {
-      throw new Error(`พบรายการยกเลิกที่ข้อมูลไม่ครบในไฟล์ (รายการที่ ${i + 1})`);
+      throw new Error(`Found a void record with incomplete data in the file (record ${i + 1})`);
     }
   });
 

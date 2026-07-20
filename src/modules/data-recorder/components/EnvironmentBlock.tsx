@@ -44,14 +44,14 @@ export const EnvironmentBlock: React.FC<EditableProps> = ({ thermoHygrometers, v
         value={value.envStandardId}
         onChange={(e) => onChange({ ...value, envStandardId: e.target.value })}
       >
-        <option value="">— เลือกเครื่องมือวัดสภาพแวดล้อม —</option>
+        <option value="">— Select environment measuring instrument —</option>
         {thermoHygrometers.map((t) => (
           <option key={t.id} value={t.id}>
             {t.id} · S/N {t.serialNumber || '—'} · Due {fmtDate(t.nextCalibrationDate)}
           </option>
         ))}
       </select>
-      <p className="mt-1 text-xs text-amber-600">(ต้องเลือกเครื่องมือและกรอกครบ 3 รอบก่อนบันทึก)</p>
+      <p className="mt-1 text-xs text-amber-600">(You must select an instrument and fill in all 3 rounds before saving)</p>
       <table className="mt-2 text-sm">
         <thead>
           <tr>
@@ -67,7 +67,7 @@ export const EnvironmentBlock: React.FC<EditableProps> = ({ thermoHygrometers, v
             {value.env.map((round, i) => (
               <td key={i} className="px-1 py-1">
                 <input className={inputCls} inputMode="decimal" value={round.t}
-                       aria-label={`อุณหภูมิ รอบที่ ${i + 1}`}
+                       aria-label={`Temperature round ${i + 1}`}
                        onChange={(e) => setRound(i, 't', e.target.value)} />
               </td>
             ))}
@@ -77,7 +77,7 @@ export const EnvironmentBlock: React.FC<EditableProps> = ({ thermoHygrometers, v
             {value.env.map((round, i) => (
               <td key={i} className="px-1 py-1">
                 <input className={inputCls} inputMode="decimal" value={round.h}
-                       aria-label={`ความชื้นสัมพัทธ์ รอบที่ ${i + 1}`}
+                       aria-label={`Relative humidity round ${i + 1}`}
                        onChange={(e) => setRound(i, 'h', e.target.value)} />
               </td>
             ))}
@@ -106,7 +106,7 @@ export const ReadOnlyEnvironmentBlock: React.FC<ReadOnlyProps> = ({ envStandard,
     </div>
     <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-gray-700">
       {env.map((round, i) => (
-        <span key={i}>รอบ {i + 1}: {round.t}°C / {round.h}%RH</span>
+        <span key={i}>Round {i + 1}: {round.t}°C / {round.h}%RH</span>
       ))}
     </div>
   </div>

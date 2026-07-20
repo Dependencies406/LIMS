@@ -39,9 +39,9 @@ export const JobInfoBlock: React.FC<JobBlockProps> = (p) => (
       <span className={labelCls}>Request No.:</span>
       {p.editable && p.jobs && p.onSelectJob ? (
         <select className={inputCls} value={p.selectedJobId ?? ''}
-                aria-label="เลือกงาน"
+                aria-label="Select job"
                 onChange={(e) => p.onSelectJob!(e.target.value)}>
-          <option value="">— เลือกงาน —</option>
+          <option value="">— Select job —</option>
           {p.jobs.map((job) => (
             <option key={job.id} value={job.id}>{job.jobId} — {job.title}</option>
           ))}
@@ -54,7 +54,7 @@ export const JobInfoBlock: React.FC<JobBlockProps> = (p) => (
       <span className={labelCls}>Cal. Date:</span>
       {p.editable && p.onCalibrationDate ? (
         <input type="date" className={inputCls} value={p.calibrationDate}
-               aria-label="วันที่สอบเทียบ"
+               aria-label="Calibration date"
                onChange={(e) => p.onCalibrationDate!(e.target.value)} />
       ) : (
         <span>{fmtDate(p.calibrationDate)}</span>
@@ -89,7 +89,7 @@ export const UucBlock: React.FC<UucBlockProps> = (p) => (
       <span className={labelCls}>Reading Unit:</span>
       {p.editable && p.onReadingUnit ? (
         <select className={inputCls} value={p.uuc.readingUnit}
-                aria-label="หน่วยการอ่านของเครื่องมือ"
+                aria-label="Equipment reading unit"
                 onChange={(e) => p.onReadingUnit!(e.target.value as ForceUnit)}>
           {FORCE_UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
         </select>
@@ -101,7 +101,7 @@ export const UucBlock: React.FC<UucBlockProps> = (p) => (
       <span className={labelCls}>Cal. Range:</span>
       {p.editable && p.onRange ? (
         <input className={inputCls} value={p.calibrationRange}
-               aria-label="ช่วงการสอบเทียบ"
+               aria-label="Calibration range"
                onChange={(e) => p.onRange!(e.target.value)} />
       ) : (
         <span>{p.calibrationRange || '—'}</span>
@@ -109,7 +109,7 @@ export const UucBlock: React.FC<UucBlockProps> = (p) => (
       <span className={labelCls}>Direction:</span>
       {p.editable && p.onDirection ? (
         <select className={inputCls} value={p.direction}
-                aria-label="ทิศทางการสอบเทียบ"
+                aria-label="Calibration direction"
                 onChange={(e) => p.onDirection!(e.target.value as CalDirection)}>
           <option value="Tension">Tension</option>
           <option value="Compression">Compression</option>
@@ -135,9 +135,9 @@ export const StandardsBlock: React.FC<StandardsBlockProps> = ({
   standards, usageCounts, readingUnit, envLine,
 }) => (
   <div className={blockCls}>
-    <h3 className={titleCls}>Reference Standards (ตามที่ใช้จริงในตาราง)</h3>
+    <h3 className={titleCls}>Reference Standards (as actually used in the table)</h3>
     {standards.length === 0 && !envLine ? (
-      <p className="text-sm italic text-gray-400">ยังไม่มีแถวที่เลือกมาตรฐานอ้างอิง</p>
+      <p className="text-sm italic text-gray-400">No rows have a reference standard selected yet</p>
     ) : (
       <ul className="space-y-1.5 text-sm">
         {standards.map((s) => (
@@ -145,7 +145,7 @@ export const StandardsBlock: React.FC<StandardsBlockProps> = ({
             <div className="font-semibold">{s.code}</div>
             <div className="text-xs text-gray-500">
               {s.name} · S/N {s.serial || '—'} · Due {fmtDate(s.dueDate)}
-              · ใช้ {usageCounts[`${s.equipmentId}::${s.equationId}`] ?? 0} แถว
+              · used by {usageCounts[`${s.equipmentId}::${s.equationId}`] ?? 0} row(s)
             </div>
           </li>
         ))}
@@ -153,7 +153,7 @@ export const StandardsBlock: React.FC<StandardsBlockProps> = ({
           <li>
             <div className="font-semibold">{envLine.code}</div>
             <div className="text-xs text-gray-500">
-              Thermo-Hygrometer · S/N {envLine.serial || '—'} · Due {fmtDate(envLine.dueDate)} · สภาพแวดล้อม
+              Thermo-Hygrometer · S/N {envLine.serial || '—'} · Due {fmtDate(envLine.dueDate)} · environment
             </div>
           </li>
         )}
@@ -162,14 +162,14 @@ export const StandardsBlock: React.FC<StandardsBlockProps> = ({
     {standards.length > 0 && (
       <div className="mt-3 border-t border-gray-100 pt-2">
         <div className="text-sm font-semibold">
-          F = A·R + B·R² + … <span className="font-normal text-gray-500">(หน่วยของมาตรฐาน)</span> → {readingUnit}
+          F = A·R + B·R² + … <span className="font-normal text-gray-500">(standard's unit)</span> → {readingUnit}
         </div>
         <div className="mt-1 overflow-x-auto">
           <table className="text-xs tabular-nums">
             <thead>
               <tr className="text-gray-500">
                 <th className="pr-3 text-left font-medium">Standard</th>
-                <th className="pr-3 text-right font-medium">Coefficients (สูง→ต่ำ)</th>
+                <th className="pr-3 text-right font-medium">Coefficients (high→low)</th>
                 <th className="pr-3 text-right font-medium">÷</th>
                 <th className="text-left font-medium">Unit</th>
               </tr>
@@ -187,7 +187,7 @@ export const StandardsBlock: React.FC<StandardsBlockProps> = ({
           </table>
         </div>
         <p className="mt-1 text-xs text-gray-400">
-          R = ค่าสัญญาณจากมาตรฐาน (mV/V) · ผลลัพธ์แปลงหน่วยเป็นหน่วย UUC อัตโนมัติ (N, kN, kgf, gf)
+          R = signal value from the standard (mV/V) · the result is converted to the UUC unit automatically (N, kN, kgf, gf)
         </p>
       </div>
     )}

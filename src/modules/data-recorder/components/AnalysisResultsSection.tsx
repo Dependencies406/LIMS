@@ -1,7 +1,7 @@
 /**
  * AnalysisResultsSection.tsx
  *
- * "ผลการวิเคราะห์" — read-only Relative Error + Uncertainty Budget tables for
+ * "Analysis Results" — read-only Relative Error + Uncertainty Budget tables for
  * a saved calibration raw-data sheet (design §8c). Computed on demand from
  * the sheet being viewed; nothing here is ever written back to the sheet.
  *
@@ -80,7 +80,7 @@ export const AnalysisResultsSection: React.FC<AnalysisResultsSectionProps> = ({ 
       try {
         settings = await cmcService.get();
       } catch (err) {
-        console.error('โหลดค่า CMC ไม่สำเร็จ:', err);
+        console.error('Failed to load CMC settings:', err);
       }
 
       const equipmentIds = equipmentIdsNeedingCurrentEquation(sheet);
@@ -91,7 +91,7 @@ export const AnalysisResultsSection: React.FC<AnalysisResultsSectionProps> = ({ 
             const equations = await conversionEquationService.getAll(equipmentId);
             equations.forEach((eq) => map.set(`${equipmentId}::${eq.id}`, eq));
           } catch (err) {
-            console.error(`โหลดสมการปัจจุบันของ ${equipmentId} ไม่สำเร็จ:`, err);
+            console.error(`Failed to load current equation for ${equipmentId}:`, err);
           }
         }),
       );
@@ -119,15 +119,15 @@ export const AnalysisResultsSection: React.FC<AnalysisResultsSectionProps> = ({ 
   const hasUnavailable = budget.some((b) => b.paramsSource === 'unavailable');
 
   if (loading) {
-    return <div className="rounded-lg border border-gray-200 bg-white p-6 text-center text-sm text-gray-500">กำลังคำนวณผลการวิเคราะห์…</div>;
+    return <div className="rounded-lg border border-gray-200 bg-white p-6 text-center text-sm text-gray-500">Computing analysis results…</div>;
   }
 
   return (
     <div className="space-y-4">
       <div className="rounded-lg border border-gray-200 bg-white p-4">
-        <h3 className="text-sm font-semibold text-gray-900">ผลการวิเคราะห์ (Relative Error &amp; Uncertainty Budget)</h3>
+        <h3 className="text-sm font-semibold text-gray-900">Analysis Results (Relative Error &amp; Uncertainty Budget)</h3>
         <p className="mt-1 text-xs text-gray-500">
-          คำนวณจากข้อมูลของชีตนี้แบบทันที (on demand) — ไม่มีการบันทึกค่าที่คำนวณได้ลงในชีต
+          Computed on demand from this sheet's data — computed values are never saved back onto the sheet
         </p>
       </div>
 
@@ -223,7 +223,7 @@ const RelativeErrorTable: React.FC<{
       </table>
     </div>
     <p className="border-t border-gray-200 px-4 py-2 text-[11px] text-gray-500">
-      แถวตัวเอียง = จุดศูนย์ (zero row) — แสดงเพื่ออ้างอิง ไม่ใช่จุดวัดจริง
+      Italicized row = zero row — shown for reference, not an actual measurement point
     </p>
   </div>
 );
@@ -233,7 +233,7 @@ const RelativeErrorTable: React.FC<{
 const ClassLimitTable: React.FC = () => (
   <div className="rounded-lg border border-gray-200 bg-white">
     <div className="border-b border-gray-200 px-4 py-2.5">
-      <h4 className="text-sm font-semibold">ตารางเกณฑ์ Class of Machine (ISO 7500-1:2018)</h4>
+      <h4 className="text-sm font-semibold">Class of Machine Limit Table (ISO 7500-1:2018)</h4>
     </div>
     <div className="overflow-x-auto p-2">
       <table className="border-collapse text-xs" style={{ minWidth: '400px' }}>
@@ -307,8 +307,8 @@ const UncertaintyBudgetTable: React.FC<{
                     className={paramsSource === 'unavailable' ? 'text-rose-600' : 'text-amber-600'}
                     title={
                       paramsSource === 'unavailable'
-                        ? 'ไม่พบค่าพารามิเตอร์ความไม่แน่นอน'
-                        : 'ใช้ค่าพารามิเตอร์ปัจจุบันของสมการแทนค่าที่บันทึกไว้'
+                        ? 'No uncertainty parameters found'
+                        : "Using the equation's current parameters instead of the recorded values"
                     }
                   >
                     {' '}†
@@ -329,7 +329,7 @@ const UncertaintyBudgetTable: React.FC<{
               <td className={dataCell}>{fmtPct(point.U)}</td>
               <td className={dataCell}>{point.cmc === null ? '-' : fmtPct(point.cmc, 2)}</td>
               <td className={`${dataCell} bg-emerald-50/50 font-semibold`}>
-                {cmcAvailable ? point.reportU : '— (ไม่มี CMC)'}
+                {cmcAvailable ? point.reportU : '— (no CMC)'}
               </td>
             </tr>
           ))}
@@ -338,7 +338,7 @@ const UncertaintyBudgetTable: React.FC<{
     </div>
     {sheet.rows.length > 0 && (
       <p className="border-t border-gray-200 px-4 py-2 text-[11px] text-gray-500">
-        † = จุดวัดนี้ไม่ได้ใช้ค่าพารามิเตอร์ความไม่แน่นอนที่บันทึกไว้ ณ เวลาบันทึกชีต — ดูหมายเหตุด้านบน
+        † = this point does not use the uncertainty parameters recorded at save time — see the notice above
       </p>
     )}
   </div>

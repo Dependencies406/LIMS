@@ -159,7 +159,7 @@ export const SheetEditorPage: React.FC<{ mode: SheetEditorMode }> = ({ mode }) =
         if (mode !== 'new') {
           if (!id) throw new Error('missing sheet id');
           loadedSheet = await rawDataSheetService.getById(id);
-          if (!loadedSheet) throw new Error('ไม่พบชีตที่ต้องการ');
+          if (!loadedSheet) throw new Error('Sheet not found');
         }
 
         if (editable) {
@@ -326,7 +326,7 @@ export const SheetEditorPage: React.FC<{ mode: SheetEditorMode }> = ({ mode }) =
       isAmendment: mode === 'amend',
     });
     if (message) { toastError(message); return; }
-    if (!draft.requestNo.trim()) { toastError('กรุณาเลือกงาน (Request No.)'); return; }
+    if (!draft.requestNo.trim()) { toastError('Please select a job (Request No.)'); return; }
     setConfirmOpen(true);
   };
 
@@ -338,13 +338,13 @@ export const SheetEditorPage: React.FC<{ mode: SheetEditorMode }> = ({ mode }) =
         ? await rawDataSheetService.amend(sheet.id, input)
         : await rawDataSheetService.add(input);
       toastSuccess(mode === 'amend'
-        ? `บันทึกชีตแก้ไข ${shortId(newId)} อ้างอิง ${shortId(sheet!.id)} แล้ว`
-        : `บันทึกชีต ${shortId(newId)} แล้ว`);
+        ? `Saved amendment sheet ${shortId(newId)} referencing ${shortId(sheet!.id)}`
+        : `Saved sheet ${shortId(newId)}`);
       navigate('/data-records');
     } catch (err) {
       setSaving(false);
       setConfirmOpen(false);
-      toastError(`บันทึกไม่สำเร็จ: ${err instanceof Error ? err.message : String(err)}`);
+      toastError(`Save failed: ${err instanceof Error ? err.message : String(err)}`);
     }
   };
 
@@ -355,14 +355,14 @@ export const SheetEditorPage: React.FC<{ mode: SheetEditorMode }> = ({ mode }) =
   // ─── Render ────────────────────────────────────────────────────────────────
 
   if (loading) {
-    return <div className="p-8 text-center text-gray-500">กำลังโหลดข้อมูล…</div>;
+    return <div className="p-8 text-center text-gray-500">Loading data…</div>;
   }
   if (loadError) {
     return (
       <div className="p-8 text-center">
         <p className="text-rose-600">{loadError}</p>
         <button className="mt-3 rounded-lg border border-gray-300 px-4 py-2 text-sm" onClick={() => navigate('/data-records')}>
-          ← กลับไปหน้ารายการ
+          ← Back to list
         </button>
       </div>
     );
@@ -378,16 +378,16 @@ export const SheetEditorPage: React.FC<{ mode: SheetEditorMode }> = ({ mode }) =
       <div className="mb-3 flex flex-wrap items-center gap-3">
         <button className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm hover:bg-gray-50"
                 onClick={() => navigate('/data-records')}>
-          ← กลับ
+          ← Back
         </button>
         <h1 className="text-xl font-semibold text-gray-900">
-          {mode === 'new' && 'สร้างชีตบันทึกใหม่'}
-          {mode === 'amend' && 'สร้างชีตแก้ไข'}
-          {mode === 'view' && viewSheet && `ชีต ${shortId(viewSheet.id)}`}
+          {mode === 'new' && 'Create new record sheet'}
+          {mode === 'amend' && 'Create amendment sheet'}
+          {mode === 'view' && viewSheet && `Sheet ${shortId(viewSheet.id)}`}
         </h1>
         {viewSheet?.kind === 'amendment' && (
           <span className="rounded-full bg-violet-100 px-3 py-0.5 text-xs font-semibold text-violet-700">
-            แก้ไขของ {shortId(viewSheet.amends ?? '')}
+            Amends {shortId(viewSheet.amends ?? '')}
           </span>
         )}
         <div className="ml-auto flex gap-2">
@@ -401,63 +401,63 @@ export const SheetEditorPage: React.FC<{ mode: SheetEditorMode }> = ({ mode }) =
                           voidRecord ? { voidInfo: voidRecord } : {});
                         setPdfUrl(url);
                       } catch (err) {
-                        toastError(`สร้าง PDF ไม่สำเร็จ: ${err instanceof Error ? err.message : String(err)}`);
+                        toastError(`Failed to generate PDF: ${err instanceof Error ? err.message : String(err)}`);
                       } finally {
                         setPdfBusy(false);
                       }
                     }}>
-              {pdfBusy ? 'กำลังสร้าง PDF…' : 'ดูตัวอย่าง PDF'}
+              {pdfBusy ? 'Generating PDF…' : 'Preview PDF'}
             </button>
           )}
           {mode === 'view' && viewSheet && !voidRecord && (
             <button className="rounded-lg border border-gray-300 px-4 py-1.5 text-sm font-medium hover:bg-gray-50"
                     onClick={() => navigate(`/data-records/${viewSheet.id}/amend`)}>
-              สร้างชีตแก้ไข
+              Create amendment
             </button>
           )}
           {mode === 'view' && viewSheet && !voidRecord && (
             <button className="rounded-lg border border-rose-300 px-4 py-1.5 text-sm font-medium text-rose-700 hover:bg-rose-50"
                     onClick={() => setVoidModalOpen(true)}>
-              ยกเลิกชีต
+              Void sheet
             </button>
           )}
           {mode === 'view' && viewSheet && isAdmin && (
             <button className="rounded-lg bg-rose-700 px-4 py-1.5 text-sm font-medium text-white hover:bg-rose-800"
                     onClick={() => setDeleteModalOpen(true)}>
-              ลบถาวร
+              Delete permanently
             </button>
           )}
           {editable && (
             <button className="rounded-lg bg-emerald-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-emerald-700"
                     onClick={requestSave}>
-              บันทึกชีต
+              Save sheet
             </button>
           )}
         </div>
         <p className="w-full text-sm text-gray-500">
           {mode === 'view' && viewSheet && (
-            <>บันทึกเมื่อ {fmtDateTime(viewSheet.createdAt)} โดย {viewSheet.recordedByName}
-              {viewSheet.kind === 'amendment' && ` · เหตุผลการแก้ไข: ${viewSheet.amendmentReason}`}</>
+            <>Saved {fmtDateTime(viewSheet.createdAt)} by {viewSheet.recordedByName}
+              {viewSheet.kind === 'amendment' && ` · Amendment reason: ${viewSheet.amendmentReason}`}</>
           )}
-          {editable && 'ระบบจะประทับเวลาและชื่อผู้บันทึกอัตโนมัติเมื่อยืนยันการบันทึก'}
+          {editable && 'The timestamp and recorder name are stamped automatically when you confirm the save'}
         </p>
       </div>
 
       {mode === 'view' && voidRecord && (
         <div className="mb-3 rounded-lg bg-rose-50 p-3 text-sm text-rose-800">
-          <b>ชีตนี้ถูกยกเลิกแล้ว</b> — เหตุผล: {voidRecord.reason}
+          <b>This sheet has been voided</b> — Reason: {voidRecord.reason}
           <span className="block text-xs">
-            โดย {voidRecord.recordedByName} · {fmtDateTime(voidRecord.createdAt)} ·
-            ชีตยังคงอยู่ในระบบตามข้อกำหนด audit trail แต่ถูกซ่อนจากรายการปกติ
+            By {voidRecord.recordedByName} · {fmtDateTime(voidRecord.createdAt)} ·
+            The sheet remains in the system per the audit trail requirement, but is hidden from the default list
           </span>
         </div>
       )}
 
       {mode === 'amend' && sheet && (
         <div className="mb-3 rounded-lg bg-amber-50 p-3 text-sm text-amber-800">
-          กำลังแก้ไขชีต <b>{shortId(sheet.id)}</b> ({sheet.requestNo}, {sheet.direction},
-          บันทึกเมื่อ {fmtDateTime(sheet.createdAt)}) — ชีตเดิมจะไม่ถูกเปลี่ยนแปลง
-          ค่า STD-Force จะคำนวณใหม่จากสัญญาณดิบด้วยสมการปัจจุบัน
+          Creating an amendment for <b>{shortId(sheet.id)}</b> ({sheet.requestNo}, {sheet.direction},
+          saved {fmtDateTime(sheet.createdAt)}) — the original sheet will not be changed.
+          STD-Force values will be recomputed from the raw signals with the current equations.
         </div>
       )}
 
@@ -493,7 +493,7 @@ export const SheetEditorPage: React.FC<{ mode: SheetEditorMode }> = ({ mode }) =
 
       {mode === 'new' && selectedJob && selectedJob.equipment.length > 1 && (
         <div className="mb-3 rounded-lg border border-gray-200 bg-white p-3 text-sm">
-          <label className="mr-2 text-gray-500" htmlFor="uuc-select">เครื่องมือในงานนี้:</label>
+          <label className="mr-2 text-gray-500" htmlFor="uuc-select">Equipment on this job:</label>
           <select id="uuc-select"
                   className="rounded border border-gray-300 px-2 py-1 text-sm focus:border-emerald-500 focus:outline-none"
                   value={draft.uucIndex}
@@ -522,7 +522,7 @@ export const SheetEditorPage: React.FC<{ mode: SheetEditorMode }> = ({ mode }) =
           </h3>
           {editable ? (
             <input className="w-full rounded border border-gray-300 px-2 py-1.5 text-sm focus:border-emerald-500 focus:outline-none"
-                   aria-label="สภาพเครื่อง"
+                   aria-label="Machine condition"
                    value={draft.machineCondition}
                    onChange={(e) => setDraft((d) => ({ ...d, machineCondition: e.target.value }))} />
           ) : (
@@ -531,11 +531,11 @@ export const SheetEditorPage: React.FC<{ mode: SheetEditorMode }> = ({ mode }) =
           {mode === 'amend' && (
             <div className="mt-3">
               <label className="block text-xs text-gray-500" htmlFor="amend-reason">
-                เหตุผลการแก้ไข <span className="text-rose-600">*</span>
+                Amendment reason <span className="text-rose-600">*</span>
               </label>
               <textarea id="amend-reason"
                         className="mt-1 min-h-[60px] w-full rounded border border-gray-300 px-2 py-1.5 text-sm focus:border-emerald-500 focus:outline-none"
-                        placeholder="จำเป็นต้องระบุ เช่น เลือกมาตรฐานอ้างอิงผิดที่จุด 8000 N"
+                        placeholder="Required, e.g. wrong reference standard selected at the 8000 N point"
                         value={draft.amendmentReason}
                         onChange={(e) => setDraft((d) => ({ ...d, amendmentReason: e.target.value }))} />
             </div>
@@ -545,11 +545,11 @@ export const SheetEditorPage: React.FC<{ mode: SheetEditorMode }> = ({ mode }) =
         {mode === 'view' && viewSheet && (
           <div className="rounded-lg border border-gray-200 bg-white p-4">
             <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-emerald-700">
-              สายการแก้ไข (Amendment chain)
+              Amendment chain
             </h3>
             {viewSheet.amends && (
               <p className="text-sm">
-                ↩ แก้ไขรายการ{' '}
+                ↩ Amends{' '}
                 <button className="font-semibold text-emerald-700 underline"
                         onClick={() => navigate(`/data-records/${viewSheet.amends}`)}>
                   {shortId(viewSheet.amends)}
@@ -557,17 +557,17 @@ export const SheetEditorPage: React.FC<{ mode: SheetEditorMode }> = ({ mode }) =
               </p>
             )}
             {amendments.length === 0 && !viewSheet.amends && (
-              <p className="text-sm italic text-gray-400">ไม่มีการแก้ไข</p>
+              <p className="text-sm italic text-gray-400">No amendments</p>
             )}
             {amendments.map((a) => (
               <p key={a.id} className="mt-1 text-sm">
-                ↪ ถูกแก้ไขโดย{' '}
+                ↪ Amended by{' '}
                 <button className="font-semibold text-violet-700 underline"
                         onClick={() => navigate(`/data-records/${a.id}`)}>
                   {shortId(a.id)}
                 </button>
-                {' '}— {fmtDateTime(a.createdAt)} โดย {a.recordedByName}
-                <span className="block text-xs text-gray-500">เหตุผล: {a.amendmentReason}</span>
+                {' '}— {fmtDateTime(a.createdAt)} by {a.recordedByName}
+                <span className="block text-xs text-gray-500">Reason: {a.amendmentReason}</span>
               </p>
             ))}
           </div>
@@ -590,7 +590,7 @@ export const SheetEditorPage: React.FC<{ mode: SheetEditorMode }> = ({ mode }) =
             }`}
             onClick={() => setViewTab('analysis')}
           >
-            ผลการวิเคราะห์
+            Analysis Results
           </button>
         </div>
       )}
@@ -601,7 +601,7 @@ export const SheetEditorPage: React.FC<{ mode: SheetEditorMode }> = ({ mode }) =
           <div className="flex flex-wrap items-center gap-3 border-b border-gray-200 px-4 py-2.5">
             <h3 className="text-sm font-semibold">Measurement Results</h3>
             <span className="text-xs text-gray-500">
-              เลือก Standard ต่อแถว — STD-Force คำนวณอัตโนมัติด้วยสมการของมาตรฐานแถวนั้น
+              Select a Standard per row — STD-Force is computed automatically with that row's standard equation
             </span>
             {editable && (
               <button className="ml-auto rounded-lg border border-gray-300 px-3 py-1 text-sm hover:bg-gray-50"
@@ -609,7 +609,7 @@ export const SheetEditorPage: React.FC<{ mode: SheetEditorMode }> = ({ mode }) =
                         ...d,
                         rows: [...d.rows, blankRow(d.rows[d.rows.length - 1]?.standardKey ?? '')],
                       }))}>
-                + เพิ่ม Cal. Point
+                + Add Cal. Point
               </button>
             )}
           </div>
@@ -649,7 +649,7 @@ export const SheetEditorPage: React.FC<{ mode: SheetEditorMode }> = ({ mode }) =
 
       {editable && (
         <p className="mt-3 border-l-4 border-emerald-600 pl-3 text-xs text-gray-500">
-          ชีตนี้จะถูกบันทึกเป็นรายการถาวร แก้ไขย้อนหลังไม่ได้ — ตรวจสอบข้อมูลให้ครบก่อนกด “บันทึกชีต”
+          This sheet will be saved as a permanent record and cannot be edited afterward — check all data before clicking "Save sheet"
         </p>
       )}
 
@@ -659,9 +659,9 @@ export const SheetEditorPage: React.FC<{ mode: SheetEditorMode }> = ({ mode }) =
         saving={saving}
         summary={
           (mode === 'amend' && sheet
-            ? `ชีตแก้ไขอ้างอิง ${shortId(sheet.id)} · เหตุผล: ${draft.amendmentReason.trim()}`
-            : `ชีตใหม่ ${draft.requestNo} · ${draft.direction}`)
-          + ` · ${measuredPoints} จุดวัด · ผู้บันทึก ${recordedByName}`
+            ? `Amendment sheet referencing ${shortId(sheet.id)} · Reason: ${draft.amendmentReason.trim()}`
+            : `New sheet ${draft.requestNo} · ${draft.direction}`)
+          + ` · ${measuredPoints} measurement points · Recorded by ${recordedByName}`
         }
         onCancel={() => setConfirmOpen(false)}
         onConfirm={confirmSave}
@@ -692,9 +692,9 @@ export const SheetEditorPage: React.FC<{ mode: SheetEditorMode }> = ({ mode }) =
             const voids = await rawDataSheetService.getVoidsForSheets([viewSheet.id]);
             setVoidRecord(voids.get(viewSheet.id) ?? null);
             setVoidModalOpen(false);
-            toastSuccess(`ยกเลิกชีต ${shortId(viewSheet.id)} แล้ว (ชีตยังอยู่ในระบบ)`);
+            toastSuccess(`Voided sheet ${shortId(viewSheet.id)} (the sheet remains in the system)`);
           } catch (err) {
-            toastError(`ยกเลิกไม่สำเร็จ: ${err instanceof Error ? err.message : String(err)}`);
+            toastError(`Void failed: ${err instanceof Error ? err.message : String(err)}`);
           } finally {
             setVoidBusy(false);
           }
@@ -711,15 +711,15 @@ export const SheetEditorPage: React.FC<{ mode: SheetEditorMode }> = ({ mode }) =
           setDeleteBusy(true);
           try {
             await rawDataSheetService.deleteSheetPermanently(viewSheet.id);
-            toastSuccess(`ลบชีต ${shortId(viewSheet.id)} ถาวรแล้ว`);
+            toastSuccess(`Permanently deleted sheet ${shortId(viewSheet.id)}`);
             navigate('/data-records');
           } catch (err) {
             setDeleteBusy(false);
             setDeleteModalOpen(false);
             const message = err instanceof Error ? err.message : String(err);
             toastError(message.includes('amendments referencing')
-              ? 'ลบไม่ได้: มีชีตแก้ไขอ้างอิงชีตนี้อยู่ — ต้องลบชีตแก้ไขก่อน'
-              : `ลบไม่สำเร็จ: ${message}`);
+              ? 'Cannot delete: amendment sheets reference this sheet — delete those first'
+              : `Delete failed: ${message}`);
           }
         }}
       />

@@ -49,7 +49,7 @@ export const DataRecorderListPage: React.FC = () => {
       setCursor(page.nextCursor);
       await mergeVoidsFor(page.sheets);
     } catch (err) {
-      toastError(`โหลดรายการไม่สำเร็จ: ${err instanceof Error ? err.message : String(err)}`);
+      toastError(`Failed to load list: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setLoading(false);
     }
@@ -74,7 +74,7 @@ export const DataRecorderListPage: React.FC = () => {
       setCursor(page.nextCursor);
       await mergeVoidsFor(page.sheets);
     } catch (err) {
-      toastError(`โหลดเพิ่มเติมไม่สำเร็จ: ${err instanceof Error ? err.message : String(err)}`);
+      toastError(`Failed to load more: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setLoading(false);
     }
@@ -89,7 +89,7 @@ export const DataRecorderListPage: React.FC = () => {
   const doExport = async () => {
     setBusy('export');
     try {
-      toastInfo('กำลังรวบรวมข้อมูลเพื่อส่งออก…');
+      toastInfo('Gathering data to export…');
       const [all, allVoids] = await Promise.all([
         rawDataSheetService.exportAll(),
         rawDataSheetService.exportAllVoids(),
@@ -100,9 +100,9 @@ export const DataRecorderListPage: React.FC = () => {
       a.download = `raw-data-sheets-${new Date().toISOString().slice(0, 10)}.json`;
       a.click();
       URL.revokeObjectURL(a.href);
-      toastSuccess(`ส่งออก ${all.length} ชีต + ${allVoids.length} รายการยกเลิก เป็นไฟล์ JSON แล้ว`);
+      toastSuccess(`Exported ${all.length} sheet(s) + ${allVoids.length} void record(s) to a JSON file`);
     } catch (err) {
-      toastError(`ส่งออกไม่สำเร็จ: ${err instanceof Error ? err.message : String(err)}`);
+      toastError(`Export failed: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setBusy('');
     }
@@ -115,12 +115,12 @@ export const DataRecorderListPage: React.FC = () => {
       const result = await rawDataSheetService.importSheets(parsed.sheets);
       const voidResult = await rawDataSheetService.importVoids(parsed.voids);
       toastSuccess(
-        `นำเข้าเสร็จ: เพิ่มใหม่ ${result.imported} ชีต (ข้าม ${result.skipped})`
-        + (parsed.voids.length > 0 ? ` · รายการยกเลิกใหม่ ${voidResult.imported} (ข้าม ${voidResult.skipped})` : ''),
+        `Import complete: added ${result.imported} sheet(s) (skipped ${result.skipped})`
+        + (parsed.voids.length > 0 ? ` · ${voidResult.imported} new void record(s) (skipped ${voidResult.skipped})` : ''),
       );
       await loadFirstPage(activeFilter);
     } catch (err) {
-      toastError(`นำเข้าไม่สำเร็จ: ${err instanceof Error ? err.message : String(err)}`);
+      toastError(`Import failed: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setBusy('');
     }
@@ -128,15 +128,15 @@ export const DataRecorderListPage: React.FC = () => {
 
   const badge = (sheet: CalibrationRawDataSheet) => {
     if (voids.has(sheet.id)) {
-      return <span className="rounded-full bg-rose-100 px-2.5 py-0.5 text-xs font-semibold text-rose-700" title={voids.get(sheet.id)?.reason}>ยกเลิก</span>;
+      return <span className="rounded-full bg-rose-100 px-2.5 py-0.5 text-xs font-semibold text-rose-700" title={voids.get(sheet.id)?.reason}>Voided</span>;
     }
     if (sheet.kind === 'amendment') {
-      return <span className="rounded-full bg-violet-100 px-2.5 py-0.5 text-xs font-semibold text-violet-700">แก้ไขของ {shortId(sheet.amends ?? '')}</span>;
+      return <span className="rounded-full bg-violet-100 px-2.5 py-0.5 text-xs font-semibold text-violet-700">Amends {shortId(sheet.amends ?? '')}</span>;
     }
     if (amendedIds.has(sheet.id)) {
-      return <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-700">ถูกแก้ไข</span>;
+      return <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-700">Amended</span>;
     }
-    return <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-semibold text-emerald-700">ปกติ</span>;
+    return <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-semibold text-emerald-700">Normal</span>;
   };
 
   return (
@@ -144,21 +144,21 @@ export const DataRecorderListPage: React.FC = () => {
       <ToastContainer toasts={toasts} onClose={removeToast} />
 
       <div className="mb-4 flex flex-wrap items-center gap-3">
-        <h1 className="text-xl font-semibold text-gray-900">บันทึกข้อมูลดิบการสอบเทียบ (Raw Data)</h1>
+        <h1 className="text-xl font-semibold text-gray-900">Calibration Raw Data Records</h1>
         <div className="ml-auto flex flex-wrap gap-2">
           <button className="rounded-lg bg-emerald-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-emerald-700"
                   onClick={() => navigate('/data-records/new')}>
-            + สร้างชีตบันทึกใหม่
+            + Create new record sheet
           </button>
           <button className="rounded-lg border border-gray-300 px-4 py-1.5 text-sm font-medium hover:bg-gray-50 disabled:opacity-50"
                   disabled={busy !== ''}
                   onClick={() => fileInput.current?.click()}>
-            {busy === 'import' ? 'กำลังนำเข้า…' : 'นำเข้า'}
+            {busy === 'import' ? 'Importing…' : 'Import'}
           </button>
           <button className="rounded-lg border border-gray-300 px-4 py-1.5 text-sm font-medium hover:bg-gray-50 disabled:opacity-50"
                   disabled={busy !== ''}
                   onClick={doExport}>
-            {busy === 'export' ? 'กำลังส่งออก…' : 'ส่งออก JSON'}
+            {busy === 'export' ? 'Exporting…' : 'Export JSON'}
           </button>
           <input ref={fileInput} type="file" accept=".json,application/json" hidden
                  onChange={(e) => {
@@ -168,8 +168,8 @@ export const DataRecorderListPage: React.FC = () => {
                  }} />
         </div>
         <p className="w-full text-sm text-gray-500">
-          ชีตบันทึกเป็นแบบเพิ่มได้อย่างเดียว (append-only) — บันทึกแล้วแก้ไขหรือลบไม่ได้
-          การแก้ไขทำได้โดยสร้าง “ชีตแก้ไข” อ้างอิงชีตเดิมพร้อมระบุเหตุผล
+          Record sheets are append-only — once saved they cannot be edited or deleted.
+          Corrections are made by creating an "amendment sheet" that references the original with a stated reason.
         </p>
       </div>
 
@@ -179,31 +179,31 @@ export const DataRecorderListPage: React.FC = () => {
           <label className="block text-xs text-gray-500" htmlFor="filter-request">Request No.</label>
           <input id="filter-request"
                  className="mt-1 rounded border border-gray-300 px-2 py-1.5 text-sm focus:border-emerald-500 focus:outline-none"
-                 placeholder="เช่น SCS-CAL-26024"
+                 placeholder="e.g. SCS-CAL-26024"
                  value={requestNoFilter}
                  onChange={(e) => setRequestNoFilter(e.target.value)} />
         </div>
         <div>
-          <label className="block text-xs text-gray-500" htmlFor="filter-kind">ประเภท</label>
+          <label className="block text-xs text-gray-500" htmlFor="filter-kind">Type</label>
           <select id="filter-kind"
                   className="mt-1 rounded border border-gray-300 px-2 py-1.5 text-sm focus:border-emerald-500 focus:outline-none"
                   value={kindFilter}
                   onChange={(e) => setKindFilter(e.target.value as typeof kindFilter)}>
-            <option value="">ทั้งหมด</option>
-            <option value="original">ชีตบันทึก</option>
-            <option value="amendment">ชีตแก้ไข</option>
+            <option value="">All</option>
+            <option value="original">Original sheets</option>
+            <option value="amendment">Amendment sheets</option>
           </select>
         </div>
         <label className="flex items-center gap-1.5 pb-1.5 text-sm text-gray-600">
           <input type="checkbox" className="rounded border-gray-300"
                  checked={showVoided}
                  onChange={(e) => setShowVoided(e.target.checked)} />
-          แสดงชีตที่ถูกยกเลิก
+          Show voided sheets
         </label>
         {(requestNoFilter || kindFilter) && (
           <button className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm hover:bg-gray-50"
                   onClick={() => { setRequestNoFilter(''); setKindFilter(''); }}>
-            ล้างตัวกรอง
+            Clear filters
           </button>
         )}
       </div>
@@ -215,13 +215,13 @@ export const DataRecorderListPage: React.FC = () => {
             <thead>
               <tr className="bg-gray-50 text-left text-xs font-semibold text-gray-500">
                 <th className="px-4 py-2.5">Request No.</th>
-                <th className="px-4 py-2.5">เครื่องมือ (UUC)</th>
+                <th className="px-4 py-2.5">Equipment (UUC)</th>
                 <th className="px-4 py-2.5">Direction</th>
                 <th className="px-4 py-2.5">Range</th>
                 <th className="px-4 py-2.5">Cal. Date</th>
-                <th className="px-4 py-2.5">ผู้บันทึก</th>
-                <th className="px-4 py-2.5">บันทึกเมื่อ</th>
-                <th className="px-4 py-2.5">สถานะ</th>
+                <th className="px-4 py-2.5">Recorded by</th>
+                <th className="px-4 py-2.5">Saved at</th>
+                <th className="px-4 py-2.5">Status</th>
               </tr>
             </thead>
             <tbody>
@@ -242,16 +242,16 @@ export const DataRecorderListPage: React.FC = () => {
             </tbody>
           </table>
           {sheets.length === 0 && !loading && (
-            <p className="p-8 text-center text-gray-400">ยังไม่มีชีตบันทึก</p>
+            <p className="p-8 text-center text-gray-400">No record sheets yet</p>
           )}
         </div>
         <div className="flex items-center justify-between border-t border-gray-200 px-4 py-2.5 text-sm text-gray-500">
-          <span>แสดง {sheets.length} รายการ{cursor ? ' (มีรายการเพิ่มเติม)' : ''}</span>
+          <span>Showing {sheets.length} record(s){cursor ? ' (more available)' : ''}</span>
           {cursor && (
             <button className="rounded-lg border border-gray-300 px-3 py-1 text-sm hover:bg-gray-50 disabled:opacity-50"
                     disabled={loading}
                     onClick={loadMore}>
-              {loading ? 'กำลังโหลด…' : 'โหลดเพิ่มเติม'}
+              {loading ? 'Loading…' : 'Load more'}
             </button>
           )}
         </div>

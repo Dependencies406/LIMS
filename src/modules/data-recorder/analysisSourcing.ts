@@ -89,12 +89,13 @@ export function equipmentIdsNeedingCurrentEquation(sheet: AnySheet): string[] {
 }
 
 export const PARAMS_FALLBACK_NOTICE =
-  'บางจุดวัดในชีตนี้ไม่มีค่าพารามิเตอร์ความไม่แน่นอน (u_cal, A, B, C) ที่บันทึกไว้ ณ เวลาบันทึกชีต — ' +
-  'ระบบใช้ค่า "ปัจจุบัน" ของสมการแทน ซึ่งอาจไม่ตรงกับค่าที่ใช้จริงในวันที่วัด หากสมการถูกแก้ไขภายหลัง';
+  'Some measurement points on this sheet have no uncertainty parameters (u_cal, A, B, C) recorded ' +
+  'at save time — the system uses the equation\'s CURRENT values instead, which may not match ' +
+  'what was actually used on the day of measurement if the equation was edited afterward.';
 
 export const PARAMS_UNAVAILABLE_NOTICE =
-  'บางจุดวัดในชีตนี้ไม่พบค่าพารามิเตอร์ความไม่แน่นอนทั้งจากชีต และจากสมการปัจจุบัน — ' +
-  'ระบบคำนวณ u_std เป็น 0 ที่จุดดังกล่าว ผลลัพธ์ของจุดนั้นจึงไม่สมบูรณ์';
+  'Some measurement points on this sheet have no uncertainty parameters from either the sheet ' +
+  'or the current equation — the system computes u_std as 0 for those points, so their results are incomplete.';
 
 // ─── CMC ──────────────────────────────────────────────────────────────────────
 
@@ -121,8 +122,8 @@ export function resolveCmcSteps(
 }
 
 export const CMC_UNAVAILABLE_NOTICE =
-  'ยังไม่ได้ตั้งค่า CMC สำหรับทิศทางนี้ (ตั้งค่า → CMC) — คอลัมน์ Report U จึงไม่สามารถแสดงได้ ' +
-  '(แสดงเฉพาะค่า U ที่คำนวณได้ ไม่ใช่ค่าที่ผ่านการเทียบกับ CMC)';
+  'CMC has not been configured for this direction (Settings → CMC) — the Report U column cannot ' +
+  'be shown (only the computed U value is displayed, not a value compared against CMC).';
 
 // ─── Uncertainty budget, resolved per cal point ──────────────────────────────
 

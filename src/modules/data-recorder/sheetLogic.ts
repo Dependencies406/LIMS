@@ -240,24 +240,24 @@ export interface DraftForValidation {
   isAmendment: boolean;
 }
 
-/** Returns a Thai error message, or null when the draft is valid to save. */
+/** Returns an error message, or null when the draft is valid to save. */
 export function validateDraft(draft: DraftForValidation): string | null {
-  if (!draft.envStandardId) return 'กรุณาเลือก Thermo-Hygrometer ที่ใช้วัดสภาพแวดล้อม';
+  if (!draft.envStandardId) return 'Please select the Thermo-Hygrometer used to measure the environment';
   if (draft.env.length !== 3 || draft.env.some((r) => r.t.trim() === '' || r.h.trim() === '')) {
-    return 'กรุณากรอก Environment Condition ให้ครบทั้ง 3 รอบก่อนบันทึก';
+    return 'Please fill in all 3 rounds of Environment Condition before saving';
   }
   if (draft.env.some((r) => Number.isNaN(Number(r.t)) || Number.isNaN(Number(r.h)))) {
-    return 'ค่า Environment Condition ต้องเป็นตัวเลข';
+    return 'Environment Condition values must be numbers';
   }
   const rowsWithData = draft.rows.filter((row) =>
     SERIES.some(({ key }) => row.cells[key].sig.trim() !== ''),
   );
-  if (rowsWithData.length === 0) return 'ยังไม่มีผลการวัด — กรอกค่า STD-Signal อย่างน้อย 1 จุด';
-  if (rowsWithData.some((row) => !row.standardKey)) return 'ทุกแถวที่มีผลการวัดต้องเลือกมาตรฐานอ้างอิง';
+  if (rowsWithData.length === 0) return 'No measurement results yet — enter at least 1 STD-Signal value';
+  if (rowsWithData.some((row) => !row.standardKey)) return 'Every row with a measurement must have a reference standard selected';
   if (rowsWithData.some((row) => row.calPoint.trim() === '' || Number.isNaN(Number(row.calPoint)))) {
-    return 'Cal. Point ต้องเป็นตัวเลขทุกแถวที่มีผลการวัด';
+    return 'Cal. Point must be a number on every row with a measurement';
   }
-  if (draft.isAmendment && !(draft.amendmentReason ?? '').trim()) return 'กรุณาระบุเหตุผลการแก้ไข';
+  if (draft.isAmendment && !(draft.amendmentReason ?? '').trim()) return 'Please state a reason for the amendment';
   return null;
 }
 
@@ -272,12 +272,12 @@ export function fmtDate(iso?: string | null): string {
   if (!iso) return '—';
   const d = new Date(iso);
   return Number.isNaN(d.getTime()) ? '—'
-    : d.toLocaleDateString('th-TH', { year: 'numeric', month: 'short', day: 'numeric' });
+    : d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
 export function fmtDateTime(d?: Date | null): string {
   if (!d) return '—';
-  return d.toLocaleString('th-TH', {
+  return d.toLocaleString('en-US', {
     year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
   });
 }
