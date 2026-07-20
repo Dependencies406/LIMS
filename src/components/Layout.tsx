@@ -142,7 +142,7 @@ const DataRecorderIcon: React.FC<{ className?: string }> = ({ className = 'w-5 h
 );
 
 const SECONDARY_NAV: NavItem[] = [
-  { path: '/data-records', label: 'บันทึกข้อมูล',      Icon: DataRecorderIcon, activeColor: 'text-teal-600', activeBg: 'bg-teal-50' },
+  { path: '/data-records', label: 'Data Records',      Icon: DataRecorderIcon, activeColor: 'text-teal-600', activeBg: 'bg-teal-50' },
   { path: '/documents',   label: 'Documents',         Icon: DocumentsIcon, activeColor: 'text-slate-600',  activeBg: 'bg-slate-50'  },
   { path: '/recycle-bin', label: 'Recycle Bin',       Icon: RecycleBinIcon,activeColor: 'text-rose-600',   activeBg: 'bg-rose-50'   },
   { path: '/settings',   label: 'Settings',           Icon: SettingsIcon,  activeColor: 'text-gray-700',   activeBg: 'bg-gray-100', adminOnly: true },
