@@ -55,6 +55,7 @@ import { VoidSheetModal } from './components/VoidSheetModal';
 import { DeleteSheetModal } from './components/DeleteSheetModal';
 import { EnvironmentBlock, ReadOnlyEnvironmentBlock } from './components/EnvironmentBlock';
 import { MeasurementGrid, ReadOnlyMeasurementGrid } from './components/MeasurementGrid';
+import { AnalysisResultsSection } from './components/AnalysisResultsSection';
 import { SaveConfirmModal } from './components/SaveConfirmModal';
 
 export type SheetEditorMode = 'new' | 'view' | 'amend';
@@ -141,6 +142,7 @@ export const SheetEditorPage: React.FC<{ mode: SheetEditorMode }> = ({ mode }) =
   const [voidBusy, setVoidBusy] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [deleteBusy, setDeleteBusy] = useState(false);
+  const [viewTab, setViewTab] = useState<'measurement' | 'analysis'>('measurement');
 
   const optionByKey = useMemo(() => new Map(options.map((o) => [o.key, o])), [options]);
 
@@ -572,51 +574,78 @@ export const SheetEditorPage: React.FC<{ mode: SheetEditorMode }> = ({ mode }) =
         )}
       </div>
 
+      {mode === 'view' && viewSheet && (
+        <div className="mb-3 flex gap-2">
+          <button
+            className={`rounded-lg px-4 py-1.5 text-sm font-medium ${
+              viewTab === 'measurement' ? 'bg-emerald-600 text-white' : 'border border-gray-300 hover:bg-gray-50'
+            }`}
+            onClick={() => setViewTab('measurement')}
+          >
+            Measurement Results
+          </button>
+          <button
+            className={`rounded-lg px-4 py-1.5 text-sm font-medium ${
+              viewTab === 'analysis' ? 'bg-emerald-600 text-white' : 'border border-gray-300 hover:bg-gray-50'
+            }`}
+            onClick={() => setViewTab('analysis')}
+          >
+            ผลการวิเคราะห์
+          </button>
+        </div>
+      )}
+
       {/* measurement grid */}
-      <div className="rounded-lg border border-gray-200 bg-white">
-        <div className="flex flex-wrap items-center gap-3 border-b border-gray-200 px-4 py-2.5">
-          <h3 className="text-sm font-semibold">Measurement Results</h3>
-          <span className="text-xs text-gray-500">
-            เลือก Standard ต่อแถว — STD-Force คำนวณอัตโนมัติด้วยสมการของมาตรฐานแถวนั้น
-          </span>
-          {editable && (
-            <button className="ml-auto rounded-lg border border-gray-300 px-3 py-1 text-sm hover:bg-gray-50"
-                    onClick={() => setDraft((d) => ({
-                      ...d,
-                      rows: [...d.rows, blankRow(d.rows[d.rows.length - 1]?.standardKey ?? '')],
-                    }))}>
-              + เพิ่ม Cal. Point
-            </button>
-          )}
-        </div>
-        <div className="p-2">
-          {editable ? (
-            <MeasurementGrid
-              rows={draft.rows}
-              options={options}
-              readingUnit={draft.uuc.readingUnit}
-              decimalPlaces={draft.decimalPlaces}
-              onChange={(rows) => setDraft((d) => ({ ...d, rows }))}
-            />
-          ) : (
-            viewSheet && <ReadOnlyMeasurementGrid sheet={viewSheet} />
-          )}
-        </div>
-        <div className="flex flex-wrap justify-between gap-6 border-t border-gray-200 px-6 py-4 text-sm text-gray-500">
-          <div className="text-center">
-            <div className="mb-1 h-7 w-48 border-b border-dotted border-gray-400" />
-            Recorded by: {recordedByName}
+      {(mode !== 'view' || viewTab === 'measurement') && (
+        <div className="rounded-lg border border-gray-200 bg-white">
+          <div className="flex flex-wrap items-center gap-3 border-b border-gray-200 px-4 py-2.5">
+            <h3 className="text-sm font-semibold">Measurement Results</h3>
+            <span className="text-xs text-gray-500">
+              เลือก Standard ต่อแถว — STD-Force คำนวณอัตโนมัติด้วยสมการของมาตรฐานแถวนั้น
+            </span>
+            {editable && (
+              <button className="ml-auto rounded-lg border border-gray-300 px-3 py-1 text-sm hover:bg-gray-50"
+                      onClick={() => setDraft((d) => ({
+                        ...d,
+                        rows: [...d.rows, blankRow(d.rows[d.rows.length - 1]?.standardKey ?? '')],
+                      }))}>
+                + เพิ่ม Cal. Point
+              </button>
+            )}
           </div>
-          <div className="text-center">
-            <div className="mb-1 h-7 w-48 border-b border-dotted border-gray-400" />
-            Reviewed by
+          <div className="p-2">
+            {editable ? (
+              <MeasurementGrid
+                rows={draft.rows}
+                options={options}
+                readingUnit={draft.uuc.readingUnit}
+                decimalPlaces={draft.decimalPlaces}
+                onChange={(rows) => setDraft((d) => ({ ...d, rows }))}
+              />
+            ) : (
+              viewSheet && <ReadOnlyMeasurementGrid sheet={viewSheet} />
+            )}
           </div>
-          <div className="text-center">
-            <div className="mb-1 h-7 w-48 border-b border-dotted border-gray-400" />
-            Date
+          <div className="flex flex-wrap justify-between gap-6 border-t border-gray-200 px-6 py-4 text-sm text-gray-500">
+            <div className="text-center">
+              <div className="mb-1 h-7 w-48 border-b border-dotted border-gray-400" />
+              Recorded by: {recordedByName}
+            </div>
+            <div className="text-center">
+              <div className="mb-1 h-7 w-48 border-b border-dotted border-gray-400" />
+              Reviewed by
+            </div>
+            <div className="text-center">
+              <div className="mb-1 h-7 w-48 border-b border-dotted border-gray-400" />
+              Date
+            </div>
           </div>
         </div>
-      </div>
+      )}
+
+      {mode === 'view' && viewTab === 'analysis' && viewSheet && (
+        <AnalysisResultsSection sheet={viewSheet} />
+      )}
 
       {editable && (
         <p className="mt-3 border-l-4 border-emerald-600 pl-3 text-xs text-gray-500">
