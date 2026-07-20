@@ -1,0 +1,1299 @@
+{
+ "source": "Demo_File.xlsx (converted from Demo File.xlsb), job SCS-CAL-26024, extracted 2026-07-19",
+ "purpose": "Golden test oracle for Stage D analysis module (relativeError.ts, uncertaintyBudget.ts). Expected values are the workbook cached values verbatim, including workbook quirks — see STAGE_D_FORMULA_SPEC.md Q1-Q6 before asserting.",
+ "directions": {
+  "tension": {
+   "header": {
+    "requestNo": "SCS-CAL-26024",
+    "receivedDate": "2026-07-09",
+    "calibrationDate": "2026-07-09",
+    "recordedBy": "Nattawat Rooplor",
+    "uucEquipmentName": "Seat Belt Anchorage Testing Machine",
+    "uucReadingUnit": "N",
+    "uucResolution": 0.01,
+    "decimalPlaces": 2,
+    "calibrationRange": "4000-40000 N",
+    "direction": "Tension",
+    "standardKey": "CAL-FRC-004 (250 kN, Tensile 10-100 kN)",
+    "stdReadingUnit": "kN"
+   },
+   "rawData": [
+    {
+     "calPoint": 0,
+     "inc1": {
+      "uuc": 0,
+      "sig": 0,
+      "force": 0
+     },
+     "inc2": {
+      "uuc": 0,
+      "sig": 0,
+      "force": 0
+     },
+     "inc3": {
+      "uuc": 0,
+      "sig": 0,
+      "force": 0
+     },
+     "dec3": {
+      "uuc": 0,
+      "sig": 0,
+      "force": 0
+     }
+    },
+    {
+     "calPoint": 4000,
+     "inc1": {
+      "uuc": 4000,
+      "sig": -0.03202,
+      "force": 4002.53912
+     },
+     "inc2": {
+      "uuc": 4000,
+      "sig": -0.03201,
+      "force": 4001.28911
+     },
+     "inc3": {
+      "uuc": 4000,
+      "sig": -0.03201,
+      "force": 4001.28911
+     },
+     "dec3": {
+      "uuc": "-",
+      "sig": "-",
+      "force": "-"
+     }
+    },
+    {
+     "calPoint": 8000,
+     "inc1": {
+      "uuc": 8000,
+      "sig": -0.06411,
+      "force": 8013.82552
+     },
+     "inc2": {
+      "uuc": 8000,
+      "sig": -0.06424,
+      "force": 8030.07566
+     },
+     "inc3": {
+      "uuc": 8000,
+      "sig": -0.06426,
+      "force": 8032.57568
+     },
+     "dec3": {
+      "uuc": "-",
+      "sig": "-",
+      "force": "-"
+     }
+    },
+    {
+     "calPoint": 12000,
+     "inc1": {
+      "uuc": 12000,
+      "sig": -0.09611,
+      "force": 12013.85902
+     },
+     "inc2": {
+      "uuc": 12000,
+      "sig": -0.09607,
+      "force": 12008.85898
+     },
+     "inc3": {
+      "uuc": 12000,
+      "sig": -0.09594,
+      "force": 11992.60885
+     },
+     "dec3": {
+      "uuc": "-",
+      "sig": "-",
+      "force": "-"
+     }
+    },
+    {
+     "calPoint": 16000,
+     "inc1": {
+      "uuc": 16000,
+      "sig": -0.12792,
+      "force": 15990.13955
+     },
+     "inc2": {
+      "uuc": 16000,
+      "sig": -0.12803,
+      "force": 16003.88965
+     },
+     "inc3": {
+      "uuc": 16000,
+      "sig": -0.12789,
+      "force": 15986.38952
+     },
+     "dec3": {
+      "uuc": "-",
+      "sig": "-",
+      "force": "-"
+     }
+    },
+    {
+     "calPoint": 20000,
+     "inc1": {
+      "uuc": 20000,
+      "sig": -0.1604,
+      "force": 20050.16787
+     },
+     "inc2": {
+      "uuc": 20000,
+      "sig": -0.1602,
+      "force": 20025.1677
+     },
+     "inc3": {
+      "uuc": 20000,
+      "sig": -0.15999,
+      "force": 19998.91753
+     },
+     "dec3": {
+      "uuc": "-",
+      "sig": "-",
+      "force": "-"
+     }
+    },
+    {
+     "calPoint": 25000,
+     "inc1": {
+      "uuc": 25000,
+      "sig": -0.19987,
+      "force": 24983.94841
+     },
+     "inc2": {
+      "uuc": 25000,
+      "sig": -0.20001,
+      "force": 25001.44851
+     },
+     "inc3": {
+      "uuc": 25000,
+      "sig": -0.19997,
+      "force": 24996.44848
+     },
+     "dec3": {
+      "uuc": "-",
+      "sig": "-",
+      "force": "-"
+     }
+    },
+    {
+     "calPoint": 30000,
+     "inc1": {
+      "uuc": 30000,
+      "sig": -0.24014,
+      "force": 30017.72518
+     },
+     "inc2": {
+      "uuc": 30000,
+      "sig": -0.2401,
+      "force": 30012.72516
+     },
+     "inc3": {
+      "uuc": 30000,
+      "sig": -0.240043,
+      "force": 30005.60012
+     },
+     "dec3": {
+      "uuc": "-",
+      "sig": "-",
+      "force": "-"
+     }
+    },
+    {
+     "calPoint": 35000,
+     "inc1": {
+      "uuc": 35000,
+      "sig": -0.28003,
+      "force": 35003.99734
+     },
+     "inc2": {
+      "uuc": 35000,
+      "sig": -0.27986,
+      "force": 34982.74726
+     },
+     "inc3": {
+      "uuc": 35000,
+      "sig": -0.27973,
+      "force": 34966.49719
+     },
+     "dec3": {
+      "uuc": "-",
+      "sig": "-",
+      "force": "-"
+     }
+    },
+    {
+     "calPoint": 40000,
+     "inc1": {
+      "uuc": 40000,
+      "sig": -0.31968,
+      "force": 39960.26506
+     },
+     "inc2": {
+      "uuc": 40000,
+      "sig": -0.31995,
+      "force": 39994.01517
+     },
+     "inc3": {
+      "uuc": 40000,
+      "sig": -0.32,
+      "force": 40000.26519
+     },
+     "dec3": {
+      "uuc": "-",
+      "sig": "-",
+      "force": "-"
+     }
+    }
+   ],
+   "conversion": {
+    "degree1": -125.01507375942,
+    "degree2": -0.001364919581744,
+    "degree3": 0.013808275839619,
+    "divisor": 0.001
+   },
+   "relativeError": [
+    {
+     "A": 0,
+     "B": 0,
+     "C": 0,
+     "D": 0,
+     "E": 0,
+     "F": 0,
+     "G": 0,
+     "H": 0,
+     "I": 0,
+     "J": 0,
+     "K": 0,
+     "L": 0,
+     "M": 0,
+     "N": 0,
+     "O": 0.5,
+     "P": 0.5,
+     "Q": 0.5,
+     "R": 0.5,
+     "S": 0.5,
+     "T": 0.5,
+     "U": 0.5
+    },
+    {
+     "A": 4000,
+     "B": 4002.53912,
+     "C": 4001.28911,
+     "D": 4001.28911,
+     "E": "-",
+     "F": 4001.71,
+     "G": -0.06343773099711544,
+     "H": -0.03221736706748901,
+     "I": -0.03221736706748901,
+     "J": -0.04262415504403116,
+     "K": -0.031220363929626432,
+     "L": 0,
+     "M": "-",
+     "N": 0.00025,
+     "O": 0.5,
+     "P": 0.5,
+     "Q": 0.5,
+     "R": 0.5,
+     "S": "-",
+     "T": 0.5,
+     "U": 0.5
+    },
+    {
+     "A": 8000,
+     "B": 8013.82552,
+     "C": 8030.07566,
+     "D": 8032.57568,
+     "E": "-",
+     "F": 8025.49,
+     "G": -0.17252085119018568,
+     "H": -0.3745376914667878,
+     "I": -0.40554463845399985,
+     "J": -0.3175343937036577,
+     "K": 0.23302378726381417,
+     "L": 0,
+     "M": "-",
+     "N": 0.000125,
+     "O": 0.5,
+     "P": 0.5,
+     "Q": 0.5,
+     "R": 0.5,
+     "S": "-",
+     "T": 0.5,
+     "U": 0.5
+    },
+    {
+     "A": 12000,
+     "B": 12013.85902,
+     "C": 12008.85898,
+     "D": 11992.60885,
+     "E": "-",
+     "F": 12005.11,
+     "G": -0.11535860356716482,
+     "H": -0.07377037247880883,
+     "I": 0.061630876921325344,
+     "J": -0.04249936637488277,
+     "K": -0.17698948048849017,
+     "L": 0,
+     "M": "-",
+     "N": 8.333333333333333e-05,
+     "O": 0.5,
+     "P": 0.5,
+     "Q": 0.5,
+     "R": 0.5,
+     "S": "-",
+     "T": 0.5,
+     "U": 0.5
+    },
+    {
+     "A": 16000,
+     "B": 15990.13955,
+     "C": 16003.88965,
+     "D": 15986.38952,
+     "E": "-",
+     "F": 15993.47,
+     "G": 0.06166581579333451,
+     "H": -0.024304404023425423,
+     "I": 0.08513792299988553,
+     "J": 0.04083311158993153,
+     "K": -0.02347210720655102,
+     "L": 0,
+     "M": "-",
+     "N": 6.25e-05,
+     "O": 0.5,
+     "P": 0.5,
+     "Q": 0.5,
+     "R": 0.5,
+     "S": "-",
+     "T": 0.5,
+     "U": 0.5
+    },
+    {
+     "A": 20000,
+     "B": 20050.16787,
+     "C": 20025.1677,
+     "D": 19998.91753,
+     "E": "-",
+     "F": 20024.75,
+     "G": -0.2502117205465628,
+     "H": -0.12568034573813722,
+     "I": 0.005412642951186741,
+     "J": -0.1234931411111711,
+     "K": -0.2556243634977496,
+     "L": 0,
+     "M": "-",
+     "N": 4.9999999999999996e-05,
+     "O": 0.5,
+     "P": 0.5,
+     "Q": 0.5,
+     "R": 0.5,
+     "S": "-",
+     "T": 0.5,
+     "U": 0.5
+    },
+    {
+     "A": 25000,
+     "B": 24983.94841,
+     "C": 25001.44851,
+     "D": 24996.44848,
+     "E": "-",
+     "F": 24993.95,
+     "G": 0.06424761105244023,
+     "H": -0.005793704310448173,
+     "I": 0.014208098413830713,
+     "J": 0.024220668385274258,
+     "K": 0.050039512638609514,
+     "L": 0,
+     "M": "-",
+     "N": 3.9999999999999996e-05,
+     "O": 0.5,
+     "P": 0.5,
+     "Q": 0.5,
+     "R": 0.5,
+     "S": "-",
+     "T": 0.5,
+     "U": 0.5
+    },
+    {
+     "A": 30000,
+     "B": 30017.72518,
+     "C": 30012.72516,
+     "D": 30005.60012,
+     "E": "-",
+     "F": 30012.02,
+     "G": -0.059049044835053265,
+     "H": -0.04239921543999431,
+     "I": -0.018663582723234505,
+     "J": -0.04003728099942736,
+     "K": -0.04038546211181876,
+     "L": 0,
+     "M": "-",
+     "N": 3.3333333333333335e-05,
+     "O": 0.5,
+     "P": 0.5,
+     "Q": 0.5,
+     "R": 0.5,
+     "S": "-",
+     "T": 0.5,
+     "U": 0.5
+    },
+    {
+     "A": 35000,
+     "B": 35003.99734,
+     "C": 34982.74726,
+     "D": 34966.49719,
+     "E": "-",
+     "F": 34984.41,
+     "G": -0.011419667191649129,
+     "H": 0.04931785337434229,
+     "I": 0.09581402969234086,
+     "J": 0.04457073862501134,
+     "K": -0.10723369688398998,
+     "L": 0,
+     "M": "-",
+     "N": 2.857142857142857e-05,
+     "O": 0.5,
+     "P": 0.5,
+     "Q": 0.5,
+     "R": 0.5,
+     "S": "-",
+     "T": 0.5,
+     "U": 0.5
+    },
+    {
+     "A": 40000,
+     "B": 39960.26506,
+     "C": 39994.01517,
+     "D": 40000.26519,
+     "E": "-",
+     "F": 39984.85,
+     "G": 0.099436127213722,
+     "H": 0.014964313971882807,
+     "I": -0.000662970604666274,
+     "J": 0.037912490193646176,
+     "K": 0.10009909781838827,
+     "L": 0,
+     "M": "-",
+     "N": 2.4999999999999998e-05,
+     "O": 0.5,
+     "P": 0.5,
+     "Q": 0.5,
+     "R": 0.5,
+     "S": "-",
+     "T": 0.5,
+     "U": 0.5
+    }
+   ],
+   "classTable": [
+    [
+     0.5,
+     0.5,
+     0.5,
+     0.75,
+     0.05,
+     0.25
+    ],
+    [
+     1,
+     1,
+     1,
+     1.5,
+     0.1,
+     0.5
+    ],
+    [
+     2,
+     2,
+     2,
+     3,
+     0.2,
+     1
+    ],
+    [
+     3,
+     3,
+     3,
+     4.5,
+     0.3,
+     1.5
+    ]
+   ],
+   "uncBudget": [
+    {
+     "A": 4000,
+     "B": 0.01802508551896789,
+     "C": 0.012745660201929633,
+     "D": 0,
+     "E": 0,
+     "F": 0,
+     "G": 0.006,
+     "H": 0.00577,
+     "I": 0.00693,
+     "J": 0.00816,
+     "K": 0.013561098775541753,
+     "L": 0.018610622074048278,
+     "M": 9.091262787385727,
+     "N": 2.3198094410224317,
+     "O": 0.04317309679067766,
+     "P": "0.26",
+     "R": 4000,
+     "S": 0.26,
+     "T": 0.04317309679067766,
+     "U": 0.26,
+     "V": "0.26"
+    },
+    {
+     "A": 8000,
+     "B": 0.12653874238586746,
+     "C": 0.08947640282386449,
+     "D": 0,
+     "E": 0,
+     "F": 0,
+     "G": 0.006,
+     "H": 0.00577,
+     "I": 0.00693,
+     "J": 0.00816,
+     "K": 0.013561098775541753,
+     "L": 0.09049823237112681,
+     "M": 2.0929377807241245,
+     "N": 4.5265507600819905,
+     "O": 0.4096448425256006,
+     "P": "0.40",
+     "R": 8000,
+     "S": 0.26,
+     "T": 0.4096448425256006,
+     "U": 0.4096448425256006,
+     "V": "0.40"
+    },
+    {
+     "A": 12000,
+     "B": 0.09254580443196896,
+     "C": 0.06543976588420929,
+     "D": 0,
+     "E": 0,
+     "F": 0,
+     "G": 0.006,
+     "H": 0.00577,
+     "I": 0.00693,
+     "J": 0.00816,
+     "K": 0.013561098775541753,
+     "L": 0.06683013062219856,
+     "M": 2.1754659379122994,
+     "N": 4.5265507600819905,
+     "O": 0.30250997856429157,
+     "P": "0.30",
+     "R": 12000,
+     "S": 0.26,
+     "T": 0.30250997856429157,
+     "U": 0.30250997856429157,
+     "V": "0.30"
+    },
+    {
+     "A": 16000,
+     "B": 0.05761863335232099,
+     "C": 0.040742526366127546,
+     "D": 0,
+     "E": 0,
+     "F": 0,
+     "G": 0.006,
+     "H": 0.00577,
+     "I": 0.00693,
+     "J": 0.00816,
+     "K": 0.013561098775541753,
+     "L": 0.04294015433943616,
+     "M": 2.4677012377544125,
+     "N": 4.5265507600819905,
+     "O": 0.19437078826321275,
+     "P": "0.26",
+     "R": 16000,
+     "S": 0.26,
+     "T": 0.19437078826321275,
+     "U": 0.26,
+     "V": "0.26"
+    },
+    {
+     "A": 20000,
+     "B": 0.1278262168002619,
+     "C": 0.09038678471288697,
+     "D": 0,
+     "E": 0,
+     "F": 0,
+     "G": 0.006,
+     "H": 0.00577,
+     "I": 0.00693,
+     "J": 0.00816,
+     "K": 0.013561098775541753,
+     "L": 0.09139843680683919,
+     "M": 2.0910543304474616,
+     "N": 4.5265507600819905,
+     "O": 0.4137196635983037,
+     "P": "0.41",
+     "R": 20000,
+     "S": 0.26,
+     "T": 0.4137196635983037,
+     "U": 0.4137196635983037,
+     "V": "0.41"
+    },
+    {
+     "A": 25000,
+     "B": 0.03607818083711658,
+     "C": 0.02551112632279968,
+     "D": 0,
+     "E": 0,
+     "F": 0,
+     "G": 0.006,
+     "H": 0.00577,
+     "I": 0.00693,
+     "J": 0.00816,
+     "K": 0.013561098775541753,
+     "L": 0.02889153796975583,
+     "M": 3.2899864319095813,
+     "N": 3.3068299207201113,
+     "O": 0.09553940221400975,
+     "P": "0.26",
+     "R": 25000,
+     "S": 0.26,
+     "T": 0.09553940221400975,
+     "U": 0.26,
+     "V": "0.26"
+    },
+    {
+     "A": 30000,
+     "B": 0.020296069526448683,
+     "C": 0.014351488393585504,
+     "D": 0,
+     "E": 0,
+     "F": 0,
+     "G": 0.006,
+     "H": 0.00577,
+     "I": 0.00693,
+     "J": 0.00816,
+     "K": 0.013561098775541753,
+     "L": 0.019745091012989012,
+     "M": 7.16603258910682,
+     "N": 2.428809082234241,
+     "O": 0.0479570563818894,
+     "P": "0.26",
+     "R": 30000,
+     "S": 0.26,
+     "T": 0.0479570563818894,
+     "U": 0.26,
+     "V": "0.26"
+    },
+    {
+     "A": 35000,
+     "B": 0.05377422952199639,
+     "C": 0.038024122348085485,
+     "D": 0,
+     "E": 0,
+     "F": 0,
+     "G": 0.006,
+     "H": 0.00577,
+     "I": 0.00693,
+     "J": 0.00816,
+     "K": 0.013561098775541753,
+     "L": 0.04037000471070289,
+     "M": 2.5411388811108346,
+     "N": 4.5265507600819905,
+     "O": 0.18273687550774573,
+     "P": "0.26",
+     "R": 35000,
+     "S": 0.26,
+     "T": 0.18273687550774573,
+     "U": 0.26,
+     "V": "0.26"
+    },
+    {
+     "A": 40000,
+     "B": 0.05385091865458421,
+     "C": 0.038078349753781646,
+     "D": 0,
+     "E": 0,
+     "F": 0,
+     "G": 0.006,
+     "H": 0.00577,
+     "I": 0.00693,
+     "J": 0.00816,
+     "K": 0.013561098775541753,
+     "L": 0.040421085091463374,
+     "M": 2.5395068735596897,
+     "N": 4.5265507600819905,
+     "O": 0.18296809344410236,
+     "P": "0.26",
+     "R": 40000,
+     "S": 0.26,
+     "T": 0.18296809344410236,
+     "U": 0.26,
+     "V": "0.26"
+    }
+   ],
+   "cmcCriteria": {
+    "direction": "Tensile",
+    "steps": [
+     {
+      "toN": 100,
+      "cmc": 0.26
+     },
+     {
+      "toN": 2000,
+      "cmc": 0.21
+     },
+     {
+      "toN": 247000,
+      "cmc": 0.26
+     }
+    ]
+   }
+  },
+  "compression": {
+   "header": {
+    "requestNo": "SCS-CAL-26024",
+    "receivedDate": "2026-07-09",
+    "calibrationDate": "2026-07-09",
+    "recordedBy": "Nattawat Rooplor",
+    "uucEquipmentName": "Seat Belt Anchorage Testing Machine",
+    "uucReadingUnit": "N",
+    "uucResolution": 0.01,
+    "decimalPlaces": 2,
+    "calibrationRange": "0-0 N",
+    "direction": "Compression",
+    "standardKey": "CAL-FRC-001 (50 N, Compressive 1-10 N )",
+    "stdReadingUnit": "N"
+   },
+   "rawData": [
+    {
+     "calPoint": 0,
+     "inc1": {
+      "uuc": 0,
+      "sig": 0,
+      "force": 0
+     },
+     "inc2": {
+      "uuc": 0,
+      "sig": 0,
+      "force": 0
+     },
+     "inc3": {
+      "uuc": 0,
+      "sig": 0,
+      "force": 0
+     },
+     "dec3": {
+      "uuc": 0,
+      "sig": 0,
+      "force": 0
+     }
+    }
+   ],
+   "conversion": {
+    "degree1": 25.001904548237,
+    "degree2": -0.039616880251316,
+    "degree3": 0.075709296790966,
+    "divisor": 1
+   },
+   "relativeError": [
+    {
+     "A": 0,
+     "B": 0,
+     "C": 0,
+     "D": 0,
+     "E": 0,
+     "F": 0,
+     "G": 0,
+     "H": 0,
+     "I": 0,
+     "J": 0,
+     "K": 0,
+     "L": 0,
+     "M": 0,
+     "N": 0,
+     "O": 0.5,
+     "P": 0.5,
+     "Q": 0.5,
+     "R": 0.5,
+     "S": 0.5,
+     "T": 0.5,
+     "U": 0.5
+    }
+   ],
+   "classTable": [
+    [
+     0.5,
+     0.5,
+     0.5,
+     0.75,
+     0.05,
+     0.25
+    ],
+    [
+     1,
+     1,
+     1,
+     1.5,
+     0.1,
+     0.5
+    ],
+    [
+     2,
+     2,
+     2,
+     3,
+     0.2,
+     1
+    ],
+    [
+     3,
+     3,
+     3,
+     4.5,
+     0.3,
+     1.5
+    ]
+   ],
+   "uncBudget": [],
+   "cmcCriteria": {
+    "direction": "Compressive",
+    "steps": [
+     {
+      "toN": 100,
+      "cmc": 0.26
+     },
+     {
+      "toN": 2000,
+      "cmc": 0.59
+     },
+     {
+      "toN": 247000,
+      "cmc": 0.29
+     }
+    ]
+   }
+  }
+ },
+ "cmcTable": {
+  "compressive": [
+   {
+    "toN": 100,
+    "cmc": 0.26
+   },
+   {
+    "toN": 2000,
+    "cmc": 0.59
+   },
+   {
+    "toN": 247000,
+    "cmc": 0.29
+   }
+  ],
+  "tensile": [
+   {
+    "toN": 100,
+    "cmc": 0.26
+   },
+   {
+    "toN": 2000,
+    "cmc": 0.21
+   },
+   {
+    "toN": 247000,
+    "cmc": 0.26
+   }
+  ]
+ },
+ "lcdb": [
+  {
+   "No.": 1,
+   "EQUIPMENTS": "CAL-FRC-001 (50 N, Compressive 1-10 N )",
+   "Name": "Force Transducer",
+   "Range": "1-50 N",
+   "Cal. Date": "2024-12-11",
+   "Due Date": "2026-12-11",
+   "Traceability": "NIMT",
+   "Equipment Code": "CAL-FRC-001",
+   "Manufacturer/Model": "Gassmann Testing and Metrology (GTM) / KTN-Z/D",
+   "Accessories": "Digital Measuring Unit (GTM, model: CFA225-P, S/N: 60147)",
+   "Serial Number": 66925,
+   "u_cal (%)": 0.047,
+   "A (%)": 0.00577,
+   "B (%)": 0.05427,
+   "C (%)": 0.00816,
+   "Resolution": 1e-05,
+   "Convert D-F Degree 1": 25.001904548237,
+   "Convert D-F Degree 2": -0.039616880251316,
+   "Convert D-F Degree 3": 0.075709296790966,
+   "Input Unit": "mV/V",
+   "Output Unit": "N"
+  },
+  {
+   "No.": 2,
+   "EQUIPMENTS": "CAL-FRC-001 (50 N, Tensile 1-10 N)",
+   "Name": "Force Transducer",
+   "Range": "1-50 N",
+   "Cal. Date": "2024-12-11",
+   "Due Date": "2026-12-11",
+   "Traceability": "NIMT",
+   "Equipment Code": "CAL-FRC-001",
+   "Manufacturer/Model": "Gassmann Testing and Metrology (GTM) / KTN-Z/D",
+   "Accessories": "Digital Measuring Unit (GTM, model: CFA225-P, S/N: 60147)",
+   "Serial Number": 66925,
+   "u_cal (%)": 0.037,
+   "A (%)": 0.00577,
+   "B (%)": 0.04272,
+   "C (%)": 0.00816,
+   "Resolution": 1e-05,
+   "Convert D-F Degree 1": -24.991175048892,
+   "Convert D-F Degree 2": 0.045416541650419,
+   "Convert D-F Degree 3": 0.061727077418498,
+   "Input Unit": "mV/V",
+   "Output Unit": "N"
+  },
+  {
+   "No.": 3,
+   "EQUIPMENTS": "CAL-FRC-001 (50 N, Compressive 10-50 N)",
+   "Name": "Force Transducer",
+   "Range": "1-50 N",
+   "Cal. Date": "2024-12-11",
+   "Due Date": "2026-12-11",
+   "Traceability": "NIMT",
+   "Equipment Code": "CAL-FRC-001",
+   "Manufacturer/Model": "Gassmann Testing and Metrology (GTM) / KTN-Z/D",
+   "Accessories": "Digital Measuring Unit (GTM, model: CFA225-P, S/N: 60147)",
+   "Serial Number": 66925,
+   "u_cal (%)": 0.0135,
+   "A (%)": 0.00577,
+   "B (%)": 0.01559,
+   "C (%)": 0.00816,
+   "Resolution": 1e-05,
+   "Convert D-F Degree 1": 24.998721887145,
+   "Convert D-F Degree 2": -0.000816844470529,
+   "Convert D-F Degree 3": 0.000655854655343,
+   "Input Unit": "mV/V",
+   "Output Unit": "N"
+  },
+  {
+   "No.": 4,
+   "EQUIPMENTS": "CAL-FRC-001 (50 N, Tensile 10-50 N)",
+   "Name": "Force Transducer",
+   "Range": "1-50 N",
+   "Cal. Date": "2024-12-11",
+   "Due Date": "2026-12-11",
+   "Traceability": "NIMT",
+   "Equipment Code": "CAL-FRC-001",
+   "Manufacturer/Model": "Gassmann Testing and Metrology (GTM) / KTN-Z/D",
+   "Accessories": "Digital Measuring Unit (GTM, model: CFA225-P, S/N: 60147)",
+   "Serial Number": 66925,
+   "u_cal (%)": 0.009,
+   "A (%)": 0.00577,
+   "B (%)": 0.01039,
+   "C (%)": 0.00816,
+   "Resolution": 1e-05,
+   "Convert D-F Degree 1": -24.99959515759,
+   "Convert D-F Degree 2": 0.000861962752927,
+   "Convert D-F Degree 3": -0.000480301553663,
+   "Input Unit": "mV/V",
+   "Output Unit": "N"
+  },
+  {
+   "No.": 5,
+   "EQUIPMENTS": "CAL-FRC-002 (1000 N, Compressive 20-100 N)",
+   "Name": "Force Transducer",
+   "Range": "20-1,000 N",
+   "Cal. Date": "2024-12-18",
+   "Due Date": "2026-12-18",
+   "Traceability": "NIMT",
+   "Equipment Code": "CAL-FRC-002",
+   "Manufacturer/Model": "Gassmann Testing and Metrology (GTM) / KTN-Z/D",
+   "Accessories": "Digital Measuring Unit (GTM, model: CFA225-P, S/N: 60147)",
+   "Serial Number": 66855,
+   "u_cal (%)": 0.02,
+   "A (%)": 0.00577,
+   "B (%)": 0.02309,
+   "C (%)": 0.00816,
+   "Resolution": 1e-05,
+   "Convert D-F Degree 1": 497.0657650435,
+   "Convert D-F Degree 2": 0.40278738409125,
+   "Convert D-F Degree 3": -4.6528902467264,
+   "Input Unit": "mV/V",
+   "Output Unit": "N"
+  },
+  {
+   "No.": 6,
+   "EQUIPMENTS": "CAL-FRC-002 (1000 N, Tensile 20-100 N)",
+   "Name": "Force Transducer",
+   "Range": "20-1,000 N",
+   "Cal. Date": "2024-12-18",
+   "Due Date": "2026-12-18",
+   "Traceability": "NIMT",
+   "Equipment Code": "CAL-FRC-002",
+   "Manufacturer/Model": "Gassmann Testing and Metrology (GTM) / KTN-Z/D",
+   "Accessories": "Digital Measuring Unit (GTM, model: CFA225-P, S/N: 60147)",
+   "Serial Number": 66855,
+   "u_cal (%)": 0.0495,
+   "A (%)": 0.00577,
+   "B (%)": 0.05716,
+   "C (%)": 0.00816,
+   "Resolution": 1e-05,
+   "Convert D-F Degree 1": -497.0085364853,
+   "Convert D-F Degree 2": 0.13731377176832,
+   "Convert D-F Degree 3": 1.3467805094257,
+   "Input Unit": "mV/V",
+   "Output Unit": "N"
+  },
+  {
+   "No.": 7,
+   "EQUIPMENTS": "CAL-FRC-002 (1 kN, Compressive 0.1-1 kN )",
+   "Name": "Force Transducer",
+   "Range": "20-1,000 N",
+   "Cal. Date": "2024-12-18",
+   "Due Date": "2026-12-18",
+   "Traceability": "NIMT",
+   "Equipment Code": "CAL-FRC-002",
+   "Manufacturer/Model": "Gassmann Testing and Metrology (GTM) / KTN-Z/D",
+   "Accessories": "Digital Measuring Unit (GTM, model: CFA225-P, S/N: 60147)",
+   "Serial Number": 66855,
+   "u_cal (%)": 0.07,
+   "A (%)": 0.00577,
+   "B (%)": 0.08083,
+   "C (%)": 0.00051,
+   "Resolution": 1e-05,
+   "Convert D-F Degree 1": 0.49702235908712,
+   "Convert D-F Degree 2": -0.000256441732112,
+   "Convert D-F Degree 3": 5.1836121592e-05,
+   "Input Unit": "mV/V",
+   "Output Unit": "kN"
+  },
+  {
+   "No.": 8,
+   "EQUIPMENTS": "CAL-FRC-002 (1 kN, Tensile 0.1-1 kN )",
+   "Name": "Force Transducer",
+   "Range": "20-1,000 N",
+   "Cal. Date": "2024-12-18",
+   "Due Date": "2026-12-18",
+   "Traceability": "NIMT",
+   "Equipment Code": "CAL-FRC-002",
+   "Manufacturer/Model": "Gassmann Testing and Metrology (GTM) / KTN-Z/D",
+   "Accessories": "Digital Measuring Unit (GTM, model: CFA225-P, S/N: 60147)",
+   "Serial Number": 66855,
+   "u_cal (%)": 0.07,
+   "A (%)": 0.00577,
+   "B (%)": 0.08083,
+   "C (%)": 0.00816,
+   "Resolution": 1e-05,
+   "Convert D-F Degree 1": -0.49710810826204,
+   "Convert D-F Degree 2": -0.000244772046145,
+   "Convert D-F Degree 3": -7.9711252758e-05,
+   "Input Unit": "mV/V",
+   "Output Unit": "kN"
+  },
+  {
+   "No.": 9,
+   "EQUIPMENTS": "CAL-FRC-003 (20 kN, Compressive 0.4-2 kN)",
+   "Name": "Force Transducer",
+   "Range": "0.4-2 kN",
+   "Cal. Date": "2024-12-16",
+   "Due Date": "2026-12-16",
+   "Traceability": "NIMT",
+   "Equipment Code": "CAL-FRC-003",
+   "Manufacturer/Model": "Gassmann Testing and Metrology (GTM) / KTN-Z/D",
+   "Accessories": "Digital Measuring Unit (GTM, model: CFA225-P, S/N: 60147)",
+   "Serial Number": 66841,
+   "u_cal (%)": 0.0435,
+   "A (%)": 0.00577,
+   "B (%)": 0.05023,
+   "C (%)": 0.00816,
+   "Resolution": 1e-05,
+   "Convert D-F Degree 1": 9.990583815198,
+   "Convert D-F Degree 2": -0.10813074786707,
+   "Convert D-F Degree 3": 0.34176133757455,
+   "Input Unit": "mV/V",
+   "Output Unit": "kN"
+  },
+  {
+   "No.": 10,
+   "EQUIPMENTS": "CAL-FRC-003 (20 kN, Tensile 0.4-2 kN)",
+   "Name": "Force Transducer",
+   "Range": "0.4-2 kN",
+   "Cal. Date": "2024-12-16",
+   "Due Date": "2026-12-16",
+   "Traceability": "NIMT",
+   "Equipment Code": "CAL-FRC-003",
+   "Manufacturer/Model": "Gassmann Testing and Metrology (GTM) / KTN-Z/D",
+   "Accessories": "Digital Measuring Unit (GTM, model: CFA225-P, S/N: 60147)",
+   "Serial Number": 66841,
+   "u_cal (%)": 0.0235,
+   "A (%)": 0.00577,
+   "B (%)": 0.02714,
+   "C (%)": 0.00816,
+   "Resolution": 1e-05,
+   "Convert D-F Degree 1": -9.9799897755495,
+   "Convert D-F Degree 2": 0.022406013596979,
+   "Convert D-F Degree 3": 0.057840733571845,
+   "Input Unit": "mV/V",
+   "Output Unit": "kN"
+  },
+  {
+   "No.": 11,
+   "EQUIPMENTS": "CAL-FRC-003 (20 kN, Compressive 2-20 kN)",
+   "Name": "Force Transducer",
+   "Range": "0.4-2 kN",
+   "Cal. Date": "2024-12-16",
+   "Due Date": "2026-12-16",
+   "Traceability": "NIMT",
+   "Equipment Code": "CAL-FRC-003",
+   "Manufacturer/Model": "Gassmann Testing and Metrology (GTM) / KTN-Z/D",
+   "Accessories": "Digital Measuring Unit (GTM, model: CFA225-P, S/N: 60147)",
+   "Serial Number": 66841,
+   "u_cal (%)": 0.016,
+   "A (%)": 0.00577,
+   "B (%)": 0.01848,
+   "C (%)": 0.00816,
+   "Resolution": 1e-05,
+   "Convert D-F Degree 1": 9.9831413318964,
+   "Convert D-F Degree 2": -0.001677071724521,
+   "Convert D-F Degree 3": 0.000969943469159,
+   "Input Unit": "mV/V",
+   "Output Unit": "kN"
+  },
+  {
+   "No.": 12,
+   "EQUIPMENTS": "CAL-FRC-003 (20 kN, Tensile 2-20 kN)",
+   "Name": "Force Transducer",
+   "Range": "0.4-2 kN",
+   "Cal. Date": "2024-12-16",
+   "Due Date": "2026-12-16",
+   "Traceability": "NIMT",
+   "Equipment Code": "CAL-FRC-003",
+   "Manufacturer/Model": "Gassmann Testing and Metrology (GTM) / KTN-Z/D",
+   "Accessories": "Digital Measuring Unit (GTM, model: CFA225-P, S/N: 60147)",
+   "Serial Number": 66841,
+   "u_cal (%)": 0.0115,
+   "A (%)": 0.00577,
+   "B (%)": 0.01328,
+   "C (%)": 0.00816,
+   "Resolution": 1e-05,
+   "Convert D-F Degree 1": -9.9843932910607,
+   "Convert D-F Degree 2": -0.001669966521687,
+   "Convert D-F Degree 3": -0.001309719196996,
+   "Input Unit": "mV/V",
+   "Output Unit": "kN"
+  },
+  {
+   "No.": 13,
+   "EQUIPMENTS": "CAL-FRC-004 (250 kN, Compressive 10-100 kN)",
+   "Name": "Force Transducer",
+   "Range": "10-247 kN",
+   "Cal. Date": "2024-12-13",
+   "Due Date": "2026-12-13",
+   "Traceability": "NIMT",
+   "Equipment Code": "CAL-FRC-004",
+   "Manufacturer/Model": "Gassmann Testing and Metrology (GTM) / KTN-P",
+   "Accessories": "Digital Measuring Unit (GTM, model: CFA225-P, S/N: 60147)",
+   "Serial Number": 66782,
+   "u_cal (%)": 0.011,
+   "A (%)": 0.00577,
+   "B (%)": 0.0127,
+   "C (%)": 0.00816,
+   "Resolution": 1e-05,
+   "Convert D-F Degree 1": 125.01865267365,
+   "Convert D-F Degree 2": 0.022983933050462,
+   "Convert D-F Degree 3": -0.034651457402553,
+   "Input Unit": "mV/V",
+   "Output Unit": "kN"
+  },
+  {
+   "No.": 14,
+   "EQUIPMENTS": "CAL-FRC-004 (250 kN, Tensile 10-100 kN)",
+   "Name": "Force Transducer",
+   "Range": "10-247 kN",
+   "Cal. Date": "2024-12-13",
+   "Due Date": "2026-12-13",
+   "Traceability": "NIMT",
+   "Equipment Code": "CAL-FRC-004",
+   "Manufacturer/Model": "Gassmann Testing and Metrology (GTM) / KTN-P",
+   "Accessories": "Digital Measuring Unit (GTM, model: CFA225-P, S/N: 60147)",
+   "Serial Number": 66782,
+   "u_cal (%)": 0.006,
+   "A (%)": 0.00577,
+   "B (%)": 0.00693,
+   "C (%)": 0.00816,
+   "Resolution": 1e-05,
+   "Convert D-F Degree 1": -125.01507375942,
+   "Convert D-F Degree 2": -0.001364919581744,
+   "Convert D-F Degree 3": 0.013808275839619,
+   "Input Unit": "mV/V",
+   "Output Unit": "kN"
+  },
+  {
+   "No.": 15,
+   "EQUIPMENTS": "CAL-FRC-004 (250 kN, Compressive 100-250 kN)",
+   "Name": "Force Transducer",
+   "Range": "10-247 kN",
+   "Cal. Date": "2024-12-13",
+   "Due Date": "2026-12-13",
+   "Traceability": "NIMT",
+   "Equipment Code": "CAL-FRC-004",
+   "Manufacturer/Model": "Gassmann Testing and Metrology (GTM) / KTN-P",
+   "Accessories": "Digital Measuring Unit (GTM, model: CFA225-P, S/N: 60147)",
+   "Serial Number": 66782,
+   "u_cal (%)": 0.0315,
+   "A (%)": 0.00577,
+   "B (%)": 0.03637,
+   "C (%)": 0.00816,
+   "Resolution": 1e-05,
+   "Convert D-F Degree 1": 125.02020397782,
+   "Convert D-F Degree 2": -0.023251567581379,
+   "Convert D-F Degree 3": 0.00543075362982,
+   "Input Unit": "mV/V",
+   "Output Unit": "kN"
+  },
+  {
+   "No.": 16,
+   "EQUIPMENTS": "CAL-FRC-004 (250 kN, Tensile 100-250 kN)",
+   "Name": "Force Transducer",
+   "Range": "10-247 kN",
+   "Cal. Date": "2024-12-13",
+   "Due Date": "2026-12-13",
+   "Traceability": "NIMT",
+   "Equipment Code": "CAL-FRC-004",
+   "Manufacturer/Model": "Gassmann Testing and Metrology (GTM) / KTN-P",
+   "Accessories": "Digital Measuring Unit (GTM, model: CFA225-P, S/N: 60147)",
+   "Serial Number": 66782,
+   "u_cal (%)": 0.012,
+   "A (%)": 0.00577,
+   "B (%)": 0.01386,
+   "C (%)": 0.00816,
+   "Resolution": 1e-05,
+   "Convert D-F Degree 1": -125.01294295402,
+   "Convert D-F Degree 2": -0.039878403332462,
+   "Convert D-F Degree 3": -0.014384329641803,
+   "Input Unit": "mV/V",
+   "Output Unit": "kN"
+  },
+  {
+   "No.": 17,
+   "EQUIPMENTS": "CAL-THM-001",
+   "Name": "Force Transducer",
+   "Range": "10.00 - 35.00 °C",
+   "Cal. Date": "2025-09-07",
+   "Due Date": "2026-09-07",
+   "Traceability": "NIMT",
+   "Equipment Code": "CAL-THM-001",
+   "Manufacturer/Model": "ZOGLAB / SMART",
+   "Accessories": "-",
+   "Serial Number": "SMART1704050462A",
+   "u_cal (%)": "-",
+   "A (%)": "-",
+   "B (%)": "-",
+   "C (%)": "-",
+   "Resolution": "-",
+   "Convert D-F Degree 1": "-",
+   "Convert D-F Degree 2": "-",
+   "Convert D-F Degree 3": "-",
+   "Input Unit": "-",
+   "Output Unit": null
+  }
+ ]
+}
