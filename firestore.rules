@@ -223,6 +223,14 @@ service cloud.firestore {
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
+    // Analysis FormulaSets — editable relative-error/uncertainty-budget
+    // formulas per sheetType (docs/FORMULA_ENGINE_DESIGN.md). Per design §2b,
+    // versioning and admin-only write are DEFERRED during initial development:
+    // this is one mutable document per sheetType, not append-only yet.
+    match /analysisFormulaSets/{sheetType} {
+      allow read, write: if request.auth != null;
+    }
+
     // Void markers: append-only cancellation records referencing a sheet by ID.
     // "Deleting" a sheet = creating one of these; the sheet itself is untouched.
     // Admin delete allowed so hard-deleting a sheet can clean up its marker.

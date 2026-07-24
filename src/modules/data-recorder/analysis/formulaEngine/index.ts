@@ -21,3 +21,17 @@ export type { BuiltinFunction } from './builtins';
 
 export { validateFormulaSet, evaluateFormulaSet } from './formulaSet';
 export type { FormulaStep, FormulaSet, FormulaValidationIssue } from './formulaSet';
+
+// ─── Session 2: seed generation + wiring (design §8, amended §2b) ────────────
+// NOT wired into analysis/index.ts or AnalysisResultsSection.tsx this
+// session — see the module docs on seedFormulaSet.ts and engineAdapter.ts.
+
+export { FORCE_ISO7500_1_SHEET_TYPE, FORCE_ISO7500_1_FORMULA_SET, generateSeedFormulaSet } from './seedFormulaSet';
+
+export { computeForceIso75001ViaFormulaSet } from './engineAdapter';
+export type {
+  EngineForceIso75001Point,
+  EngineForceIso75001Options,
+  EngineRelativeErrorPoint,
+  EngineUncertaintyBudgetPoint,
+} from './engineAdapter';

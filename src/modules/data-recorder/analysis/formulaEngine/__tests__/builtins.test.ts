@@ -52,9 +52,16 @@ describe('callBuiltin — validation', () => {
     expect(() => callBuiltin('MAX', [])).toThrow(/at least 1 argument/);
   });
 
-  it('rejects a non-finite argument', () => {
-    expect(() => callBuiltin('ABS', [Number.NaN])).toThrow(/non-finite/);
-    expect(() => callBuiltin('SUM', [1, Number.POSITIVE_INFINITY])).toThrow(/non-finite/);
+  it('rejects a NaN argument', () => {
+    expect(() => callBuiltin('ABS', [Number.NaN])).toThrow(/NaN/);
+  });
+
+  it('allows Infinity as an argument — TINV(alpha, Infinity) is a legitimate call', () => {
+    // Session 2 regression: this is exactly what vEff = Infinity (uRep = 0)
+    // produces; a blanket "reject non-finite args" check would make the
+    // workbook's IFERROR-to-FALLBACK_K(2) fallback unreachable.
+    expect(callBuiltin('TINV', [0.0455, Number.POSITIVE_INFINITY])).toBe(2);
+    expect(callBuiltin('SUM', [1, Number.POSITIVE_INFINITY])).toBe(Number.POSITIVE_INFINITY);
   });
 
   it('every entry in BUILTIN_FUNCTIONS is directly callable by its own key', () => {

@@ -21,10 +21,18 @@ export interface BuiltinFunction {
   apply: (args: number[]) => number;
 }
 
-function assertFinite(values: number[], name: string): void {
+/**
+ * Reject NaN arguments (always a bug upstream — no builtin has a sensible
+ * NaN behavior), but NOT Infinity: TINV legitimately receives Infinity as
+ * `nu` (vEff = Infinity when uRep = 0, per uncertaintyBudget.ts's own
+ * `uRep === 0 ? Infinity : ...`), and tinv()'s own `!Number.isFinite(nu)`
+ * check is exactly what triggers the workbook's IFERROR-to-FALLBACK_K
+ * behavior. Rejecting Infinity here would make that case unreachable.
+ */
+function assertNotNaN(values: number[], name: string): void {
   for (const v of values) {
-    if (!Number.isFinite(v)) {
-      throw new Error(`${name}: received a non-finite argument`);
+    if (Number.isNaN(v)) {
+      throw new Error(`${name}: received a NaN argument`);
     }
   }
 }
@@ -78,6 +86,6 @@ export function callBuiltin(name: string, args: number[]): number {
   if (fn.arity === null && args.length === 0) {
     throw new Error(`${name} expects at least 1 argument`);
   }
-  assertFinite(args, name);
+  assertNotNaN(args, name);
   return fn.apply(args);
 }
