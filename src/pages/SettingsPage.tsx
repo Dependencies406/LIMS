@@ -16,6 +16,8 @@ import { MasterListsManagementModal } from '../components/MasterListsManagementM
 import { DriveBackupModal } from '../components/DriveBackupModal';
 import { CmcSettingsModal } from '../components/CmcSettingsModal';
 import { useCmcSettings } from '../hooks/useCmcSettings';
+import { AnalysisFormulaSetModal } from '../components/AnalysisFormulaSetModal';
+import { useAnalysisFormulaSet } from '../hooks/useAnalysisFormulaSet';
 import {
   HashIcon,
   BuildingIcon,
@@ -115,9 +117,11 @@ export const SettingsPage: React.FC = () => {
   const { settings: customerIdSettings, updateSettings: updateCustomerIdSettings, refreshSettings: refreshCustomerIdSettings } = useCustomerIdSettings();
   const { companyInfo, updateCompanyInfo, refreshCompanyInfo } = useCompanyInfo();
   const { settings: cmcSettings, updateSettings: updateCmcSettings, refreshSettings: refreshCmcSettings } = useCmcSettings();
+  const { formulaSet: analysisFormulaSet, updateFormulaSet, refreshFormulaSet } = useAnalysisFormulaSet();
 
   const [showJobIdSettings, setShowJobIdSettings] = useState(false);
   const [showCmcSettings, setShowCmcSettings] = useState(false);
+  const [showAnalysisFormulas, setShowAnalysisFormulas] = useState(false);
   const [showCustomerIdSettings, setShowCustomerIdSettings] = useState(false);
   const [showCompanyInfo, setShowCompanyInfo] = useState(false);
   const [showUsersAndRoles, setShowUsersAndRoles] = useState(false);
@@ -157,6 +161,16 @@ export const SettingsPage: React.FC = () => {
       setShowCmcSettings(false);
     } catch {
       showError('Failed to save CMC table');
+    }
+  };
+
+  const handleSaveAnalysisFormulas = async (next: typeof analysisFormulaSet) => {
+    try {
+      await updateFormulaSet(next);
+      await refreshFormulaSet();
+      showSuccess('Analysis formulas saved');
+    } catch {
+      showError('Failed to save analysis formulas');
     }
   };
 
@@ -297,6 +311,15 @@ export const SettingsPage: React.FC = () => {
               description="Calibration and Measurement Capability scope, per ISO 7500-1 direction, used by the analysis Report-U."
               onClick={() => setShowCmcSettings(true)}
             />
+            <SettingsCard
+              icon={<BarChartIcon className="w-5 h-5" />}
+              iconBg="bg-cyan-50"
+              iconColor="text-cyan-600"
+              accentHover="hover:border-cyan-300"
+              title="Analysis Formulas"
+              description="Edit the Relative Error and Uncertainty Budget calculation steps, with a live preview before saving."
+              onClick={() => setShowAnalysisFormulas(true)}
+            />
           </div>
         </section>
 
@@ -375,6 +398,12 @@ export const SettingsPage: React.FC = () => {
         onClose={() => setShowCmcSettings(false)}
         currentSettings={cmcSettings}
         onSave={handleSaveCmcSettings}
+      />
+      <AnalysisFormulaSetModal
+        isOpen={showAnalysisFormulas}
+        onClose={() => setShowAnalysisFormulas(false)}
+        currentFormulaSet={analysisFormulaSet}
+        onSave={handleSaveAnalysisFormulas}
       />
     </div>
   );

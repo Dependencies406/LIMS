@@ -26,7 +26,13 @@ export type { FormulaStep, FormulaSet, FormulaValidationIssue } from './formulaS
 // NOT wired into analysis/index.ts or AnalysisResultsSection.tsx this
 // session — see the module docs on seedFormulaSet.ts and engineAdapter.ts.
 
-export { FORCE_ISO7500_1_SHEET_TYPE, FORCE_ISO7500_1_FORMULA_SET, generateSeedFormulaSet } from './seedFormulaSet';
+export {
+  FORCE_ISO7500_1_SHEET_TYPE,
+  FORCE_ISO7500_1_FORMULA_SET,
+  RELATIVE_ERROR_STEP_NAMES,
+  UNCERTAINTY_BUDGET_STEP_NAMES,
+  generateSeedFormulaSet,
+} from './seedFormulaSet';
 
 export { computeForceIso75001ViaFormulaSet } from './engineAdapter';
 export type {
@@ -35,3 +41,13 @@ export type {
   EngineRelativeErrorPoint,
   EngineUncertaintyBudgetPoint,
 } from './engineAdapter';
+
+// ─── Session 3: admin editor preview dataset ─────────────────────────────────
+
+export {
+  PREVIEW_RELATIVE_ERROR_INPUT,
+  PREVIEW_UNCERTAINTY_PARAMS,
+  PREVIEW_CMC_STEPS,
+  PREVIEW_READING_UNIT,
+  PREVIEW_SOURCE_LABEL,
+} from './previewData';

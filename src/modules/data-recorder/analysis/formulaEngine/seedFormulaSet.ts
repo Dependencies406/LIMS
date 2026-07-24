@@ -205,3 +205,7 @@ export function generateSeedFormulaSet(sheetType: string): FormulaSet {
 export const FORCE_ISO7500_1_FORMULA_SET: FormulaSet = generateSeedFormulaSet(
   FORCE_ISO7500_1_SHEET_TYPE,
 );
+
+/** Step-name groupings, for UI code that displays the two sections separately. */
+export const RELATIVE_ERROR_STEP_NAMES: readonly string[] = RELATIVE_ERROR_STEPS.map((s) => s.name);
+export const UNCERTAINTY_BUDGET_STEP_NAMES: readonly string[] = UNCERTAINTY_BUDGET_STEPS.map((s) => s.name);
