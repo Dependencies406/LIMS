@@ -61,3 +61,7 @@ Excel Master/
 
 # Claude Code session files
 SKILL.md
+
+# CI test/report output (generated, not committed)
+/test-results/
+/validation-reports/

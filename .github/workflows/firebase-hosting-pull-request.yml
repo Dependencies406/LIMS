@@ -18,6 +18,14 @@ jobs:
           node-version: '20'
           cache: 'npm'
       - run: npm ci
+      - name: Run test suite (vitest)
+        run: npx vitest run --reporter=default --reporter=json --outputFile.json=./test-results/vitest-report.json
+      - name: Write platform validation report
+        run: npx tsx scripts/writePlatformValidationReport.ts
+      - uses: actions/upload-artifact@v4
+        with:
+          name: platform-validation-report
+          path: validation-reports/
       - run: npm run build
         env:
           VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
