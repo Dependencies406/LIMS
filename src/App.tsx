@@ -17,6 +17,10 @@ import { StaffPerformanceDashboard } from './pages/StaffPerformanceDashboard';
 import { DocumentIndexPage } from './pages/DocumentIndexPage';
 import { RecycleBinPage } from './pages/RecycleBinPage';
 import { SettingsPage } from './pages/SettingsPage';
+import { RecorderTemplatesListPage } from './pages/RecorderTemplatesListPage';
+import { RecorderTemplateBuilderPage } from './pages/RecorderTemplateBuilderPage';
+import { VoidedRecordsPage } from './pages/VoidedRecordsPage';
+import RecordEntryPage from './pages/RecordEntryPage';
 import { EquipmentDashboardPage } from './pages/equipment/EquipmentDashboardPage';
 import { RegistrationWizardPage } from './pages/equipment/RegistrationWizardPage';
 import { EquipmentDetailPage } from './pages/equipment/EquipmentDetailPage';
@@ -24,7 +28,6 @@ import { UsageLogNewPage } from './pages/equipment/UsageLogNewPage';
 import { UsageLogHistoryPage } from './pages/equipment/UsageLogHistoryPage';
 import { CalibrationPlanPage } from './pages/equipment/CalibrationPlanPage';
 import { RetirementPage } from './pages/equipment/RetirementPage';
-import { DataRecorderListPage, SheetEditorPage } from './modules/data-recorder';
 import { ToastContainer } from './components/Toast';
 import { useToast } from './hooks/useToast';
 import './index.css';
@@ -99,6 +102,7 @@ const AppContent: React.FC = () => {
           {/* Jobs */}
           <Route path="jobs" element={<JobsPage />} />
           <Route path="jobs/:jobId" element={<JobDetailPage />} />
+          <Route path="jobs/:jobId/items/:itemId/record" element={<RecordEntryPage />} />
 
           {/* Pending Requests */}
           <Route path="pending-jobs" element={<PendingJobsPage />} />
@@ -114,12 +118,6 @@ const AppContent: React.FC = () => {
 
           {/* Documents */}
           <Route path="documents" element={<DocumentIndexPage />} />
-
-          {/* Data Recorder (calibration raw-data sheets) */}
-          <Route path="data-records" element={<DataRecorderListPage />} />
-          <Route path="data-records/new" element={<SheetEditorPage mode="new" />} />
-          <Route path="data-records/:id" element={<SheetEditorPage mode="view" />} />
-          <Route path="data-records/:id/amend" element={<SheetEditorPage mode="amend" />} />
 
           {/* Recycle Bin */}
           <Route path="recycle-bin" element={<RecycleBinPage />} />
@@ -140,6 +138,34 @@ const AppContent: React.FC = () => {
             element={
               <AdminRoute>
                 <SettingsPage />
+              </AdminRoute>
+            }
+          />
+
+          {/* Recorder Templates (Admin Only) */}
+          <Route
+            path="recorder-templates"
+            element={
+              <AdminRoute>
+                <RecorderTemplatesListPage />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="recorder-templates/:templateId"
+            element={
+              <AdminRoute>
+                <RecorderTemplateBuilderPage />
+              </AdminRoute>
+            }
+          />
+
+          {/* Voided Records (Admin Only, ADR-016) */}
+          <Route
+            path="records/voided"
+            element={
+              <AdminRoute>
+                <VoidedRecordsPage />
               </AdminRoute>
             }
           />

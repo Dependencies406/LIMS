@@ -8,6 +8,7 @@ import type { Equipment, EquipmentAttachment } from '../types';
 import {
   uploadEquipmentFile,
   deleteEquipmentFile,
+  renameEquipmentFile,
   formatFileSize,
   getFileTypeInfo,
 } from '../services/equipmentFileService';
@@ -22,6 +23,8 @@ export interface EquipmentFileUploadProps {
   isReadOnly?: boolean;
   onFileUploaded?: () => void;
   onFileDeleted?: () => void;
+  /** Renders a compact inline version suitable for table cells */
+  compact?: boolean;
 }
 
 export const EquipmentFileUpload: React.FC<EquipmentFileUploadProps> = ({
@@ -31,6 +34,7 @@ export const EquipmentFileUpload: React.FC<EquipmentFileUploadProps> = ({
   isReadOnly = false,
   onFileUploaded,
   onFileDeleted,
+  compact = false,
 }) => {
   const { currentUser, isAdmin } = useAuth();
   const { success, error: showError } = useToast();
@@ -41,6 +45,9 @@ export const EquipmentFileUpload: React.FC<EquipmentFileUploadProps> = ({
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [previewFile, setPreviewFile] = useState<EquipmentAttachment | null>(null);
   const [showPreview, setShowPreview] = useState(false);
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState('');
+  const [renameSaving, setRenameSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const attachments = equipment.attachments || [];
@@ -157,6 +164,31 @@ export const EquipmentFileUpload: React.FC<EquipmentFileUploadProps> = ({
     setShowPreview(true);
   }, []);
 
+  function startRename(att: EquipmentAttachment) {
+    setRenamingId(att.id);
+    setRenameValue(att.fileName);
+  }
+
+  function cancelRename() {
+    setRenamingId(null);
+    setRenameValue('');
+  }
+
+  async function commitRename(att: EquipmentAttachment) {
+    const trimmed = renameValue.trim();
+    if (!trimmed || trimmed === att.fileName) { cancelRename(); return; }
+    setRenameSaving(true);
+    try {
+      await renameEquipmentFile(jobId, equipmentIndex, att.id, trimmed);
+      onFileUploaded?.();
+      cancelRename();
+    } catch {
+      showError('Rename failed. Please try again.');
+    } finally {
+      setRenameSaving(false);
+    }
+  }
+
   const formatDate = (date: Date | string | any) => {
     // Handle Firestore Timestamp
     if (date && typeof date === 'object' && 'toDate' in date) {
@@ -170,6 +202,142 @@ export const EquipmentFileUpload: React.FC<EquipmentFileUploadProps> = ({
     }
     return 'Unknown date';
   };
+
+  if (compact) {
+    return (
+      <div className="space-y-1">
+        {!isReadOnly && (
+          <label className="flex items-center gap-1 cursor-pointer text-xs font-medium text-primary-600 hover:text-primary-700 w-fit">
+            <input
+              ref={fileInputRef}
+              type="file"
+              className="hidden"
+              accept="*/*"
+              disabled={isReadOnly || uploading}
+              onChange={(e) => handleFileSelect(e.target.files)}
+            />
+            {uploading ? (
+              <>
+                <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+                </svg>
+                {uploadProgress > 0 ? `${Math.round(uploadProgress)}%` : 'Uploading…'}
+              </>
+            ) : (
+              <>
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+                </svg>
+                Upload
+              </>
+            )}
+          </label>
+        )}
+        {attachments.length === 0 ? (
+          <span className="text-xs text-gray-400">{isReadOnly ? 'No files' : 'No files yet'}</span>
+        ) : (
+          <div className="space-y-0.5">
+            {attachments.map((attachment) => {
+              const fileInfo = getFileTypeInfo(attachment.fileType);
+              const canDelete = !isReadOnly && (attachment.uploadedBy === currentUser?.uid || isAdmin);
+              const isDeleting = deletingId === attachment.id;
+              const fileTypeLc = attachment.fileType.toLowerCase();
+              const fileNameLc = attachment.fileName.toLowerCase();
+              const previewable =
+                fileTypeLc.includes('pdf') || fileNameLc.endsWith('.pdf') ||
+                fileTypeLc.includes('image') || fileNameLc.match(/\.(jpg|jpeg|png|gif|webp|bmp)$/i) ||
+                fileTypeLc.includes('spreadsheet') || fileTypeLc.includes('excel') ||
+                fileNameLc.match(/\.(xlsx|xls|csv)$/i) ||
+                fileTypeLc.includes('word') || fileNameLc.match(/\.(docx|doc)$/i);
+              return (
+                <div key={attachment.id} className="flex items-center gap-1 group/file">
+                  <span className={`text-sm flex-shrink-0 ${fileInfo.color}`}>{fileInfo.icon}</span>
+                  {renamingId === attachment.id ? (
+                    <input
+                      autoFocus
+                      value={renameValue}
+                      onChange={(e) => setRenameValue(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') void commitRename(attachment);
+                        if (e.key === 'Escape') cancelRename();
+                      }}
+                      disabled={renameSaving}
+                      className="text-xs text-gray-700 w-full min-w-0 border-b border-primary-400 bg-transparent focus:outline-none py-0.5"
+                    />
+                  ) : previewable ? (
+                    <button
+                      type="button"
+                      onClick={() => handlePreview(attachment)}
+                      title={attachment.fileName}
+                      className="text-xs text-blue-600 hover:underline truncate max-w-[110px] text-left"
+                    >
+                      {attachment.fileName}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => handleDownload(attachment)}
+                      title={attachment.fileName}
+                      className="text-xs text-gray-700 hover:text-primary-600 hover:underline truncate max-w-[110px] text-left"
+                    >
+                      {attachment.fileName}
+                    </button>
+                  )}
+                  {renamingId === attachment.id ? (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => void commitRename(attachment)}
+                        disabled={renameSaving}
+                        title="Save"
+                        className="ml-auto text-green-600 hover:text-green-700 text-xs leading-none flex-shrink-0 disabled:opacity-40"
+                      >✓</button>
+                      <button
+                        type="button"
+                        onClick={cancelRename}
+                        title="Cancel"
+                        className="text-gray-400 hover:text-gray-600 text-xs leading-none flex-shrink-0"
+                      >✗</button>
+                    </>
+                  ) : (
+                    <>
+                      {!isReadOnly && (
+                        <button
+                          type="button"
+                          onClick={() => startRename(attachment)}
+                          title="Rename"
+                          className="opacity-0 group-hover/file:opacity-100 text-gray-400 hover:text-primary-600 text-xs leading-none flex-shrink-0 transition-opacity"
+                        >
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
+                        </button>
+                      )}
+                      {canDelete && (
+                        <button
+                          type="button"
+                          onClick={() => handleDelete(attachment)}
+                          disabled={isDeleting}
+                          title="Delete"
+                          className="opacity-0 group-hover/file:opacity-100 text-red-400 hover:text-red-600 text-xs leading-none flex-shrink-0 disabled:opacity-40 transition-opacity"
+                        >
+                          {isDeleting ? '…' : '×'}
+                        </button>
+                      )}
+                    </>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+        <FilePreviewModal
+          isOpen={showPreview}
+          onClose={() => { setShowPreview(false); setPreviewFile(null); }}
+          file={previewFile}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -263,9 +431,23 @@ export const EquipmentFileUpload: React.FC<EquipmentFileUploadProps> = ({
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center space-x-2">
-                      <p className="text-sm font-medium text-gray-900 truncate" title={attachment.fileName}>
-                        {attachment.fileName}
-                      </p>
+                      {renamingId === attachment.id ? (
+                        <input
+                          autoFocus
+                          value={renameValue}
+                          onChange={(e) => setRenameValue(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') void commitRename(attachment);
+                            if (e.key === 'Escape') cancelRename();
+                          }}
+                          disabled={renameSaving}
+                          className="text-sm font-medium text-gray-900 w-full border-b border-primary-400 bg-transparent focus:outline-none py-0.5 min-w-0"
+                        />
+                      ) : (
+                        <p className="text-sm font-medium text-gray-900 truncate" title={attachment.fileName}>
+                          {attachment.fileName}
+                        </p>
+                      )}
                       <span className="text-xs text-gray-500 flex-shrink-0">
                         {formatFileSize(attachment.fileSize)}
                       </span>
@@ -278,49 +460,85 @@ export const EquipmentFileUpload: React.FC<EquipmentFileUploadProps> = ({
                   </div>
                 </div>
                 <div className="flex items-center space-x-2 ml-4 flex-shrink-0">
-                  {/* Preview Button - Show for PDF, Excel, Word, and Images */}
-                  {(previewType !== 'unsupported') && (
-                    <button
-                      type="button"
-                      onClick={() => handlePreview(attachment)}
-                      className="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
-                      title="Preview"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                      </svg>
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => handleDownload(attachment)}
-                    className="p-2 text-gray-600 hover:text-primary-600 hover:bg-gray-100 rounded transition-colors"
-                    title="Download"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                    </svg>
-                  </button>
-                  {canDelete && (
-                    <button
-                      type="button"
-                      onClick={() => handleDelete(attachment)}
-                      disabled={isDeleting}
-                      className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded transition-colors disabled:opacity-50"
-                      title="Delete"
-                    >
-                      {isDeleting ? (
-                        <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                      ) : (
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
+                  {renamingId === attachment.id ? (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => void commitRename(attachment)}
+                        disabled={renameSaving}
+                        title="Save name"
+                        className="p-2 text-green-600 hover:bg-green-50 rounded transition-colors disabled:opacity-50"
+                      >
+                        {renameSaving
+                          ? <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/></svg>
+                          : <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"/></svg>
+                        }
+                      </button>
+                      <button
+                        type="button"
+                        onClick={cancelRename}
+                        title="Cancel"
+                        className="p-2 text-gray-500 hover:bg-gray-100 rounded transition-colors"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      {(previewType !== 'unsupported') && (
+                        <button
+                          type="button"
+                          onClick={() => handlePreview(attachment)}
+                          className="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                          title="Preview"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                          </svg>
+                        </button>
                       )}
-                    </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDownload(attachment)}
+                        className="p-2 text-gray-600 hover:text-primary-600 hover:bg-gray-100 rounded transition-colors"
+                        title="Download"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                        </svg>
+                      </button>
+                      {!isReadOnly && (
+                        <button
+                          type="button"
+                          onClick={() => startRename(attachment)}
+                          className="p-2 text-gray-600 hover:text-primary-600 hover:bg-gray-100 rounded transition-colors"
+                          title="Rename"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
+                        </button>
+                      )}
+                      {canDelete && (
+                        <button
+                          type="button"
+                          onClick={() => handleDelete(attachment)}
+                          disabled={isDeleting}
+                          className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded transition-colors disabled:opacity-50"
+                          title="Delete"
+                        >
+                          {isDeleting ? (
+                            <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                          ) : (
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                          )}
+                        </button>
+                      )}
+                    </>
                   )}
                 </div>
               </div>

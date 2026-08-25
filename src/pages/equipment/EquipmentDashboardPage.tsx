@@ -334,26 +334,29 @@ export const EquipmentDashboardPage: React.FC = () => {
                         </td>
                         <td className={`px-4 py-3 ${calClass}`}>{formatDate(calDue)}</td>
                         <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-1">
                             <Link
                               to={`/equipment/${eq.id}/usage-log/new`}
-                              className="text-gray-500 hover:text-gray-700 text-xs whitespace-nowrap"
+                              title="Add usage log"
+                              className="p-1.5 rounded-lg text-gray-400 hover:text-primary-600 hover:bg-primary-50 transition-colors"
                             >
-                              + Log
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4"/></svg>
                             </Link>
                             {isAdmin && eq.status === 'pending' && (
                               <>
                                 <button
                                   onClick={() => handleApprove(eq.id)}
-                                  className="text-green-600 hover:text-green-800 text-xs font-medium"
+                                  title="Approve"
+                                  className="p-1.5 rounded-lg text-gray-400 hover:text-green-600 hover:bg-green-50 transition-colors"
                                 >
-                                  Approve
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7"/></svg>
                                 </button>
                                 <button
                                   onClick={() => handleReject(eq.id)}
-                                  className="text-red-500 hover:text-red-700 text-xs"
+                                  title="Reject"
+                                  className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
                                 >
-                                  Reject
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg>
                                 </button>
                               </>
                             )}

@@ -152,16 +152,279 @@ service cloud.firestore {
       allow read, write: if request.auth != null;
     }
     
-    // Certificate Number Configs collection
-    // Read: any authenticated user.
-    // Write: any authenticated user — app enforces certificateNumbers.edit permission.
-    // (Custom roles that have certificateNumbers.edit must be allowed here too; the rich
-    // permission model cannot be checked in Firestore rules without expensive reads.)
+    // Certificate Number Configs collection — IS the equipment type (ADR-012).
+    // Read: any authenticated user (needed for pickers).
+    // Write: admins only — equipment-type management is admin-only per the
+    // Data & Information Management domain model. The UI gates on isAdmin
+    // directly (not a granular permission) so it can never offer an action
+    // this rule will refuse.
     match /certificate_number_configs/{configId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // Equipment Types collection — RETIRED (ADR-012 merged this into
+    // certificate_number_configs above). Left in place, unused: the
+    // collection's documents are not deleted (irreversible; costs nothing to
+    // leave), so this rule stays only to keep them readable if ever needed.
+    // No code path writes here anymore.
+    match /equipment_types/{equipmentTypeId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // Reference Standards collection (ADR-013 D2) — one document per
+    // transducer configuration (a physical standard plus a direction and
+    // sub-range slice). The document id is the stable key; the display name
+    // is free to edit because nothing keys on it (retiring the workbook's
+    // exact-string-match failure mode).
+    // Read: any authenticated user — the recording grid's per-row picker
+    // needs the active list, and formulas resolve STD_* from it.
+    // Write: admins only, matching certificate_number_configs — coefficients
+    // are transcribed from a NIMT certificate and are a controlled risk.
+    // Delete: never. Historical records reference standards by id, and
+    // ADR-013 D2 says deactivate rather than delete. `isActive: false` is
+    // the retirement path.
+    match /reference_standards/{standardId} {
+      allow read: if request.auth != null;
+      allow create, update: if request.auth != null &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      allow delete: if false;
+    }
+
+    // Unit Conversion Rules collection (ADR-015 D2) — the shared,
+    // admin-managed conversion-rule library, keyed by unit pair, reusable
+    // across every template. Read: any authenticated user (render-time
+    // lookup needs it). Write: admins only, matching
+    // certificate_number_configs and reference_standards. Delete: never — a
+    // committed record's conversionSnapshots may name a rule by id (D7);
+    // deactivate (active: false) is the only retirement path, same
+    // reasoning as reference_standards.
+    match /unitConversionRules/{ruleId} {
+      allow read: if request.auth != null;
+      allow create, update: if request.auth != null &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      allow delete: if false;
+    }
+
+    // Recorder Templates collection (ADR-001, ADR-003, ADR-005, ADR-006) — the
+    // authored definition of how one EquipmentType is recorded.
+    // Read: any authenticated user. Write: admins only.
+    match /recorderTemplates/{templateId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // Recorder Template Versions collection (ADR-005) — immutable published
+    // snapshots. Create only; update is blocked server-side so a published
+    // version can never CHANGE out from under a record that pins it.
+    //
+    // Delete is admin-only, not unconditionally false. Reason (found live,
+    // 2026-08-19): resetTemplateVersion always resets a template's counter
+    // to 0, so the NEXT publish always re-targets version 1 — if an old v1
+    // snapshot from a prior publish cycle is still sitting there, that
+    // publish's set() is evaluated as an UPDATE and gets refused right here,
+    // permanently blocking republish after every reset. resetTemplateVersion
+    // now deletes that old v1 document itself, as part of the same
+    // transaction that resets the counter, specifically to free the slot.
+    // Rules cannot verify "no record still references this version" here —
+    // security rules can only get() a specific document, never run a
+    // where() query — so this trusts the client's own check, the same
+    // accepted-risk pattern as ADR-008's client-enforced draft->committed
+    // transition. A voided record that still pointed at the deleted
+    // snapshot loses the friendly template-name lookup in the recycle bin
+    // (VoidedRecordsPage falls back to showing the raw templateId) — not a
+    // crash, just a degraded label; ADR-016's own void/reason/who/when trail
+    // is untouched, since none of that lives on this document.
+    match /recorderTemplateVersions/{versionId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      allow update: if false;
+      allow delete: if request.auth != null &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // Recorder Template Active Locks collection (ADR-003) — one document per
+    // equipmentTypeId; its existence and templateId value enforce the "at most
+    // one active template per equipment type" invariant transactionally.
+    match /recorderTemplateActiveLocks/{equipmentTypeId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // Calibration Records collection (ADR-002, ADR-005, Phase 5c permission
+    // hardening) — the transactional aggregate. Never inline on the job
+    // document; its own lifecycle.
+    // Read: any authenticated user.
+    // Create: must start as an unnumbered draft — blocks a client from
+    // directly creating an already-"committed" record, bypassing the
+    // allocation transaction in calibrationRecordService.commitRecord.
+    // Update: draft data-entry stays free (no permission needed to type into
+    // your own draft). Every transition AWAY from draft is now gated on the
+    // caller actually holding the matching permission (not just being
+    // authenticated), on the correct FROM status (no skipping straight to
+    // reviewed/approved), and — for review/approve — on the signer being the
+    // caller and not the same person as the previous step (separation of
+    // duties: reviewer != createdBy, approver != reviewer).
+    // Delete: never — records are permanent quality records.
+    //
+    // NOT protected by this rule (see ADR-008): commitRecord's own writes
+    // (recordNumber, rows, summary) are not field-restricted here, and the
+    // record-number counter is still allocated client-side — a client that
+    // holds records.commit could still fabricate a recordNumber or
+    // rows/summary values in the same write that flips status to
+    // 'committed'. That gap needs a Cloud Function, out of scope here.
+    match /records/{recordId} {
+      function callerRole() {
+        return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+      }
+      // Fails CLOSED (ADR-005, Phase 5d): a missing role document grants
+      // NOTHING, for every role including admin. Deleting roles/{role} must
+      // revoke access, not grant it — the opposite of the client's
+      // graceful-degradation fallback in roleService.ts, which is fine for
+      // UI but wrong for the last line of defence.
+      function callerHasPermission(action) {
+        let role = callerRole();
+        return exists(/databases/$(database)/documents/roles/$(role)) &&
+          action in get(/databases/$(database)/documents/roles/$(role)).data.permissions;
+      }
+
+      // ADR-016 D5 restore target: normally `statusBeforeVoid`, always
+      // present because the void clause below requires it on every write
+      // THIS rule allows. Falls back to 'draft' only for a document that
+      // reached status 'voided' some other way — a console edit, a
+      // migration, a Cloud Function via the Admin SDK — all of which bypass
+      // these rules entirely and could leave the field missing or corrupt.
+      // Without this fallback, the strict equality this rule used to use
+      // would never match for such a document and restore would be
+      // permanently refused — a dead-end recycle-bin button. `.get(key,
+      // default)` supplies the default when absent; the `in [...]` check
+      // catches a PRESENT but invalid value (not one of the five real
+      // statuses) the same way.
+      function restoreTargetStatus() {
+        let recorded = resource.data.get('statusBeforeVoid', 'draft');
+        return recorded in ['draft', 'committed', 'reviewed', 'approved', 'superseded'] ? recorded : 'draft';
+      }
+
+      allow read: if request.auth != null;
+
+      allow create: if request.auth != null &&
+        request.resource.data.status == 'draft' &&
+        !('recordNumber' in request.resource.data);
+
+      allow update: if request.auth != null && (
+        // Plain draft editing (updateDraftRecord) — unchanged, no permission gate.
+        (resource.data.status == 'draft' && request.resource.data.status == 'draft') ||
+
+        // Draft -> Committed (commitRecord).
+        (
+          resource.data.status == 'draft' &&
+          request.resource.data.status == 'committed' &&
+          callerHasPermission('records.commit')
+        ) ||
+
+        // Committed -> Reviewed (reviewRecord). Signer must be the caller;
+        // reviewer must not be the person who created the draft.
+        (
+          resource.data.status == 'committed' &&
+          request.resource.data.status == 'reviewed' &&
+          callerHasPermission('records.review') &&
+          request.resource.data.reviewedBy == request.auth.uid &&
+          request.auth.uid != resource.data.createdBy &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(
+            ['status', 'reviewedAt', 'reviewedBy', 'reviewerSignature']
+          )
+        ) ||
+
+        // Reviewed -> Approved (approveRecord). Signer must be the caller.
+        // ADR-005 originally required approver != reviewer; revisited and
+        // relaxed 2026-08-19 per the ADR's own named condition ("relax
+        // approver != reviewer" if the two-admin assumption no longer
+        // holds) — reviewer and approver may now be the same person.
+        // createdBy != reviewedBy (below, on Committed -> Reviewed) is
+        // UNCHANGED — the record's author still can't review their own work.
+        (
+          resource.data.status == 'reviewed' &&
+          request.resource.data.status == 'approved' &&
+          callerHasPermission('records.approve') &&
+          request.resource.data.approvedBy == request.auth.uid &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(
+            ['status', 'approvedAt', 'approvedBy', 'approverSignature']
+          )
+        ) ||
+
+        // Committed/Reviewed/Approved -> Superseded (createRevision, on the
+        // original record it supersedes).
+        (
+          resource.data.status in ['committed', 'reviewed', 'approved'] &&
+          request.resource.data.status == 'superseded' &&
+          callerHasPermission('records.revise') &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'supersededBy'])
+        ) ||
+
+        // ANY status -> Voided (ADR-016 D2). Admin-only via a DIRECT role
+        // check — callerRole() == 'admin', not callerHasPermission() — the
+        // same pattern recorderTemplates/recorderTemplateActiveLocks already
+        // use elsewhere in this file. NOTE for the next reader: every OTHER
+        // transition in this block gates through callerHasPermission() (a
+        // granular records.* permission); void/restore are the one
+        // deliberate exception, since voiding is a data-integrity action
+        // rather than a lab workflow step and doesn't need its own seeded
+        // permission key.
+        //
+        // voidReason must be a non-empty, non-whitespace string (server-side
+        // enforcement of "the reason is mandatory" — the client also rejects
+        // an empty/whitespace reason before this is ever sent, so this is
+        // belt-and-suspenders, not the only guard). statusBeforeVoid must
+        // equal the record's ACTUAL current status — Firestore checks this
+        // against `resource.data.status` itself, so a client cannot lie
+        // about what the record was before voiding (ADR-016 D5: never
+        // inferred, always the true value at this exact write).
+        (
+          resource.data.status in ['draft', 'committed', 'reviewed', 'approved', 'superseded'] &&
+          request.resource.data.status == 'voided' &&
+          callerRole() == 'admin' &&
+          request.resource.data.voidedBy == request.auth.uid &&
+          request.resource.data.voidReason is string &&
+          request.resource.data.voidReason.size() > 0 &&
+          !request.resource.data.voidReason.matches('^\\s*$') &&
+          request.resource.data.statusBeforeVoid == resource.data.status &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(
+            ['status', 'voidedAt', 'voidedBy', 'voidReason', 'statusBeforeVoid']
+          )
+        ) ||
+
+        // Voided -> restore, to restoreTargetStatus() (normally
+        // statusBeforeVoid — see that function's own comment for the
+        // fallback). Admin-only, same as void. Deliberately the SMALLEST
+        // possible field set — only `status` moves. voidedAt/voidedBy/
+        // voidReason/statusBeforeVoid are left in place on restore as a
+        // permanent trace that this record was once voided (the same way
+        // supersededBy is never cleared either) — not a design gap.
+        (
+          resource.data.status == 'voided' &&
+          request.resource.data.status == restoreTargetStatus() &&
+          callerRole() == 'admin' &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])
+        )
+      );
+
+      allow delete: if false;
+    }
+
+    // Record Number Counters collection (ADR-008) — one document per
+    // templateId; commitRecord's transaction reads/writes it to allocate
+    // record numbers atomically, on first commit only.
+    match /recordNumberCounters/{templateId} {
       allow read: if request.auth != null;
       allow write: if request.auth != null;
     }
-    
+
     // Manufacturer List collection - allow public read for autocomplete
     match /manufacturerList/{manufacturerId} {
       allow read: if true; // Public read for autocomplete
@@ -210,35 +473,6 @@ service cloud.firestore {
       match /constants/{constantId} {
         allow read, write: if request.auth != null;
       }
-    }
-
-    // Data Recorder — calibration raw-data sheets. Append-only audit records:
-    // never updated; corrections are new "amendment" documents referencing the
-    // original sheet's ID, cancellation is a void marker (below). Hard delete
-    // is ADMIN-ONLY by owner decision (see docs/DATA_RECORDER_DESIGN.md §6b).
-    match /rawDataSheets/{sheetId} {
-      allow read, create: if request.auth != null;
-      allow update: if false;
-      allow delete: if request.auth != null &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
-    }
-
-    // Analysis FormulaSets — editable relative-error/uncertainty-budget
-    // formulas per sheetType (docs/FORMULA_ENGINE_DESIGN.md). Per design §2b,
-    // versioning and admin-only write are DEFERRED during initial development:
-    // this is one mutable document per sheetType, not append-only yet.
-    match /analysisFormulaSets/{sheetType} {
-      allow read, write: if request.auth != null;
-    }
-
-    // Void markers: append-only cancellation records referencing a sheet by ID.
-    // "Deleting" a sheet = creating one of these; the sheet itself is untouched.
-    // Admin delete allowed so hard-deleting a sheet can clean up its marker.
-    match /rawDataSheetVoids/{voidId} {
-      allow read, create: if request.auth != null;
-      allow update: if false;
-      allow delete: if request.auth != null &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
     // Service Requests collection - allow public writes for customer submissions

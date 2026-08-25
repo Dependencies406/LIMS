@@ -1072,7 +1072,7 @@ export const EquipmentSpreadsheetModal: React.FC<EquipmentSpreadsheetModalProps>
 
     // Use first available certificate config
     if (certificateConfigs.length === 0) {
-      showError('No active certificate number categories available. Please configure certificate numbers in Settings.');
+      showError('No active equipment types available. Please configure equipment types in Settings.');
       setShowCertificateNumberConfirm(false);
       return;
     }
@@ -2442,7 +2442,7 @@ export const EquipmentSpreadsheetModal: React.FC<EquipmentSpreadsheetModalProps>
             <div className="p-6">
               <h3 className="text-lg font-semibold text-red-600 mb-4">Certificate Number Configuration Required</h3>
               <p className="text-sm text-gray-600 mb-6">
-                No active certificate number categories are available. Please configure at least one certificate number category in Settings before generating certificate numbers.
+                No active equipment types are available. Please configure at least one equipment type in Settings before generating certificate numbers.
               </p>
               <div className="flex justify-end">
                 <Button

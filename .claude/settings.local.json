@@ -24,7 +24,19 @@
       "Bash(python -)",
       "Bash(git switch *)",
       "Bash(git add *)",
-      "Bash(git commit -m 'backup: checkpoint pre-existing uncommitted work before data-recorder implementation *)"
+      "Bash(git commit -m 'backup: checkpoint pre-existing uncommitted work before data-recorder implementation *)",
+      "Bash(npx vitest *)",
+      "Bash(git commit -q -m 'feat\\(data-recorder\\): force unit handler \\(N/kN/kgf/gf\\) with tests *)",
+      "Bash(git commit -q -m 'feat\\(data-recorder\\): append-only rawDataSheetService with invariant tests *)",
+      "Bash(git commit -q -m 'feat\\(data-recorder\\): UI pages and components \\(Thai\\) *)",
+      "Bash(npx tsc *)",
+      "Bash(python -c \"import json; json.load\\(open\\('firestore.indexes.json'\\)\\); print\\('indexes.json valid'\\)\")",
+      "Bash(npm run *)",
+      "Bash(git commit -q -m 'chore: add dev-server launch config for in-app preview *)",
+      "Bash(git commit -q -m 'feat\\(data-recorder\\): void/cancel records and in-app PDF preview *)",
+      "Bash(npm test *)",
+      "Bash(git commit -q -m 'feat\\(data-recorder\\): admin-only hard delete with guardrails *)",
+      "Bash(npx jest *)"
     ]
   }
 }

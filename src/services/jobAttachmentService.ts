@@ -6,7 +6,7 @@
  * Firestore: attachments array on the jobs/{jobDocId} document (persisted on job save)
  */
 
-import { storage } from './firebase';
+import { storage, db, doc, getDoc, updateDoc } from './firebase';
 import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebase/storage';
 import type { FileAttachment } from '../types';
 
@@ -113,4 +113,22 @@ export async function deleteJobAttachment(attachment: FileAttachment): Promise<v
   if (!attachment.storagePath) return; // legacy attachment without path — skip storage delete
   const storageRef = ref(storage, attachment.storagePath);
   await deleteObject(storageRef);
+}
+
+/**
+ * Rename a job attachment in Firestore (display name only — storage path is unchanged).
+ */
+export async function renameJobAttachment(
+  jobDocId: string,
+  attachmentId: string,
+  newName: string
+): Promise<void> {
+  const jobRef = doc(db, 'jobs', jobDocId);
+  const snap = await getDoc(jobRef);
+  if (!snap.exists()) throw new Error('Job not found');
+  const attachments: FileAttachment[] = snap.data().attachments ?? [];
+  const updated = attachments.map((a) =>
+    a.id === attachmentId ? { ...a, name: newName.trim() } : a
+  );
+  await updateDoc(jobRef, { attachments: updated });
 }

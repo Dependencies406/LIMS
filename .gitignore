@@ -56,6 +56,8 @@ functions/lib/
 
 # Other local folders accidentally inside this directory
 LIMS Desktop/
+LIMS-New-Backup/
+Excel Master/
 
 # Claude Code session files
 SKILL.md

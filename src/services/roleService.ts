@@ -87,7 +87,22 @@ export const ALL_PERMISSIONS: Array<{ action: PermissionAction; category: string
   // Certificate Numbers permissions (in Settings)
   { action: 'certificateNumbers.view', category: 'Certificate Numbers', description: 'View certificate number configurations' },
   { action: 'certificateNumbers.edit', category: 'Certificate Numbers', description: 'Create and edit certificate number configurations' },
-  
+
+  // Equipment Types permissions (in Settings; admin-only per Data & Info Management domain model)
+  { action: 'equipmentTypes.view', category: 'Equipment Types', description: 'View equipment type reference data' },
+  { action: 'equipmentTypes.edit', category: 'Equipment Types', description: 'Create, rename, and (de)activate equipment types' },
+
+  // Recorder Templates permissions (admin-only per Data & Info Management domain model)
+  { action: 'recorderTemplates.view', category: 'Recorder Templates', description: 'View recorder templates' },
+  { action: 'recorderTemplates.edit', category: 'Recorder Templates', description: 'Create and edit recorder template drafts' },
+  { action: 'recorderTemplates.publish', category: 'Recorder Templates', description: 'Publish a recorder template version, making it live for its equipment type' },
+
+  // Calibration Records permissions (ADR-005 lifecycle transitions)
+  { action: 'records.commit', category: 'Calibration Records', description: 'Commit a draft calibration record, allocating its record number' },
+  { action: 'records.review', category: 'Calibration Records', description: 'Mark a committed calibration record as reviewed' },
+  { action: 'records.approve', category: 'Calibration Records', description: 'Mark a reviewed calibration record as approved' },
+  { action: 'records.revise', category: 'Calibration Records', description: 'Create a revision of a committed-or-later calibration record' },
+
   // Staff Performance permissions
   { action: 'staffPerformance.view', category: 'Staff Performance', description: 'View staff performance dashboard and metrics for all staff' },
   { action: 'staffPerformance.viewOwn', category: 'Staff Performance', description: 'View own performance metrics' },
@@ -106,6 +121,12 @@ export const DEFAULT_ROLE_PERMISSIONS = {
   standardUser: ALL_PERMISSIONS.map((p) => p.action).filter((action) => {
     if (action.startsWith('users.')) return false;
     if (action.startsWith('roles.')) return false;
+    if (action.startsWith('equipmentTypes.')) return false;
+    if (action.startsWith('recorderTemplates.')) return false;
+    // Review and approve are admin-only (ADR-005, Phase 5d) — technicians
+    // record, commit, and raise revisions, but do not sign off on their own
+    // (or each other's) work by default.
+    if (action === 'records.review' || action === 'records.approve') return false;
     if (
       action === 'settings.jobIdConfig' ||
       action === 'settings.customerIdConfig' ||

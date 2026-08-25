@@ -1,8 +1,15 @@
 ﻿import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useEquipmentDetail } from '../../hooks/useEquipment';
-import { equipmentService } from '../../services/equipmentControlService';
+import { equipmentService, EQUIPMENT_CATEGORIES } from '../../services/equipmentControlService';
 import { conversionEquationService } from '../../services/conversionEquationService';
+import { deleteField } from '../../services/firebase';
+import {
+  checkDivisorAgreement,
+  checkOutputUnitRecognised,
+  type StandardWarning,
+} from '../../services/referenceStandardVariables';
+import { FORCE_UNITS } from '../../services/forceUnits';
 import { equipmentConstantService } from '../../services/equipmentConstantService';
 import { userService } from '../../services/userService';
 import { useAuth } from '../../contexts/AuthContext';
@@ -86,6 +93,102 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
+// ─── User Picker (typeahead multi-select) ─────────────────────────────────────
+
+function userDisplayName(u: User): string {
+  return `${u.firstName || ''} ${u.lastName || ''}`.trim() || u.displayName || u.email;
+}
+
+function UserPicker({
+  allUsers,
+  selected,
+  onChange,
+  resolveName,
+}: {
+  allUsers: User[];
+  selected: string[];
+  onChange: (next: string[]) => void;
+  resolveName: (idOrEmail: string) => string;
+}) {
+  const [query, setQuery] = useState('');
+  const [open, setOpen] = useState(false);
+
+  const matches =
+    query.trim().length > 0
+      ? userService
+          .searchUsers(allUsers, query.trim())
+          .filter((u) => !selected.includes(u.email) && !selected.includes(u.uid))
+          .slice(0, 8)
+      : [];
+
+  function addUser(u: User) {
+    onChange([...selected, u.email]);
+    setQuery('');
+    setOpen(false);
+  }
+
+  function removeUser(idOrEmail: string) {
+    onChange(selected.filter((s) => s !== idOrEmail));
+  }
+
+  return (
+    <div className="relative">
+      <div className="flex flex-wrap gap-1.5 mb-1.5">
+        {selected.map((idOrEmail) => (
+          <span
+            key={idOrEmail}
+            className="inline-flex items-center gap-1 bg-primary-50 text-primary-700 text-xs font-medium pl-2.5 pr-1.5 py-1 rounded-full"
+          >
+            {resolveName(idOrEmail)}
+            <button
+              type="button"
+              onClick={() => removeUser(idOrEmail)}
+              className="hover:text-primary-900"
+              aria-label={`Remove ${resolveName(idOrEmail)}`}
+            >
+              ×
+            </button>
+          </span>
+        ))}
+      </div>
+      <input
+        type="text"
+        value={query}
+        onChange={(e) => {
+          setQuery(e.target.value);
+          setOpen(true);
+        }}
+        onFocus={() => setOpen(true)}
+        onBlur={() => setTimeout(() => setOpen(false), 150)}
+        placeholder="Type a name or email to add a user…"
+        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+      />
+      {open && matches.length > 0 && (
+        <ul className="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-56 overflow-y-auto">
+          {matches.map((u) => (
+            <li key={u.uid}>
+              <button
+                type="button"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => addUser(u)}
+                className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 flex flex-col"
+              >
+                <span className="text-gray-900">{userDisplayName(u)}</span>
+                <span className="text-xs text-gray-400">{u.email}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      {open && query.trim().length > 0 && matches.length === 0 && (
+        <div className="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg px-3 py-2 text-xs text-gray-400">
+          No matching users
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Overview Tab ─────────────────────────────────────────────────────────────
 
 function OverviewTab({
@@ -105,6 +208,7 @@ function OverviewTab({
   );
   const [saving, setSaving] = useState(false);
   const [userMap, setUserMap] = useState<Map<string, string>>(new Map());
+  const [allUsers, setAllUsers] = useState<User[]>([]);
   const { success, error: showError } = useToast();
 
   useEffect(() => {
@@ -118,6 +222,7 @@ function OverviewTab({
           if (u.email) map.set(u.email, name);
         });
         setUserMap(map);
+        setAllUsers(users);
       })
       .catch(console.error);
   }, []);
@@ -138,17 +243,40 @@ function OverviewTab({
       return;
     }
 
+    if (form.authorizedUsers.length === 0) {
+      showError('At least one authorized user is required.');
+      return;
+    }
+
     setSaving(true);
     try {
+      // Recompute status from the (possibly admin-overridden) calibration dates so the
+      // status badge doesn't go stale after a manual date edit.
+      const recalculatedStatus = equipmentService.computeStatus(form);
+
       await onUpdate({
         name: form.name,
+        category: form.category,
+        manufacturer: form.manufacturer,
+        model: form.model,
+        serialNumber: form.serialNumber,
+        capacity: form.capacity,
+        usageRange: form.usageRange,
         location: form.location,
         custodian: form.custodian,
         custodianName: form.custodianName,
+        authorizedUsers: form.authorizedUsers,
+        registrationDate: form.registrationDate,
+        requiresCalibration: form.requiresCalibration,
+        externalProvider: form.externalProvider,
+        isReferenceStandard: form.isReferenceStandard ?? false,
         calibrationInterval: form.calibrationInterval,
         calibrationProcedure: form.calibrationProcedure,
         calibrationPoints: parsedPoints.length > 0 ? parsedPoints : undefined,
         calibrationUnit: form.calibrationUnit?.trim() || undefined,
+        lastCalibrationDate: form.lastCalibrationDate,
+        nextCalibrationDate: form.nextCalibrationDate,
+        status: recalculatedStatus,
         notes: form.notes,
       });
       success('Equipment updated');
@@ -164,14 +292,15 @@ function OverviewTab({
     return (
       <div className="space-y-4">
         <SectionCard>
-          <SectionHeader title="Edit Details" />
+          <SectionHeader title="Edit Identity & Specifications" />
           <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-4">
             {[
               { key: 'name', label: 'Name' },
-              { key: 'location', label: 'Location' },
-              { key: 'custodian', label: 'Custodian (email / UID)' },
-              { key: 'custodianName', label: 'Custodian Display Name' },
-              { key: 'calibrationProcedure', label: 'Calibration Procedure' },
+              { key: 'manufacturer', label: 'Manufacturer' },
+              { key: 'model', label: 'Model' },
+              { key: 'serialNumber', label: 'Serial Number' },
+              { key: 'capacity', label: 'Capacity' },
+              { key: 'usageRange', label: 'Usage Range' },
             ].map(({ key, label }) => (
               <div key={key}>
                 <label className="block text-xs font-semibold text-gray-600 mb-1.5">{label}</label>
@@ -183,22 +312,150 @@ function OverviewTab({
                 />
               </div>
             ))}
-            {eq.requiresCalibration && (
-              <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1.5">
-                  Calibration Interval (months)
-                </label>
+            <div>
+              <label className="block text-xs font-semibold text-gray-600 mb-1.5">Category</label>
+              <select
+                value={form.category || ''}
+                onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+              >
+                <option value="">Select category…</option>
+                {EQUIPMENT_CATEGORIES.map((c) => (
+                  <option key={c.code} value={c.code}>{c.code} — {c.label}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </SectionCard>
+
+        <SectionCard>
+          <SectionHeader title="Edit Location & Custodianship" />
+          <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-4">
+            {[
+              { key: 'location', label: 'Location' },
+              { key: 'custodian', label: 'Custodian (email / UID)' },
+              { key: 'custodianName', label: 'Custodian Display Name' },
+            ].map(({ key, label }) => (
+              <div key={key}>
+                <label className="block text-xs font-semibold text-gray-600 mb-1.5">{label}</label>
                 <input
-                  type="number"
-                  min={1}
-                  max={120}
-                  value={form.calibrationInterval || ''}
-                  onChange={(e) =>
-                    setForm((f) => ({ ...f, calibrationInterval: parseInt(e.target.value) || undefined }))
-                  }
+                  type="text"
+                  value={(form as any)[key] || ''}
+                  onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
                 />
               </div>
+            ))}
+            <div>
+              <label className="block text-xs font-semibold text-gray-600 mb-1.5">Registered</label>
+              <input
+                type="date"
+                value={form.registrationDate ? form.registrationDate.slice(0, 10) : ''}
+                onChange={(e) => setForm((f) => ({ ...f, registrationDate: e.target.value }))}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+              />
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-xs font-semibold text-gray-600 mb-1.5">Authorized Users</label>
+              <UserPicker
+                allUsers={allUsers}
+                selected={form.authorizedUsers}
+                onChange={(next) => setForm((f) => ({ ...f, authorizedUsers: next }))}
+                resolveName={resolveName}
+              />
+            </div>
+          </div>
+        </SectionCard>
+
+        <SectionCard>
+          <SectionHeader title="Edit Calibration" />
+          <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="md:col-span-2 flex items-center gap-6">
+              <div className="flex items-center gap-3">
+                <span className="text-sm font-medium text-gray-700">Requires Calibration</span>
+                <button
+                  type="button"
+                  onClick={() => setForm((f) => ({ ...f, requiresCalibration: !f.requiresCalibration }))}
+                  className={`relative inline-flex h-6 w-11 rounded-full transition-colors ${form.requiresCalibration ? 'bg-primary-600' : 'bg-gray-300'}`}
+                >
+                  <span className={`inline-block h-4 w-4 rounded-full bg-white shadow mt-1 transition-transform ${form.requiresCalibration ? 'translate-x-6' : 'translate-x-1'}`} />
+                </button>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="text-sm font-medium text-gray-700">External Provider</span>
+                <button
+                  type="button"
+                  onClick={() => setForm((f) => ({ ...f, externalProvider: !f.externalProvider }))}
+                  className={`relative inline-flex h-6 w-11 rounded-full transition-colors ${form.externalProvider ? 'bg-primary-600' : 'bg-gray-300'}`}
+                >
+                  <span className={`inline-block h-4 w-4 rounded-full bg-white shadow mt-1 transition-transform ${form.externalProvider ? 'translate-x-6' : 'translate-x-1'}`} />
+                </button>
+              </div>
+              {/*
+                ADR-014 D3: an explicit flag, not a name convention. Only
+                equipment marked here appears in a record's standard picker.
+              */}
+              <div className="flex items-center gap-3">
+                <span className="text-sm font-medium text-gray-700" title="Makes this device selectable as a reference standard in calibration records">
+                  Usable as Reference Standard
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setForm((f) => ({ ...f, isReferenceStandard: !f.isReferenceStandard }))}
+                  className={`relative inline-flex h-6 w-11 rounded-full transition-colors ${form.isReferenceStandard ? 'bg-primary-600' : 'bg-gray-300'}`}
+                >
+                  <span className={`inline-block h-4 w-4 rounded-full bg-white shadow mt-1 transition-transform ${form.isReferenceStandard ? 'translate-x-6' : 'translate-x-1'}`} />
+                </button>
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-600 mb-1.5">Calibration Procedure</label>
+              <input
+                type="text"
+                value={form.calibrationProcedure || ''}
+                onChange={(e) => setForm((f) => ({ ...f, calibrationProcedure: e.target.value }))}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+              />
+            </div>
+            {form.requiresCalibration && (
+              <>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1.5">
+                    Calibration Interval (months)
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={120}
+                    value={form.calibrationInterval || ''}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, calibrationInterval: parseInt(e.target.value) || undefined }))
+                    }
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1.5">Last Calibration</label>
+                  <input
+                    type="date"
+                    value={form.lastCalibrationDate ? form.lastCalibrationDate.slice(0, 10) : ''}
+                    onChange={(e) => setForm((f) => ({ ...f, lastCalibrationDate: e.target.value || undefined }))}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1.5">
+                    Next Calibration
+                    <span className="ml-1 text-xs font-normal text-gray-400">(overrides the auto-calculated due date)</span>
+                  </label>
+                  <input
+                    type="date"
+                    value={form.nextCalibrationDate ? form.nextCalibrationDate.slice(0, 10) : ''}
+                    onChange={(e) => setForm((f) => ({ ...f, nextCalibrationDate: e.target.value || undefined }))}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  />
+                </div>
+              </>
             )}
 
             {/* Calibration points — numbers only */}
@@ -231,32 +488,36 @@ function OverviewTab({
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
               />
             </div>
-            <div className="md:col-span-2">
-              <label className="block text-xs font-semibold text-gray-600 mb-1.5">Notes</label>
-              <textarea
-                value={form.notes || ''}
-                onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
-                rows={3}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 resize-none"
-              />
-            </div>
-          </div>
-          <div className="flex justify-end gap-2 px-5 pb-5">
-            <button
-              onClick={() => setEditing(false)}
-              className="px-4 py-2 border border-gray-300 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              className="px-5 py-2 bg-primary-600 text-white text-sm font-semibold rounded-lg hover:bg-primary-700 disabled:opacity-40 transition-colors"
-            >
-              {saving ? 'Saving…' : 'Save Changes'}
-            </button>
           </div>
         </SectionCard>
+
+        <SectionCard>
+          <SectionHeader title="Edit Notes" />
+          <div className="p-5">
+            <textarea
+              value={form.notes || ''}
+              onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
+              rows={3}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 resize-none"
+            />
+          </div>
+        </SectionCard>
+
+        <div className="flex justify-end gap-2">
+          <button
+            onClick={() => setEditing(false)}
+            className="px-4 py-2 border border-gray-300 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="px-5 py-2 bg-primary-600 text-white text-sm font-semibold rounded-lg hover:bg-primary-700 disabled:opacity-40 transition-colors"
+          >
+            {saving ? 'Saving…' : 'Save Changes'}
+          </button>
+        </div>
       </div>
     );
   }
@@ -407,6 +668,7 @@ function DocumentsTab({
   docs,
   onUpload,
   onDelete,
+  onRename,
   onPreview,
   isAdmin,
   canDelete,
@@ -414,13 +676,41 @@ function DocumentsTab({
   docs: EquipmentDocument[];
   onUpload: (docType: EquipmentDocument['docType'], file: File) => Promise<void>;
   onDelete: (doc: EquipmentDocument) => Promise<void>;
+  onRename: (doc: EquipmentDocument, newName: string) => Promise<void>;
   onPreview: (doc: EquipmentDocument) => void;
   isAdmin: boolean;
   canDelete: boolean;
 }) {
   const [uploading, setUploading] = useState<EquipmentDocument['docType'] | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState('');
+  const [renameSaving, setRenameSaving] = useState(false);
   const { error: showError } = useToast();
+
+  function startRename(d: EquipmentDocument) {
+    setRenamingId(d.id);
+    setRenameValue(d.name);
+  }
+
+  function cancelRename() {
+    setRenamingId(null);
+    setRenameValue('');
+  }
+
+  async function commitRename(d: EquipmentDocument) {
+    const trimmed = renameValue.trim();
+    if (!trimmed || trimmed === d.name) { cancelRename(); return; }
+    setRenameSaving(true);
+    try {
+      await onRename(d, trimmed);
+      cancelRename();
+    } catch (err: unknown) {
+      showError((err as Error).message || 'Rename failed');
+    } finally {
+      setRenameSaving(false);
+    }
+  }
 
   async function handleFile(docType: EquipmentDocument['docType'], file: File) {
     setUploading(docType);
@@ -503,7 +793,7 @@ function DocumentsTab({
             {hasFiles && (
               <ul className="divide-y divide-gray-50">
                 {typeDocs.map((d) => (
-                  <li key={d.id} className="flex items-center gap-3 px-5 py-3">
+                  <li key={d.id} className="flex items-center gap-3 px-5 py-3 group">
                     <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0">
                       <svg className="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
@@ -511,32 +801,89 @@ function DocumentsTab({
                       </svg>
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm text-gray-800 font-medium truncate">{d.name}</p>
+                      {renamingId === d.id ? (
+                        <input
+                          autoFocus
+                          value={renameValue}
+                          onChange={(e) => setRenameValue(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') void commitRename(d);
+                            if (e.key === 'Escape') cancelRename();
+                          }}
+                          disabled={renameSaving}
+                          className="text-sm font-medium text-gray-800 w-full border-b border-primary-400 bg-transparent focus:outline-none py-0.5 min-w-0"
+                        />
+                      ) : (
+                        <p className="text-sm text-gray-800 font-medium truncate">{d.name}</p>
+                      )}
                       <p className="text-xs text-gray-400 mt-0.5">{formatTs(d.uploadedAt)}</p>
                     </div>
-                    <div className="flex items-center gap-3 flex-shrink-0">
-                      <button
-                        onClick={() => onPreview(d)}
-                        className="text-xs font-medium text-primary-600 hover:text-primary-800 transition-colors"
-                      >
-                        Preview
-                      </button>
-                      <a
-                        href={d.url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-xs font-medium text-gray-500 hover:text-gray-700 transition-colors"
-                      >
-                        Download
-                      </a>
-                      {canDelete && (
-                        <button
-                          onClick={() => handleDelete(d)}
-                          disabled={deleting === d.id}
-                          className="text-xs font-medium text-red-500 hover:text-red-700 disabled:opacity-40 transition-colors"
-                        >
-                          {deleting === d.id ? '…' : 'Delete'}
-                        </button>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      {renamingId === d.id ? (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => void commitRename(d)}
+                            disabled={renameSaving}
+                            title="Save name"
+                            className="w-7 h-7 flex items-center justify-center rounded-md text-green-600 hover:bg-green-50 disabled:opacity-40 transition-colors"
+                          >
+                            {renameSaving
+                              ? <span className="inline-block w-3.5 h-3.5 border-2 border-green-500 border-t-transparent rounded-full animate-spin" />
+                              : <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"/></svg>
+                            }
+                          </button>
+                          <button
+                            type="button"
+                            onClick={cancelRename}
+                            title="Cancel"
+                            className="w-7 h-7 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+                          >
+                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <button
+                            onClick={() => onPreview(d)}
+                            title="Preview"
+                            className="p-1.5 rounded-lg text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                          </button>
+                          <a
+                            href={d.url}
+                            target="_blank"
+                            rel="noreferrer"
+                            title="Download"
+                            className="p-1.5 rounded-lg text-gray-400 hover:text-primary-600 hover:bg-primary-50 transition-colors"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                          </a>
+                          {canDelete && (
+                            <button
+                              type="button"
+                              onClick={() => startRename(d)}
+                              title="Rename"
+                              className="p-1.5 rounded-lg text-gray-400 hover:text-primary-600 hover:bg-primary-50 transition-colors"
+                            >
+                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
+                            </button>
+                          )}
+                          {canDelete && (
+                            <button
+                              onClick={() => handleDelete(d)}
+                              disabled={deleting === d.id}
+                              title="Delete"
+                              className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 disabled:opacity-40 transition-colors"
+                            >
+                              {deleting === d.id
+                                ? <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/></svg>
+                                : <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                              }
+                            </button>
+                          )}
+                        </>
                       )}
                     </div>
                   </li>
@@ -672,19 +1019,24 @@ function UsageLogsTab({
                   </div>
                 </div>
                 {isAdmin && (
-                  <div className="flex items-center gap-3 flex-shrink-0">
+                  <div className="flex items-center gap-1 flex-shrink-0">
                     <button
                       onClick={() => onEdit(log)}
-                      className="text-xs font-medium text-primary-600 hover:text-primary-800 transition-colors"
+                      title="Edit"
+                      className="p-1.5 rounded-lg text-gray-400 hover:text-primary-600 hover:bg-primary-50 transition-colors"
                     >
-                      Edit
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
                     </button>
                     <button
                       onClick={() => onDelete(log)}
                       disabled={deletingId === log.id}
-                      className="text-xs font-medium text-red-500 hover:text-red-700 disabled:opacity-40 transition-colors"
+                      title="Delete"
+                      className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 disabled:opacity-40 transition-colors"
                     >
-                      {deletingId === log.id ? '…' : 'Delete'}
+                      {deletingId === log.id
+                        ? <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/></svg>
+                        : <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                      }
                     </button>
                   </div>
                 )}
@@ -1011,6 +1363,19 @@ const DEGREE_OPTIONS = [
 ];
 
 /** Renders the human-readable equation preview string */
+/**
+ * Data problems on a stored equation that make the recorder's force wrong
+ * (ADR-014 D5). Returned as a list so a single equation can show both.
+ */
+function equationWarnings(eq: ConversionEquation): StandardWarning[] {
+  const warnings: StandardWarning[] = [];
+  const divisorWarning = checkDivisorAgreement(eq);
+  if (divisorWarning) warnings.push(divisorWarning);
+  const unitWarning = checkOutputUnitRecognised({ displayName: eq.name, outputUnit: eq.outputUnit });
+  if (unitWarning) warnings.push(unitWarning);
+  return warnings;
+}
+
 function buildEquationPreview(degree: number, inputUnit: string, outputUnit: string, divisor: string): string {
   const inp = inputUnit || 'input';
   const out = outputUnit || 'output';
@@ -1162,12 +1527,29 @@ function TrialPanel({ eq }: { eq: ConversionEquation }) {
 interface EquationModalProps {
   equipmentId: string;
   editing: ConversionEquation | null;
+  /**
+   * Every OTHER equation already saved under this equipment (excludes
+   * `editing` itself) — used to reject a duplicate name on save (ADR-014
+   * Phase 14 Task 4). Sibling equations only; this modal has no reason to
+   * know about any other equipment's names.
+   */
+  existingEquations: ConversionEquation[];
   onSave: (eq: ConversionEquation) => void;
   onClose: () => void;
   currentUser: string;
 }
 
-function EquationConfigModal({ equipmentId, editing, onSave, onClose, currentUser }: EquationModalProps) {
+/**
+ * Case- and whitespace-insensitive: a name differing only in trailing space
+ * or case is a collision to a human. Exported so the exact comparison
+ * `handleSave` uses (below) can be unit-tested directly — this file has no
+ * router/auth test harness to render the full modal through.
+ */
+export function normalizeEquationName(name: string): string {
+  return name.trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+function EquationConfigModal({ equipmentId, editing, existingEquations, onSave, onClose, currentUser }: EquationModalProps) {
   const { success } = useToast();
   const [saving, setSaving] = useState(false);
   const [inlineError, setInlineError] = useState<string | null>(null);
@@ -1186,6 +1568,11 @@ function EquationConfigModal({ equipmentId, editing, onSave, onClose, currentUse
   const [uARaw, setUARaw] = useState(editing?.uA !== undefined ? String(editing.uA) : '');
   const [uBRaw, setUBRaw] = useState(editing?.uB !== undefined ? String(editing.uB) : '');
   const [uCRaw, setUCRaw] = useState(editing?.uC !== undefined ? String(editing.uC) : '');
+  // ADR-014 D3/D4: all three optional, blank means UNSET (ADR-010), never
+  // coerced to 0 — an absent range means "can't check", not "0 to 0".
+  const [rangeMinRaw, setRangeMinRaw] = useState(editing?.rangeMin !== undefined ? String(editing.rangeMin) : '');
+  const [rangeMaxRaw, setRangeMaxRaw] = useState(editing?.rangeMax !== undefined ? String(editing.rangeMax) : '');
+  const [resolutionRaw, setResolutionRaw] = useState(editing?.resolution !== undefined ? String(editing.resolution) : '');
 
   function setError(msg: string) {
     setInlineError(msg);
@@ -1222,6 +1609,19 @@ function EquationConfigModal({ equipmentId, editing, onSave, onClose, currentUse
 
     // Validation — errors shown inline inside the modal
     if (!name.trim()) { setError('Please enter an equation name.'); return; }
+    // ADR-014 Phase 14 Task 4: two equations named alike under one equipment
+    // produce the same picker label, which resolves to whichever one
+    // invertStandardLabels happened to see last — a plausible wrong force
+    // with no error. Case/whitespace-insensitive: "1-10 kN" and "1-10 KN " read
+    // as the same standard to a human, so they must collide here too.
+    const normalizedName = normalizeEquationName(name);
+    const collision = existingEquations.find(
+      (eq) => eq.id !== editing?.id && normalizeEquationName(eq.name) === normalizedName,
+    );
+    if (collision) {
+      setError(`An equation named "${collision.name}" already exists on this equipment. Choose a different name.`);
+      return;
+    }
     if (!inputUnit.trim()) { setError('Please enter an input unit.'); return; }
     if (!outputUnit.trim()) { setError('Please enter an output unit.'); return; }
     const divisorNum = parseCoeffValue(divisorRaw);
@@ -1237,9 +1637,21 @@ function EquationConfigModal({ equipmentId, editing, onSave, onClose, currentUse
       }
     }
 
+    for (const [label, raw] of [['Range minimum', rangeMinRaw], ['Range maximum', rangeMaxRaw], ['Resolution', resolutionRaw]] as const) {
+      if (raw.trim() !== '' && Number.isNaN(Number(raw))) {
+        setError(`${label} must be a number.`);
+        return;
+      }
+    }
+    if (rangeMinRaw.trim() !== '' && rangeMaxRaw.trim() !== '' && Number(rangeMinRaw) > Number(rangeMaxRaw)) {
+      setError('Range minimum cannot be greater than range maximum.');
+      return;
+    }
+
     setSaving(true);
     try {
-      // Build payload — omit notes/uncertainty fields if empty (avoid storing empty/undefined)
+      // Build payload — omit notes/uncertainty/range/resolution fields if
+      // empty (ADR-010: blank means unset, never coerced to 0).
       const payload: Parameters<typeof conversionEquationService.add>[1] = {
         name: name.trim(),
         inputUnit: inputUnit.trim(),
@@ -1253,12 +1665,31 @@ function EquationConfigModal({ equipmentId, editing, onSave, onClose, currentUse
         ...(uARaw.trim() !== '' ? { uA: Number(uARaw) } : {}),
         ...(uBRaw.trim() !== '' ? { uB: Number(uBRaw) } : {}),
         ...(uCRaw.trim() !== '' ? { uC: Number(uCRaw) } : {}),
+        ...(rangeMinRaw.trim() !== '' ? { rangeMin: Number(rangeMinRaw) } : {}),
+        ...(rangeMaxRaw.trim() !== '' ? { rangeMax: Number(rangeMaxRaw) } : {}),
+        ...(resolutionRaw.trim() !== '' ? { resolution: Number(resolutionRaw) } : {}),
       };
 
       let saved: ConversionEquation;
       if (editing) {
-        await conversionEquationService.update(equipmentId, editing.id, payload);
-        saved = { ...editing, ...payload, updatedAt: new Date() };
+        // Editing: a field the payload OMITS (because the input is now
+        // blank) is simply left untouched by updateDoc — the OLD value would
+        // silently survive instead of clearing. Explicitly delete any of
+        // these three that WAS set on `editing` but is blank now.
+        const clears: Record<string, ReturnType<typeof deleteField>> = {};
+        if (editing.rangeMin !== undefined && rangeMinRaw.trim() === '') clears.rangeMin = deleteField();
+        if (editing.rangeMax !== undefined && rangeMaxRaw.trim() === '') clears.rangeMax = deleteField();
+        if (editing.resolution !== undefined && resolutionRaw.trim() === '') clears.resolution = deleteField();
+
+        await conversionEquationService.update(equipmentId, editing.id, { ...payload, ...clears } as typeof payload);
+        saved = {
+          ...editing,
+          ...payload,
+          rangeMin: 'rangeMin' in clears ? undefined : payload.rangeMin ?? editing.rangeMin,
+          rangeMax: 'rangeMax' in clears ? undefined : payload.rangeMax ?? editing.rangeMax,
+          resolution: 'resolution' in clears ? undefined : payload.resolution ?? editing.resolution,
+          updatedAt: new Date(),
+        };
         success('Equation updated');
       } else {
         const newId = await conversionEquationService.add(equipmentId, payload);
@@ -1348,13 +1779,27 @@ function EquationConfigModal({ equipmentId, editing, onSave, onClose, currentUse
               <label className="block text-xs font-medium text-gray-700 mb-1">
                 Output Unit <span className="text-red-500">*</span>
               </label>
-              <input
-                type="text"
+              {/*
+                ADR-014: constrained to the force units the newton table knows.
+                This was free text, and a value outside this set makes STD_TO_N
+                null, which turns every force formula using this equation into
+                awaiting-input. A legacy value is kept as an option so editing
+                an old equation does not silently rewrite it — the card shows a
+                warning telling the user to correct it.
+              */}
+              <select
                 value={outputUnit}
                 onChange={(e) => setOutputUnit(e.target.value)}
-                placeholder="e.g. kN, N, kg"
                 className="input-field w-full"
-              />
+              >
+                <option value="">Select a unit…</option>
+                {FORCE_UNITS.map((u) => (
+                  <option key={u} value={u}>{u}</option>
+                ))}
+                {outputUnit && !FORCE_UNITS.includes(outputUnit as never) && (
+                  <option value={outputUnit}>{outputUnit} (not a known force unit)</option>
+                )}
+              </select>
             </div>
           </div>
 
@@ -1398,6 +1843,49 @@ function EquationConfigModal({ equipmentId, editing, onSave, onClose, currentUse
               className="input-field w-48 font-mono"
             />
             <p className="text-[11px] text-gray-400 mt-1">The entire numerator is divided by this value. Use 1 to skip division.</p>
+          </div>
+
+          {/* Calibrated range + resolution (ADR-014 Phase 14 Task 3) */}
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-2">Calibrated Range &amp; Resolution</label>
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <label className="block text-[11px] text-gray-500 mb-1">Range min ({outputUnit || 'output unit'})</label>
+                <input
+                  type="text"
+                  value={rangeMinRaw}
+                  onChange={(e) => setRangeMinRaw(e.target.value)}
+                  placeholder="e.g. 2"
+                  className="input-field w-full font-mono text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] text-gray-500 mb-1">Range max ({outputUnit || 'output unit'})</label>
+                <input
+                  type="text"
+                  value={rangeMaxRaw}
+                  onChange={(e) => setRangeMaxRaw(e.target.value)}
+                  placeholder="e.g. 20"
+                  className="input-field w-full font-mono text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] text-gray-500 mb-1">Resolution ({outputUnit || 'output unit'})</label>
+                <input
+                  type="text"
+                  value={resolutionRaw}
+                  onChange={(e) => setResolutionRaw(e.target.value)}
+                  placeholder="e.g. 0.001"
+                  className="input-field w-full font-mono text-sm"
+                />
+              </div>
+            </div>
+            <p className="text-[11px] text-gray-400 mt-1">
+              Range min/max: the calibrated range these coefficients are valid over, in the equation's own output
+              unit — drives the out-of-range warning when this standard is selected on a record. Resolution: the
+              standard's readout resolution, exposed to formulas as STD_RESOLUTION. All optional — leave blank if
+              unknown; blank is not the same as zero.
+            </p>
           </div>
 
           {/* Coefficients */}
@@ -1703,6 +2191,24 @@ function ConversionEquationTab({
                   <p className="font-mono text-xs text-gray-700 break-all leading-relaxed">{preview}</p>
                 </div>
 
+                {/*
+                  ADR-014 D5: surface bad data rather than silently honouring or
+                  ignoring it. Both of these make the recorder's force wrong —
+                  loudly here, so it is caught before it reaches a certificate.
+                */}
+                {equationWarnings(eq).map((w) => (
+                  <div
+                    key={w.kind}
+                    className="mt-3 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3.5 py-2.5"
+                  >
+                    <svg className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                        d="M12 9v2m0 4h.01M5.07 19h13.86a2 2 0 001.74-3L13.74 4a2 2 0 00-3.48 0L3.33 16a2 2 0 001.74 3z" />
+                    </svg>
+                    <p className="text-xs text-amber-800 leading-relaxed">{w.message}</p>
+                  </div>
+                ))}
+
                 {/* Coefficients table */}
                 <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 gap-2">
                   {eq.coefficients.map((c, idx) => (
@@ -1737,6 +2243,7 @@ function ConversionEquationTab({
         <EquationConfigModal
           equipmentId={equipmentId}
           editing={editing}
+          existingEquations={equations}
           onSave={handleSaved}
           onClose={() => setShowModal(false)}
           currentUser={currentUser}
@@ -2062,8 +2569,10 @@ export const EquipmentDetailPage: React.FC = () => {
     addCalibrationEvent,
     uploadDocument,
     deleteDocument,
+    renameDocument,
     updateUsageLog,
     deleteUsageLog,
+    setEquipment,
   } = useEquipmentDetail(id);
 
   const [activeTab, setActiveTab] = useState<Tab>('overview');
@@ -2115,6 +2624,8 @@ export const EquipmentDetailPage: React.FC = () => {
   async function handleUpdate(data: Partial<EquipmentRecord>) {
     if (!id) return;
     await equipmentService.updateEquipment(id, data as any);
+    const eq = await equipmentService.getEquipmentById(id);
+    setEquipment(eq);
   }
 
   async function handleDocUpload(docType: EquipmentDocument['docType'], file: File) {
@@ -2126,6 +2637,11 @@ export const EquipmentDetailPage: React.FC = () => {
   async function handleDocDelete(doc: EquipmentDocument) {
     await deleteDocument(doc.id, doc.storagePath);
     success(`${doc.name} deleted`);
+  }
+
+  async function handleDocRename(doc: EquipmentDocument, newName: string) {
+    await renameDocument(doc.id, newName);
+    success(`Renamed to "${newName}"`);
   }
 
   async function handlePreviewRecord() {
@@ -2285,6 +2801,7 @@ export const EquipmentDetailPage: React.FC = () => {
             docs={documents}
             onUpload={handleDocUpload}
             onDelete={handleDocDelete}
+            onRename={handleDocRename}
             onPreview={setPreviewDoc}
             isAdmin={isAdmin}
             canDelete={canDeleteDocs}

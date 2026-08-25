@@ -7,7 +7,10 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "report:equipment-type-names": "tsx scripts/reportEquipmentTypeNames.ts",
+    "report:record-permission-rollout": "tsx scripts/reportRecordPermissionRolloutReadiness.ts",
+    "backfill:equipment-ids": "tsx scripts/backfillEquipmentIds.ts"
   },
   "dependencies": {
     "@handsontable/react": "^12.2.0",
@@ -44,8 +47,10 @@
     "@vitejs/plugin-react": "^4.0.0",
     "autoprefixer": "^10.4.22",
     "esbuild": "^0.19.2",
+    "firebase-admin": "^12.7.0",
     "postcss": "^8.5.6",
     "tailwindcss": "^3.4.17",
+    "tsx": "^4.23.1",
     "typescript": "^5.2.2",
     "vite": "^5.0.0",
     "vitest": "^3.2.4"

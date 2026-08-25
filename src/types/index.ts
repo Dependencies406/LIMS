@@ -15,6 +15,9 @@ export type PermissionAction =
   | 'settings.view' | 'settings.jobIdConfig' | 'settings.customerIdConfig'
   | 'settings.companyInfo'
   | 'certificateNumbers.view' | 'certificateNumbers.edit'
+  | 'equipmentTypes.view' | 'equipmentTypes.edit'
+  | 'recorderTemplates.view' | 'recorderTemplates.edit' | 'recorderTemplates.publish'
+  | 'records.commit' | 'records.review' | 'records.approve' | 'records.revise'
   | 'staffPerformance.view' | 'staffPerformance.viewOwn' | 'staffPerformance.exportLogs'
   | 'staffTraining.view' | 'staffTraining.manage'
   | 'equipmentControl.view' | 'equipmentControl.register' | 'equipmentControl.edit'
@@ -113,8 +116,18 @@ export interface Equipment {
   calibrationDate?: string;
   unit?: string;
   resolution?: string;
-  id?: string;
+  /** Stable identity, required since ADR-002 Phase 2. Every item must have one
+   * before a Record can ever bind to it. Backfilled onto historical data via
+   * scripts/backfillEquipmentIds.ts; assigned at creation everywhere new items
+   * are constructed (JobModal.tsx, PendingJobsPage.tsx conversion path). */
+  id: string;
   certificateNumber?: string;
+  /**
+   * References a `certificate_number_configs` document id — that collection
+   * IS the equipment type (ADR-012, superseding ADR-003's separate entity).
+   * Optional until migration from free-text `name` is complete.
+   */
+  equipmentTypeId?: string;
   spreadsheetData?: EquipmentSpreadsheetData;
   attachments?: EquipmentAttachment[];
 }
@@ -528,10 +541,21 @@ export interface CustomerIdSettings {
   yearlyReset: boolean;
 }
 
+/**
+ * `certificate_number_configs` IS the equipment type (ADR-012, superseding
+ * ADR-003's separate `EquipmentType` entity). One instrument type, one
+ * certificate series — a strict 1:1. This document's own `id` is the stable
+ * key that `Equipment.equipmentTypeId` and `RecorderTemplate.equipmentTypeId`
+ * reference; `name` is just the renameable display label.
+ *
+ * Naming warning: the collection is still called `certificate_number_configs`
+ * while representing equipment types. Renaming it would mean copying live
+ * counter documents — the highest-consequence migration available in this
+ * system — so the mismatch is accepted rather than risked away. See ADR-012.
+ */
 export interface CertificateNumberConfig {
   id: string;
   name: string;
-  equipmentType: string;
   prefix: string;
   separator: string;
   includeYear: boolean;
@@ -539,12 +563,648 @@ export interface CertificateNumberConfig {
   currentNumber: number;
   currentSequence: number;
   currentYear: number;
+  /** Derived, not stored: always `resetPolicy === 'yearly'`. Computed on read (Phase 0 finding). */
   yearlyReset: boolean;
   resetPolicy: 'never' | 'yearly' | 'monthly';
   lastResetAt?: Date;
+  /** Written by the allocation transaction only, so `updatedAt` keeps meaning "last human edit" (ADR-012). */
+  lastAllocatedAt?: Date;
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
+}
+
+// ─── Recorder Template Types (ADR-001, ADR-003, ADR-005, ADR-006, ADR-009, ADR-010, ADR-011) ──
+
+/**
+ * Display-only formatting for a numeric column or summary field. Stored values
+ * are always full precision; rounding happens only when rendered (ADR-011).
+ */
+export interface NumberFormat {
+  notation: 'fixed' | 'scientific';
+  /** Fixed: decimal places. Scientific: mantissa decimal places. */
+  decimals: number;
+}
+
+/** A user-authored `def name(params): return <expression>` (ADR-001). */
+export interface CustomFunction {
+  /** /^[a-zA-Z_][a-zA-Z0-9_]*$/ */
+  name: string;
+  params: string[];
+  /** Single expression, evaluated in the Phase 3 interpreter's row context rules (params only). */
+  expression: string;
+}
+
+export interface RecordColumn {
+  /** Formula variable part B; /^[A-Z][A-Z0-9]*$/ */
+  id: string;
+  label: string;
+  order: number;
+  /**
+   * 'standard' stores a composite `equipmentId::equationId` key identifying an
+   * (equipment, calibrated range) pair, and feeds `STD_*` (ADR-014 D3).
+   */
+  type: 'text' | 'number' | 'selection' | 'formula' | 'standard';
+
+  /**
+   * Display-only unit shown in the column header (Phase 15 Task 1, superseded
+   * by the fixed/selectable split below). Absent `unitMode` = no unit,
+   * renders as `label` alone — exactly as before either mode existed.
+   *
+   * Three modes, chosen by the template author:
+   *   'fixed'      — `unit` holds the one unit. Not changeable while
+   *                  recording. Header renders `label (unit)`.
+   *   'selectable' — `unitChoices` holds the allowed units (mirrors the
+   *                  `selection` column's `choices`: parsed from a
+   *                  comma-separated input, trimmed, blanks dropped). The
+   *                  technician picks one per RECORD (not per row, not on
+   *                  the template) while drafting; that choice lives in
+   *                  `CalibrationRecord.columnUnits`, keyed by this column's
+   *                  `${sectionId}_${columnId}` key. Header renders
+   *                  `label (chosen)` once something is picked, else plain
+   *                  `label` — an unpicked selectable column is a display
+   *                  state, not a validation error.
+   *   'sameAs'     — `unitSourceColumn` names another column (by its
+   *                  `${sectionId}_${columnId}` key) whose unit this column
+   *                  reuses. The point is round columns: Reading 1/2/3 all
+   *                  report in one unit, so the author makes Reading 1
+   *                  selectable and the rest follow it — the technician
+   *                  picks once and every header moves together. This
+   *                  column gets NO picker of its own, and nothing about it
+   *                  is stored per record; its unit is always DERIVED at
+   *                  render time from its source. References may chain
+   *                  (R3 -> R2 -> R1); a cycle resolves to no unit and is
+   *                  reported by the template verifier.
+   *
+   * Stored SEPARATELY from `label` and joined only at render time — never
+   * concatenated into `label` itself.
+   *
+   * `unit`/`unitChoices` are free text, NOT constrained to `ForceUnit`: mV/V,
+   * °C, %RH, mm, or a dimensionless ratio are all valid.
+   *
+   * NON-NEGOTIABLE (ADR-014 D5): this is a label, not a conversion. No
+   * evaluation path may read `unitMode`, `unit`, `unitChoices`, or a record's
+   * `columnUnits` — `polynomial(R) * STD_TO_N / REPORT_TO_N` is the only unit
+   * conversion in this system, and it stays a VISIBLE part of the author's
+   * own formula (ADR-013 D5's whole argument), not a second mechanism hidden
+   * behind a column property. A unit string that participated in arithmetic
+   * would be the third such mechanism, after `ConversionEquation.divisor`
+   * (ADR-014 D5's own corrected mistake). `recordColumnUnit.test.ts` asserts
+   * this structurally, extended to cover `columnUnits`.
+   */
+  unitMode?: 'fixed' | 'selectable' | 'sameAs';
+  /** 'fixed' mode only: the one unit. */
+  unit?: string;
+  /** 'selectable' mode only: the allowed units, parsed like `choices`. */
+  unitChoices?: string[];
+  /** 'sameAs' mode only: the `${sectionId}_${columnId}` key to inherit the unit from. */
+  unitSourceColumn?: string;
+
+  /** type 'number' only (ADR-011). */
+  numberFormat?: NumberFormat;
+  /** type 'selection' only. */
+  choices?: string[];
+  /** type 'formula' only — read-only column, evaluated in row context. */
+  expression?: string;
+  /** Preset value for input types (text/number/selection). */
+  preInput?: string | number;
+
+  /**
+   * Display-time unit conversion (ADR-015) — 'formula' columns ONLY (D9).
+   * `false`/absent on any other column type must never render a control for
+   * this at all; a disabled checkbox on a text column would imply the
+   * feature exists there.
+   *
+   * DISPLAY CONCERN, same non-negotiable boundary as `unitMode` above (D1):
+   * the column's STORED value (`RecordRow[key]`) is always the raw engine
+   * output. Conversion is applied only when a cell is rendered — grid,
+   * read-only view, PDF — via `services/columnConversion.ts`. No evaluation
+   * path, and nothing in `modules/recorder/formula/`, may read
+   * `conversionEnabled` or `conversionSourceUnit`; a downstream formula
+   * referencing this column sees the same raw value it always did. That is
+   * precisely what makes chained double-conversion structurally impossible
+   * (ADR-014 D5's divisor failure, this time by construction, not just by
+   * test) — see `columnConversionIsolation.test.ts`.
+   */
+  conversionEnabled?: boolean;
+  /**
+   * The unit this column's RAW computed values are actually in — the
+   * author's declaration (D3), since inferring it from the expression is
+   * out of scope. Free text, matching the header `unit` fields: mV/V, %,
+   * mm, °C, or any non-force unit the newton table doesn't cover (a
+   * fromUnit/toUnit pair that are BOTH `ForceUnit` values is rejected when
+   * the rule itself is saved — D5 — so this field is never the force path).
+   *
+   * Cross-checked, not trusted: when the column's expression references any
+   * `STD_C*`, the record-entry UI compares this against the selected
+   * standard's `outputUnit` and warns on disagreement — the same treatment
+   * as `checkDivisorAgreement`, never a block.
+   */
+  conversionSourceUnit?: string;
+}
+
+// ─── Reference Standards (ADR-013) ────────────────────────────────────────────
+
+/** The four force units the lab works in (ADR-013 D5). Normalised through newtons. */
+export type ForceUnit = 'N' | 'kN' | 'kgF' | 'gF';
+
+/**
+ * @deprecated RETIRED by ADR-014 D2. The equipment register is the reference
+ * standard: one `EquipmentRecord` per device, one `ConversionEquation` per
+ * calibrated range. Use those instead.
+ *
+ * The service (`referenceStandardService.ts`) and settings modal
+ * (`ReferenceStandardManagerModal.tsx`) have been removed, and the owner
+ * confirmed the collection holds no data. The (empty) Firestore collection and
+ * its rule block are deliberately left in place — deleting Firestore data is
+ * irreversible and an unused collection costs nothing.
+ *
+ * This interface itself is retained ONLY because
+ * `standardNamespaceIsolation.test.ts` — the leak test that must keep passing
+ * unmodified — still references it. Nothing in `src/` outside that test does.
+ * Do not use it in new code.
+ */
+export interface ReferenceStandard {
+  id: string;
+  /** Free-text label, e.g. 'CAL-FRC-003 (20 kN, Tensile 2-20 kN)'. Safe to edit. */
+  displayName: string;
+  equipmentCode: string;
+  instrumentName: string;
+  /** Human-readable range, e.g. '2-20 kN'. */
+  rangeText: string;
+  /** Numeric range in the standard's OUTPUT unit — drives the "does not bracket" warning (D3). */
+  rangeMin?: number;
+  rangeMax?: number;
+
+  /**
+   * coefficients[i] multiplies R^i. coefficients[0] is the constant term
+   * (ADR-013 D1). An ordered array, NOT three named fields, so any polynomial
+   * degree works with no schema change. Current NIMT data is degree 3 with a
+   * zero constant term.
+   */
+  coefficients: number[];
+  /** The transducer's signal unit, e.g. 'mV/V'. Free text — not converted. */
+  inputUnit: string;
+  /** The force unit the polynomial produces. Drives STD_TO_N (D5). */
+  outputUnit: ForceUnit;
+  resolution?: number;
+
+  /** Uncertainty contributors, all percentages (D2). */
+  uCal?: number;
+  uA?: number;
+  uB?: number;
+  uC?: number;
+
+  serialNumber?: string;
+  manufacturer?: string;
+  model?: string;
+  accessories?: string;
+  traceability?: string;
+  calibrationDate?: Date;
+  dueDate?: Date;
+
+  /** Deactivate, never delete — historical records reference this by id (D2). */
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+  createdBy: string;
+  updatedBy: string;
+}
+
+/**
+ * What a committed record keeps of a standard (ADR-013 D6). Frozen at commit
+ * so recalibrating a transducer can never retroactively alter an issued
+ * certificate — identical reasoning to ADR-005's template version pinning.
+ *
+ * Stored on the record as a map keyed by standard id rather than duplicated
+ * onto every row: several rows typically share one standard, and the ADR
+ * flags record growth as a concern worth measuring.
+ */
+export interface ReferenceStandardSnapshot {
+  /** Parent equipment record (ADR-014 D1) — the device itself. */
+  equipmentId: string;
+  /** The calibrated range used, i.e. which ConversionEquation (ADR-014 D3). */
+  equationId: string;
+  /** Human label, composed at capture: "<equipment name> — <equation name>". */
+  displayName: string;
+  equipmentCode: string;
+  /**
+   * CANONICAL ASCENDING — `coefficients[i]` multiplies `Rⁱ` (ADR-014 D6).
+   *
+   * Already converted from the equation's stored descending order at capture,
+   * deliberately: storing the converted form means a later reader cannot
+   * re-invert it by accident. Do NOT pass these through the coefficient
+   * adapter again.
+   */
+  coefficients: number[];
+  inputUnit: string;
+  /** Free text, matching ConversionEquation — legacy values may not be a ForceUnit. */
+  outputUnit: string;
+  resolution?: number;
+  rangeMin?: number;
+  rangeMax?: number;
+  uCal?: number;
+  uA?: number;
+  uB?: number;
+  uC?: number;
+  serialNumber?: string;
+  calibrationDate?: Date;
+  dueDate?: Date;
+  capturedAt: Date;
+}
+
+// ─── Display-time unit conversion (ADR-015) ────────────────────────────────────
+
+/**
+ * A shared, admin-managed conversion rule (ADR-015 D2) — reusable across
+ * every template, looked up at RENDER time by `(fromUnit, toUnit)`, never
+ * bound to a specific column or template. `unitConversionRuleService.ts`
+ * follows `conversionEquationService.ts`'s conventions exactly.
+ *
+ * `expression` is parsed and evaluated by the SAME formula parser/evaluator
+ * every column formula uses (D4) — no second expression syntax — but sees
+ * exactly one variable, `VALUE`. Validated at save time to reference nothing
+ * else, and to never pair two `ForceUnit` values (D5: that route is
+ * `STD_TO_N` / `REPORT_TO_N`, already exact).
+ */
+export interface ConversionRule {
+  id: string;
+  name: string;
+  /** Free text; NOT constrained to ForceUnit (D5's rejection is what keeps the force pairs out, not a type). */
+  fromUnit: string;
+  toUnit: string;
+  /** Formula-language expression using only `VALUE`, e.g. `VALUE * 1000`, `(VALUE - 32) * 5 / 9`. */
+  expression: string;
+  notes?: string;
+  /** Deactivate, never delete (D2) — a committed record's snapshot may still name this rule. */
+  active: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+  createdBy: string;
+}
+
+export type ConversionRuleInput = Omit<ConversionRule, 'id' | 'createdAt' | 'updatedAt'>;
+
+/**
+ * What a converted cell is allowed to show when conversion could NOT be
+ * applied (ADR-015 D6): the raw value, unconverted, plus enough to build a
+ * warning naming the missing pair. Never blank, never a thrown exception.
+ */
+export type ConversionFailureReason = 'no-rule' | 'expression-error' | 'divide-by-zero' | 'non-finite-result';
+
+export interface ConversionFailure {
+  reason: ConversionFailureReason;
+  message: string;
+  sourceUnit: string;
+  targetUnit: string;
+}
+
+/**
+ * D7: frozen at commit, one per converted cell, so a certificate's printed
+ * numbers can be reconstructed without the live (shared, editable) rule
+ * library — the same reason `standardSnapshots` exists. Keyed on
+ * `CalibrationRecord.conversionSnapshots` by `${rowIndex}:${columnKey}`,
+ * since conversion is per-CELL (row × column), unlike `standardSnapshots`
+ * which is keyed by the standard's own composite key.
+ */
+export interface ConversionCellSnapshot {
+  ruleId: string;
+  ruleName: string;
+  expression: string;
+  sourceUnit: string;
+  targetUnit: string;
+  rawValue: number;
+  convertedValue: number;
+  capturedAt: Date;
+}
+
+/**
+ * A named group of columns — a spanning header, not a nested table (ADR-006).
+ * `ENV` and `SUMMARY` are reserved and may not be used as an author-defined
+ * section id.
+ */
+export interface RecordSection {
+  /** Formula variable part A; /^[A-Z][A-Z0-9]*$/ */
+  id: string;
+  label: string;
+  order: number;
+  columns: RecordColumn[];
+}
+
+/** Evaluated once per record, after all rows, in the summary context (ADR-010). */
+export interface SummaryField {
+  /** Referenced as SUMMARY_<id>; /^[A-Z][A-Z0-9]*$/ */
+  id: string;
+  label: string;
+  type: 'number' | 'text';
+  /** type 'number' only (ADR-011). */
+  numberFormat?: NumberFormat;
+  expression: string;
+}
+
+/**
+ * ADR-017 D1 — one column of a report block.
+ *
+ * Deliberately a SEPARATE interface from `RecordColumn` rather than a reuse
+ * of it, for one reason that matters: `standard` is excluded. A block row is
+ * not a calibration point, so a reference standard has nothing to resolve
+ * against, and `STD_*` is a validation error in block context (D4). Sharing
+ * `RecordColumn` would have made `type: 'standard'` representable here and
+ * left "is this legal?" to a runtime check somewhere; excluding it from the
+ * type makes it unrepresentable.
+ *
+ * The unit/conversion fields of `RecordColumn` are likewise absent: those are
+ * per-calibration-point display concerns (ADR-015 D9 restricts conversion to
+ * formula columns of the measurement table), and a budget row has no unit
+ * axis to convert along.
+ */
+export interface ReportBlockColumn {
+  /** Formula variable part B; /^[A-Z][A-Z0-9]*$/ — referenced as BLOCKID_COLUMNID. */
+  id: string;
+  label: string;
+  order: number;
+  /** ADR-017 D1: matches section column types MINUS 'standard'. */
+  type: 'text' | 'number' | 'selection' | 'formula';
+  /** type 'number' and 'formula' (ADR-011, Phase 26 Task 1). */
+  numberFormat?: NumberFormat;
+  /** type 'selection' only. */
+  choices?: string[];
+  /** type 'formula' only — evaluated in BLOCK context (ADR-017 D4). */
+  expression?: string;
+  /** Preset value for input types (text/number/selection). */
+  preInput?: string | number;
+}
+
+/**
+ * ADR-017 D1/D5 — a report block: a table or a paragraph with its OWN row
+ * axis, independent of calibration points.
+ *
+ * Why this cannot be a `RecordSection`: Phase 21 established that a
+ * `RecordRow` spans every section — row 3 is one calibration point in all of
+ * them — and that shared axis is what keeps a measurement aligned with its
+ * own results. An uncertainty budget has a row per CONTRIBUTOR and a
+ * conformity statement has no rows at all, so forcing either onto the
+ * calibration-point axis would make a 5-point run produce exactly 5 budget
+ * rows.
+ *
+ * Blocks live inside their template and are copied into the published
+ * version snapshot exactly like sections (D2), so a committed record
+ * reproduces from its own snapshot without reaching outside it (ADR-005).
+ */
+export interface ReportBlock {
+  /** Formula variable part A; /^[A-Z][A-Z0-9]*$/. Shares the section-id namespace. */
+  id: string;
+  label: string;
+  order: number;
+  /**
+   * 'table' renders `columns` over `defaultRowCount` rows; 'text' renders
+   * `text` with placeholders interpolated (D6). One entity rather than two
+   * because they share an id namespace, an ordering, and a snapshot rule.
+   */
+  kind: 'table' | 'text';
+  /** kind 'table' only. */
+  columns: ReportBlockColumn[];
+  /** kind 'table' only: initial row count. A block row axis is authored, not measured. */
+  defaultRowCount: number;
+  /**
+   * kind 'text' only: the wording authored on the TEMPLATE (D5). A
+   * technician may override it per record; the effective text is snapshotted
+   * at commit so a later template edit never moves text on a committed
+   * record.
+   */
+  text?: string;
+}
+
+/** Reuses the existing certificate-number config model (ADR-008). */
+export interface RecordNumberFormat {
+  /** 1–2 fixed parts, joined by `separator`. */
+  parts: string[];
+  separator: string;
+  includeYear: boolean;
+  yearDigits: 2 | 4;
+  numberPadding: number;
+  resetPolicy: 'never' | 'yearly' | 'monthly';
+}
+
+/**
+ * The authored definition of how one equipment type (a
+ * `certificate_number_configs` document, ADR-012) is recorded. Bound 1:1 to
+ * that equipment type while `status === 'active'` (ADR-003) — enforced
+ * transactionally by recorderTemplateService, not by a read-then-write check.
+ *
+ * This document holds the CURRENT (possibly still-being-edited) content.
+ * Publishing freezes a copy into a separate, immutable
+ * `RecorderTemplateVersion` document; editing this document afterwards never
+ * changes any already-published version (ADR-005).
+ */
+export interface RecorderTemplate {
+  id: string;
+  name: string;
+  description?: string;
+  /** Unique among templates with status 'active' (ADR-003). */
+  equipmentTypeId: string;
+
+  /** Drives the Environment Block only (ADR-006). Reading columns remain free-form. */
+  roundCount: number;
+  /** Initial calibration-point row count; the technician may add more if allowRowAdd. */
+  defaultRowCount: number;
+  allowRowAdd: boolean;
+
+  recordNumberFormat: RecordNumberFormat;
+
+  sections: RecordSection[];
+  summaryFields: SummaryField[];
+  customFunctions: CustomFunction[];
+  /**
+   * ADR-017 D1/D2. Optional so every template authored before this ADR
+   * loads unchanged — absent and `[]` mean the same thing (no blocks), and
+   * nothing downstream may distinguish them.
+   *
+   * D10: this does NOT replace `summaryFields`. A summary field is still the
+   * right tool for one value per record, and `SUMMARY_*` is referenced BY
+   * blocks (D4).
+   */
+  reportBlocks?: ReportBlock[];
+
+  status: 'draft' | 'active' | 'archived';
+  /** Incremented on each publish; 0 while still an unpublished draft. */
+  version: number;
+
+  createdAt: Date;
+  updatedAt: Date;
+  createdBy: string;
+  updatedBy: string;
+}
+
+/**
+ * An immutable published snapshot of a RecorderTemplate, including its
+ * customFunctions. Records pin to `(templateId, version)`, never to the
+ * mutable template document, so a closed record is always reproducible
+ * (ADR-005). Stored separately so N records sharing a version share one
+ * snapshot rather than each embedding a copy.
+ */
+export interface RecorderTemplateVersion {
+  /** `${templateId}_v${version}` */
+  id: string;
+  templateId: string;
+  version: number;
+  snapshot: RecorderTemplate;
+  publishedAt: Date;
+  publishedBy: string;
+}
+
+// ─── Calibration Record Types (ADR-002, ADR-005, ADR-008, ADR-010) ────────────
+
+/** `voided` added by ADR-016 — a soft delete, reachable from any other status. */
+export type RecordStatus = 'draft' | 'committed' | 'reviewed' | 'approved' | 'superseded' | 'voided';
+
+/** One row = one calibration point. Keys are `${sectionId}_${columnId}`. */
+export type RecordRow = Record<string, string | number | null>;
+
+export interface RoundEnvironment {
+  /** 1-based. */
+  roundIndex: number;
+  temperatureC: number;
+  relativeHumidity: number;
+}
+
+/**
+ * Captured at record creation from the Job and Item (Equipment) documents.
+ * Snapshotted rather than referenced, so a certificate reprinted years later
+ * shows what was true at calibration time — the live job/customer records
+ * will have moved on by then.
+ */
+export interface RecordContextSnapshot {
+  job: {
+    jobId: string;
+    title: string;
+    customerName: string;
+    customerAddress: string;
+    customerContact: string;
+    customerEmail: string;
+    customerPhone: string;
+    assignedStaff: string;
+    receivedDate: string;
+  };
+  item: {
+    name: string;
+    manufacturer: string;
+    model: string;
+    serialNumber: string;
+    assetTag: string;
+    accessories: string;
+    machineLocation: string;
+    resolution: string;
+    unit: string;
+    certificateNumber: string;
+  };
+  capturedAt: Date;
+}
+
+/**
+ * The transactional aggregate (ADR-002) — its own top-level `records`
+ * collection, never inline on the Job document. One record per Item at a
+ * time; corrections never mutate a committed record, they create a linked
+ * Revision (ADR-005).
+ */
+export interface CalibrationRecord {
+  id: string;
+  /** Present iff status is 'committed' or later (ADR-008). */
+  recordNumber?: string;
+
+  jobId: string;
+  /** Stable Equipment.id (required since ADR-002 Phase 2). */
+  itemId: string;
+  /** References a certificate_number_configs document id (ADR-012). */
+  equipmentTypeId: string;
+
+  templateId: string;
+  /** Pinned at creation; immutable once set (ADR-005). Never re-resolved to the live template. */
+  templateVersion: number;
+
+  contextSnapshot: RecordContextSnapshot;
+  /** Length must equal the pinned snapshot's roundCount before commit (ADR-006). */
+  environment: RoundEnvironment[];
+  rows: RecordRow[];
+  /**
+   * The force unit this record's certificate reports in (ADR-014 D5). Exposed
+   * to formulas as `REPORT_TO_N`, so a template writes the conversion as
+   * `polynomial(R) * STD_TO_N / REPORT_TO_N`.
+   *
+   * Lives on the RECORD, not the equation: the same transducer used on a job
+   * reporting in N and another reporting in kN needs two different factors,
+   * which is precisely why the stored `ConversionEquation.divisor` cannot
+   * serve this purpose and is deprecated for it.
+   */
+  reportUnit?: ForceUnit;
+  /**
+   * The chosen unit for each 'selectable' column, keyed by that column's
+   * `${sectionId}_${columnId}` key (Phase 15 Task 1 supersession). Per
+   * COLUMN per RECORD — not per row, not on the template. Editable while
+   * Draft, pinned once committed (ADR-005): it changes what every number on
+   * the certificate CLAIMS to be, so it must freeze like the rest. Written
+   * through the same `updateDraftRecord` path as `reportUnit`/`rows` — no
+   * second write path — and needs no explicit commit-time snapshot logic,
+   * since `commitRecord`'s `transaction.update` is a partial merge that
+   * leaves it untouched on the document, the same way `reportUnit` already
+   * survives commit without commitRecord naming it.
+   */
+  columnUnits?: Record<string, string>;
+  /**
+   * Every reference standard used by any row, frozen at commit (ADR-013 D6),
+   * keyed by the row's composite `equipmentId::equationId` cell value
+   * (ADR-014 D3). Evaluation at commit reads coefficients from HERE, never
+   * from the live equation. Empty until committed.
+   */
+  standardSnapshots?: Record<string, ReferenceStandardSnapshot>;
+  /**
+   * One entry per converted cell, frozen at commit (ADR-015 D7), keyed by
+   * `${rowIndex}:${columnKey}` — e.g. `0:CAL_ERR` for row 0's CAL_ERR cell.
+   * Per-cell rather than per-column: `RecordRow[]` has no stable row id
+   * beyond its index, matching how `rows`/`environment` are already indexed
+   * positionally elsewhere in this type. Empty until committed; a draft
+   * shows conversion applied live from the current rule library, never from
+   * this.
+   */
+  conversionSnapshots?: Record<string, ConversionCellSnapshot>;
+  /** Evaluated at commit, against the pinned snapshot (ADR-010). Empty until committed. */
+  summary: Record<string, string | number | null>;
+
+  status: RecordStatus;
+  /** recordId this record revises. */
+  supersedes?: string;
+  /** recordId that revised this record. */
+  supersededBy?: string;
+  revisionReason?: string;
+
+  createdAt: Date;
+  createdBy: string;
+  committedAt?: Date;
+  committedBy?: string;
+  reviewedAt?: Date;
+  /** The caller's uid at the time of review — lets firestore.rules verify the signer is the caller and enforce separation of duties (Phase 5c). */
+  reviewedBy?: string;
+  reviewerSignature?: DigitalSignature;
+  approvedAt?: Date;
+  /** Same reason as `reviewedBy` (Phase 5c). */
+  approvedBy?: string;
+  approverSignature?: DigitalSignature;
+
+  /**
+   * ADR-016 — a soft delete. `statusBeforeVoid` is captured explicitly at
+   * void time (D5: never inferred on restore) and, per firestore.rules,
+   * deliberately left in place after a restore as a permanent trace that
+   * this record was once voided — the same way `supersededBy` is never
+   * cleared either. Present only once a record has been voided at least
+   * once; absent otherwise.
+   */
+  voidedAt?: Date;
+  /** The caller's uid at the time of voiding — firestore.rules requires this to equal request.auth.uid. */
+  voidedBy?: string;
+  /** Mandatory, non-empty (enforced client-side and by firestore.rules) — a voided record with no explanation looks like data loss. */
+  voidReason?: string;
+  /** The record's status immediately before this void — restore returns here. Stored, never inferred (ADR-016 D5). */
+  statusBeforeVoid?: RecordStatus;
 }
 
 // ─── Company Information Types ────────────────────────────────────────────────
@@ -610,6 +1270,15 @@ export interface EquipmentRecord {
   /** Physical unit for all calibration points, e.g. "N", "kN", "kg" */
   calibrationUnit?: string;
   externalProvider: boolean;
+  /**
+   * Whether this device may be selected as a reference standard in a record's
+   * `standard` column (ADR-014 D3).
+   *
+   * An explicit flag, not a name convention: filtering on an id prefix like
+   * "CAL-FRC-" would silently include or exclude devices as naming drifts,
+   * which is the class of quiet wrong answer ADR-013 exists to end.
+   */
+  isReferenceStandard?: boolean;
   capacity?: string;
   usageRange?: string;
   usageCriteria?: string;
@@ -755,12 +1424,44 @@ export interface ConversionEquation {
   id: string;
   name: string;
   inputUnit: string;
+  /**
+   * The force unit the polynomial produces — drives `STD_TO_N` (ADR-013 D5).
+   *
+   * Typed `string`, not `ForceUnit`, because this is what Firestore actually
+   * holds: the field was a free-text input before ADR-014 and legacy documents
+   * may contain values outside `N|kN|kgF|gF` (the old placeholder suggested
+   * "kg"). New entry is constrained to a `ForceUnit` dropdown; anything stored
+   * outside that set makes `forceUnitToNewtons` return null, which surfaces as
+   * a warning in the equipment UI rather than a silently wrong factor.
+   */
   outputUnit: string;
   /** Polynomial degree 1–5 */
   degree: number;
   /** Length = degree + 1. Index 0 = highest-degree coeff, last = constant */
   coefficients: EquationCoefficient[];
+  /**
+   * @deprecated NOT applied in the recorder path (ADR-014 D5).
+   *
+   * Unit scaling there is derived per job as
+   * `polynomial(R) * STD_TO_N / REPORT_TO_N`, because the factor depends on the
+   * job's reporting unit and a stored field cannot supply both N and kN for the
+   * same transducer. Applying this as well would scale twice and put every
+   * force out by ~1000x.
+   *
+   * Retained only for the standalone calculator on EquipmentDetailPage, which
+   * is not part of the recorder pipeline. That page warns when this value
+   * disagrees with the factor derived from the equation's own units.
+   */
   divisor: number;
+  /** Standard's resolution in `outputUnit`. Feeds `STD_RESOLUTION` (ADR-013 D4). */
+  resolution?: number;
+  /**
+   * Numeric bounds of this calibrated range, in `outputUnit`. Drive the
+   * "does not bracket this row's force" warning (ADR-013 D3), which warns and
+   * never blocks. Both must be set for the check to run.
+   */
+  rangeMin?: number;
+  rangeMax?: number;
   notes?: string;
   /** Standard's calibration uncertainty (%), from the LCDB — used by the Stage D uncertainty budget. */
   uCal?: number;
@@ -815,158 +1516,6 @@ export interface Toast {
   type: 'success' | 'error' | 'info' | 'warning';
   duration?: number;
 }
-
-// ─── Data Recorder (Calibration Raw Data Sheets) ──────────────────────────────
-
-/** Force units supported by the recorder's unit handler. */
-export type ForceUnit = 'N' | 'kN' | 'kgf' | 'gf';
-
-/** 'original' = first recording; 'amendment' = correction referencing a prior sheet. */
-export type SheetKind = 'original' | 'amendment';
-
-export type CalDirection = 'Tension' | 'Compression';
-
-/** Measurement series columns, matching the ISO 7500-1 raw-data workbook layout. */
-export type SeriesKey = 'inc1' | 'inc2' | 'inc3' | 'dec3';
-
-export interface MeasurementCell {
-  /** UUC reading, in the sheet's uuc.readingUnit. */
-  uuc: number | null;
-  /** Reference standard indicator signal (mV/V) — the raw source of truth. */
-  sig: number | null;
-  /** Computed at save: convertForce(evaluate(equation, sig), equation.outputUnit, readingUnit). */
-  force: number | null;
-}
-
-export interface SheetRow {
-  calPoint: number;
-  /** Reference-standard equipment doc ID (equipmentControl collection). */
-  standardEquipmentId: string;
-  /** conversionEquations doc ID under that equipment. */
-  equationId: string;
-  cells: Record<SeriesKey, MeasurementCell>;
-}
-
-/** Audit snapshot of one reference standard + equation exactly as used at save time. */
-export interface StandardSnapshot {
-  equipmentId: string;
-  equationId: string;
-  /** Display label, e.g. "CAL-FRC-004 — Tensile 10-100 kN". */
-  code: string;
-  name: string;
-  manufacturer?: string;
-  model?: string;
-  serial?: string;
-  dueDate?: string;                // ISO date (mirrors EquipmentRecord.nextCalibrationDate)
-  equationName: string;
-  degree: number;
-  /** Coefficient values, highest power first (same order conversionEquationService.evaluate uses). */
-  coefficients: number[];
-  divisor: number;
-  inputUnit: string;
-  outputUnit: string;
-  /** Uncertainty parameters (%) from the equation at save time — absent on sheets recorded before D7. */
-  uCal?: number;
-  uA?: number;
-  uB?: number;
-  uC?: number;
-}
-
-/** Thermo-hygrometer used for the environment readings — required on every sheet. */
-export interface EnvStandardSnapshot {
-  equipmentId: string;
-  code: string;                    // equipment ID, e.g. CAL-THM-001
-  name: string;
-  serial?: string;
-  range?: string;
-  dueDate?: string;                // ISO date
-}
-
-export interface EnvRound {
-  t: number;                       // temperature °C
-  h: number;                       // relative humidity %RH
-}
-
-export interface CalibrationRawDataSheet {
-  id: string;
-  /**
-   * Calibration work type discriminator. Absent on early documents — readers
-   * must default to 'force-iso7500-1' (see rawDataSheetService.mapSheet).
-   * Future work types (temperature, pressure, torque, …) add their own value
-   * and register a payload editor/renderer in the data-recorder module.
-   */
-  sheetType?: string;
-  kind: SheetKind;
-  /** Original sheet ID when kind === 'amendment'; null for originals. */
-  amends: string | null;
-  /** Required free-text reason when kind === 'amendment'. */
-  amendmentReason?: string;
-  jobId: string | null;
-  requestNo: string;               // e.g. SCS-CAL-26024
-  receivedDate?: string;           // ISO date
-  calibrationDate: string;         // ISO date
-  uuc: {
-    equipmentName: string;
-    manufacturer?: string;
-    model?: string;
-    serial?: string;
-    readingUnit: ForceUnit;
-    resolution?: number;
-  };
-  calibrationRange: string;
-  direction: CalDirection;
-  /** Snapshots of every standard/equation the rows actually use (derived, stamped at save). */
-  standards: StandardSnapshot[];
-  envStandard: EnvStandardSnapshot;
-  /** Exactly 3 rounds, all required before save. */
-  env: EnvRound[];
-  machineCondition: string;
-  decimalPlaces: number;
-  rows: SheetRow[];
-  recordedByUid: string;
-  recordedByName: string;
-  /** serverTimestamp — authoritative audit write time. Sheets are never updated. */
-  createdAt: Date;
-  schemaVersion: number;
-}
-
-export type CalibrationRawDataSheetInput = Omit<CalibrationRawDataSheet, 'id' | 'createdAt'>;
-
-/** One CMC scope step: cal points up to `toN` newtons use `cmcPercent`. */
-export interface CmcScopeStep {
-  toN: number;
-  cmcPercent: number;
-}
-
-/**
- * Force CMC (Calibration and Measurement Capability) table, per ISO 7500-1
- * direction. Firestore doc: system/cmc.
- */
-export interface CmcSettings {
-  schemaVersion: number;
-  directions: {
-    tension: CmcScopeStep[];
-    compression: CmcScopeStep[];
-  };
-}
-
-/**
- * Append-only VOID marker: cancels a sheet without deleting it (R3).
- * Stored in its own collection (rawDataSheetVoids); the voided sheet document
- * is never touched. Voided sheets are hidden from the default list view but
- * remain in the audit trail and in exports.
- */
-export interface SheetVoidRecord {
-  id: string;
-  sheetId: string;                 // the voided sheet's document ID
-  reason: string;                  // required, like amendmentReason
-  recordedByUid: string;
-  recordedByName: string;
-  createdAt: Date;                 // serverTimestamp
-  schemaVersion: number;
-}
-
-export type SheetVoidRecordInput = Omit<SheetVoidRecord, 'id' | 'createdAt'>;
 
 // ─── Re-exports ───────────────────────────────────────────────────────────────
 

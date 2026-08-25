@@ -136,6 +136,14 @@ export function useEquipmentDetail(id: string | undefined) {
     setDocuments((prev) => prev.filter((d) => d.id !== documentId));
   }
 
+  async function renameDocument(documentId: string, newName: string): Promise<void> {
+    if (!id) throw new Error('No equipment ID');
+    await equipmentControlService.renameDocument(id, documentId, newName);
+    setDocuments((prev) =>
+      prev.map((d) => (d.id === documentId ? { ...d, name: newName.trim() } : d))
+    );
+  }
+
   async function updateUsageLog(
     logId: string,
     data: Partial<Omit<UsageLog, 'id' | 'createdAt'>>
@@ -162,6 +170,7 @@ export function useEquipmentDetail(id: string | undefined) {
     uploadDocument,
     refreshDocuments,
     deleteDocument,
+    renameDocument,
     updateUsageLog,
     deleteUsageLog,
     setEquipment,

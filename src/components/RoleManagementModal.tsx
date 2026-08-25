@@ -404,35 +404,22 @@ export const RoleManagementModal: React.FC<RoleManagementModalProps> = ({
                       <span className="font-medium">{role.permissions.length}</span> permission{role.permissions.length !== 1 ? 's' : ''}
                     </div>
 
-                    <div className="mt-4 flex gap-2">
-                      {role.id === 'admin' || role.id === 'staff' ? (
+                    <div className="mt-4 flex justify-end gap-1">
+                      <button
+                        onClick={() => handleEditRole(role)}
+                        title={role.id === 'admin' ? 'Edit administrator permissions' : role.id === 'staff' ? 'Edit standard user permissions' : 'Edit role'}
+                        className="p-1.5 rounded-lg text-gray-400 hover:text-primary-600 hover:bg-primary-50 transition-colors"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
+                      </button>
+                      {role.id !== 'admin' && role.id !== 'staff' && (
                         <button
-                          onClick={() => handleEditRole(role)}
-                          className="flex-1 px-3 py-2 text-sm bg-primary-100 text-primary-700 rounded-lg hover:bg-primary-200 transition-colors"
-                          title={
-                            role.id === 'admin'
-                              ? 'Edit administrator permissions'
-                              : 'Edit Standard user permissions'
-                          }
+                          onClick={() => handleDeleteRole(role)}
+                          title="Delete role"
+                          className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
                         >
-                          Edit Permissions
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                         </button>
-                      ) : (
-                        // Custom roles can be edited and deleted
-                        <>
-                          <button
-                            onClick={() => handleEditRole(role)}
-                            className="flex-1 px-3 py-2 text-sm bg-primary-100 text-primary-700 rounded-lg hover:bg-primary-200 transition-colors"
-                          >
-                            Edit
-                          </button>
-                          <button
-                            onClick={() => handleDeleteRole(role)}
-                            className="flex-1 px-3 py-2 text-sm bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors"
-                          >
-                            Delete
-                          </button>
-                        </>
                       )}
                     </div>
                   </div>

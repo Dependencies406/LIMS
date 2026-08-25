@@ -16,6 +16,7 @@ import type {
   DocumentsTableElement,
   DocumentsTableColumnDef,
   TrebTableElement,
+  RecordTableElement,
   PdfElementType,
 } from '../types';
 import { DOCUMENTS_TABLE_DEFAULT_COLUMNS, EQUIPMENT_TABLE_DEFAULT_COLUMNS, TRAINING_TABLE_DEFAULT_COLUMNS, assertNever } from '../types';
@@ -240,6 +241,28 @@ export function createPdfElement(
       } as TrebTableElement;
     }
 
+    case 'record-table': {
+      const recordOpts = options as RecordTableElement;
+      return {
+        ...baseElement,
+        type: 'record-table',
+        paginationMode: recordOpts?.paginationMode ?? 'dynamic',
+        repeatOnOverflowPages: recordOpts?.repeatOnOverflowPages ?? true,
+        width: recordOpts?.width ?? 500,
+        height: recordOpts?.height ?? 200,
+        columns: recordOpts?.columns,
+        showSectionHeaders: recordOpts?.showSectionHeaders ?? true,
+        borderColor: recordOpts?.borderColor ?? '#000000',
+        borderWidth: recordOpts?.borderWidth ?? 1,
+        fontSize: recordOpts?.fontSize ?? 9,
+        headerFontSize: recordOpts?.headerFontSize ?? 10,
+        sectionHeaderFontSize: recordOpts?.sectionHeaderFontSize ?? 10,
+        headerStyle: recordOpts?.headerStyle ?? { bold: true, backgroundColor: '#e5e7eb' },
+        sectionHeaderStyle: recordOpts?.sectionHeaderStyle ?? { bold: true, backgroundColor: '#d1d5db' },
+        cellStyle: recordOpts?.cellStyle ?? {},
+      } as RecordTableElement;
+    }
+
     default:
       // If TypeScript raises an error here, a new PdfElementType was added
       // but createPdfElement has no case for it. Add a case above to fix.
@@ -373,6 +396,12 @@ export function getElementLabel(element: PdfElement): string {
     case 'treb-table': {
       const trebEl = element as TrebTableElement;
       return trebEl.sourceTabId ? `📊 TREB Table: ${trebEl.sourceTabId}` : '📊 TREB Table';
+    }
+
+    case 'record-table': {
+      const recordEl = element as RecordTableElement;
+      const colCount = recordEl.columns?.length;
+      return colCount ? `🧾 Record Table (${colCount} columns)` : '🧾 Record Table (all columns)';
     }
 
     default:

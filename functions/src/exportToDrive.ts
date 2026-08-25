@@ -17,7 +17,9 @@
 
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { defineSecret } from 'firebase-functions/params';
-import * as admin from 'firebase-admin';
+import { getApps, initializeApp } from 'firebase-admin/app';
+import { getFirestore, type QueryDocumentSnapshot } from 'firebase-admin/firestore';
+import { getStorage } from 'firebase-admin/storage';
 import { google } from 'googleapis';
 import { Readable } from 'stream';
 
@@ -171,9 +173,9 @@ export const exportJobsToGoogleDrive = onCall(
     }
 
     // ── Init Firebase Admin ───────────────────────────────────────
-    if (!admin.apps.length) admin.initializeApp();
-    const db = admin.firestore();
-    const bucket = admin.storage().bucket(); // default bucket
+    if (!getApps().length) initializeApp();
+    const db = getFirestore();
+    const bucket = getStorage().bucket(); // default bucket
 
     // ── Init Google Drive (OAuth2 user credentials) ───────────────
     // Using the actual Google account owner's credentials so uploads
@@ -209,7 +211,7 @@ export const exportJobsToGoogleDrive = onCall(
 
     // ── Fetch all jobs from Firestore ─────────────────────────────
     const jobsSnap = await db.collection('jobs').orderBy('createdAt', 'desc').get();
-    const jobs = jobsSnap.docs.filter((d) => {
+    const jobs = jobsSnap.docs.filter((d: QueryDocumentSnapshot) => {
       const data = d.data();
       if (!includeDeleted && data.isDeleted === true) return false;
       return true;

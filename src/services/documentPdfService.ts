@@ -292,7 +292,7 @@ const addDocumentFooter = (pdf: jsPDF, docData: Document, pageNum: number, total
 /**
  * Add watermark overlay to PDF page
  */
-const addWatermark = (pdf: jsPDF, text: string, color: string, angle: number) => {
+export const addWatermark = (pdf: jsPDF, text: string, color: string, angle: number) => {
   const pageWidth = pdf.internal.pageSize.getWidth();
   const pageHeight = pdf.internal.pageSize.getHeight();
   

@@ -176,6 +176,30 @@ export const deleteEquipmentFile = async (
 };
 
 /**
+ * Rename an equipment file attachment in Firestore (display name only).
+ */
+export const renameEquipmentFile = async (
+  jobId: string,
+  equipmentIndex: number,
+  attachmentId: string,
+  newName: string
+): Promise<void> => {
+  const jobRef = doc(db, 'jobs', jobId);
+  const jobDoc = await getDoc(jobRef);
+  if (!jobDoc.exists()) throw new Error('Job not found');
+  const equipment: Equipment[] = jobDoc.data().equipment || [];
+  if (!equipment[equipmentIndex]) throw new Error(`Equipment at index ${equipmentIndex} not found`);
+  const updatedEquipment = [...equipment];
+  updatedEquipment[equipmentIndex] = {
+    ...updatedEquipment[equipmentIndex],
+    attachments: (updatedEquipment[equipmentIndex].attachments || []).map((a) =>
+      a.id === attachmentId ? { ...a, fileName: newName.trim() } : a
+    ),
+  };
+  await updateDoc(jobRef, { equipment: updatedEquipment });
+};
+
+/**
  * Get download URL for an equipment file
  */
 export const getEquipmentFileDownloadURL = async (

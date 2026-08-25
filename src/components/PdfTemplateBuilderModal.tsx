@@ -734,6 +734,9 @@ export const PdfTemplateBuilderModal: React.FC<PdfTemplateBuilderModalProps> = (
               <button onClick={() => handleElementAdd('documents-table')} className="w-8 h-8 flex items-center justify-center rounded hover:bg-gray-100 transition-colors" style={{ color: '#374151' }} title="Add Documents Index Table">
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
               </button>
+              <button onClick={() => handleElementAdd('record-table')} className="w-8 h-8 flex items-center justify-center rounded hover:bg-gray-100 transition-colors" style={{ color: '#374151' }} title="Add Record Table">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 2v4M15 2v4M3 8h18M5 4h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2z" /></svg>
+              </button>
               <button onClick={() => handleElementAdd('chart')} className="w-8 h-8 flex items-center justify-center rounded hover:bg-gray-100 transition-colors" style={{ color: '#374151' }} title="Add Chart">
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
               </button>
@@ -874,6 +877,10 @@ export const PdfTemplateBuilderModal: React.FC<PdfTemplateBuilderModalProps> = (
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
                     <span className="text-[9px]" style={{ color: '#6b7280' }}>Docs</span>
                   </button>
+                  <button onClick={() => handleElementAdd('record-table')} className="flex flex-col items-center justify-center gap-0.5 py-2 px-1 rounded hover:bg-gray-100 transition-colors" style={{ backgroundColor: '#f3f4f6', color: '#374151' }} title="Add Record Table">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 2v4M15 2v4M3 8h18M5 4h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2z" /></svg>
+                    <span className="text-[9px]" style={{ color: '#6b7280' }}>Record</span>
+                  </button>
                   <button onClick={() => handleElementAdd('chart')} className="flex flex-col items-center justify-center gap-0.5 py-2 px-1 rounded hover:bg-gray-100 transition-colors" style={{ backgroundColor: '#f3f4f6', color: '#374151' }} title="Add Chart">
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
                     <span className="text-[9px]" style={{ color: '#6b7280' }}>Chart</span>
@@ -1000,7 +1007,7 @@ export const PdfTemplateBuilderModal: React.FC<PdfTemplateBuilderModalProps> = (
                                     <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="1" strokeWidth={2} /></svg>
                                   ) : element.type === 'image' ? (
                                     <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14M6 8h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                                  ) : element.type === 'equipment-table' || element.type === 'documents-table' || element.type === 'treb-table' ? (
+                                  ) : element.type === 'equipment-table' || element.type === 'documents-table' || element.type === 'treb-table' || element.type === 'record-table' ? (
                                     <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 10h18M3 14h18M10 3v18M3 3h18v18H3z" /></svg>
                                   ) : element.type === 'chart' ? (
                                     <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>

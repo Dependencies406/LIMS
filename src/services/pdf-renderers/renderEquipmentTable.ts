@@ -4,6 +4,32 @@ import { computeSafeLineHeight } from '../pdfTextLayoutService';
 import type { RendererHelpers } from './rendererHelpers';
 
 /**
+ * Resolves one equipment-table cell's display text (Phase 30 Task 1).
+ *
+ * The `no` column (`EQUIPMENT_TABLE_DEFAULT_COLUMNS`, types.ts) is a
+ * computed ROW ORDINAL, never a data lookup — `equipment.no` does not
+ * exist, so looking it up (the pre-Phase-30 behaviour) rendered every row
+ * blank. `rowNumberOffset` is the slice's starting row index
+ * (`slice.rowStart`, or 0 when unsliced) so numbering continues correctly
+ * across continuation pages instead of restarting at 1 on every sub-page.
+ *
+ * Every other column reads `equipment[col.id]` — exported so
+ * `measureEquipmentTableHeights` (pdfTemplateRenderer.ts) resolves the
+ * IDENTICAL text this draw pass does; measuring a different string than
+ * what gets drawn is exactly the seam Phase 27 hit on record-table.
+ */
+export function resolveEquipmentCellText(
+  eq: any,
+  col: { id: string },
+  rowIndex: number,
+  rowNumberOffset: number,
+): string {
+  if (col.id === 'no') return String(rowNumberOffset + rowIndex + 1);
+  const raw = eq?.[col.id];
+  return raw === undefined || raw === null ? '' : String(raw);
+}
+
+/**
  * Renders the equipment table element onto a jsPDF document.
  * This function was extracted from PdfTemplateRenderer for maintainability.
  *
@@ -22,7 +48,33 @@ export function renderEquipmentTable(
     ? equipment.slice(slice.rowStart, slice.rowEnd)
     : equipment;
 
+  const x = element.x ?? 0;
+  const y = element.y ?? 0;
+  const totalWidth = element.width ?? 100;
+
+  // Task 3/4 (Phase 30): an honest empty state instead of a silently blank
+  // box — `jobData.equipment` itself has no rows (checked against the FULL
+  // array, not `items`: an empty slice on a later sub-page is a pagination
+  // detail, not "no data", and must stay silent like before).
+  if (equipment.length === 0) {
+    const emptyHeight = 18;
+    const message = 'No equipment records.';
+    pdf.setFillColor('#ffffff');
+    pdf.rect(x, y, totalWidth, emptyHeight, 'F');
+    pdf.setDrawColor((element as any).borderColor ?? '#d1d5db');
+    pdf.setLineWidth((element as any).borderWidth ?? 0.5);
+    pdf.rect(x, y, totalWidth, emptyHeight, 'S');
+    helpers.applyContentFont(pdf, message, 'Helvetica', 'normal', 9);
+    pdf.setFontSize(9);
+    pdf.setTextColor('#6b7280');
+    pdf.text(helpers.normalizePdfText(message), x + 4, y + 13);
+    return;
+  }
   if (items.length === 0) return;
+
+  // Task 1 (Phase 30): the `no` column's ordinal base — so row numbering
+  // continues correctly across continuation pages rather than restarting.
+  const rowNumberOffset = slice?.rowStart ?? 0;
 
   // Filter to visible columns only and sort by display order — must match
   // measureEquipmentTableHeights in pdfTemplateRenderer.ts so layout is consistent.
@@ -31,10 +83,6 @@ export function renderEquipmentTable(
     .sort((a: any, b: any) => (a.order ?? 0) - (b.order ?? 0));
 
   if (columns.length === 0) return;
-
-  const x = element.x ?? 0;
-  const y = element.y ?? 0;
-  const totalWidth = element.width ?? 100;
 
   const fontSize = (element as any).fontSize ?? (element as any).cellStyle?.fontSize ?? 9;
   const headerFontSize = (element as any).headerFontSize ?? (element as any).headerStyle?.fontSize ?? fontSize;
@@ -75,15 +123,12 @@ export function renderEquipmentTable(
 
   // ── Pass 1: compute each data row height ─────────────────────────
   helpers.applyContentFont(pdf, '', 'Helvetica', cellBold ? 'bold' : 'normal', fontSize);
-  const rowHeights: number[] = items.map((eq) => {
+  const rowHeights: number[] = items.map((eq, ri) => {
     let rh = minRowHeight;
     for (let i = 0; i < columns.length; i++) {
       const col = columns[i];
       const cw = colWidths[i];
-      // Bug fix: use col.id (field key on Equipment) — col.key does not exist on
-      // EquipmentTableColumnDef and always resolved to undefined, causing blank cells.
-      const raw = eq[col.id] ?? '';
-      const text = helpers.normalizePdfText(String(raw));
+      const text = helpers.normalizePdfText(resolveEquipmentCellText(eq, col, ri, rowNumberOffset));
       const lines = helpers.wrapTextForCell(
         text,
         Math.max(1, cw - cellPadding * 2),
@@ -161,8 +206,7 @@ export function renderEquipmentTable(
       pdf.setLineWidth(borderWidth);
       pdf.rect(curX, curY, cw, rowHeight);
 
-      const raw = eq[col.id] ?? '';
-      const text = helpers.normalizePdfText(String(raw));
+      const text = helpers.normalizePdfText(resolveEquipmentCellText(eq, col, ri, rowNumberOffset));
       const align: 'left' | 'center' | 'right' = col.align ?? 'left';
       const textX = align === 'center'
         ? curX + cw / 2

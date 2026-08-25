@@ -1,22 +1,25 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { Job, DocumentIndexItem } from '../types';
+import type { Job, DocumentIndexItem, CalibrationRecord } from '../types';
 import type { PdfTemplate, PdfTemplateScope } from '../modules/pdf-template-builder/types';
 import { pdfTemplateRenderer } from '../services/pdfTemplateRenderer';
 import { pdfDataResolver, type MissingDataReport } from '../services/pdfDataResolver';
 import { documentsTemplatePrintService } from '../services/documentsTemplatePrintService';
+import { recordTemplatePrintService } from '../services/recordTemplatePrintService';
 
-type Mode = 'job' | 'documents';
+type Mode = 'job' | 'documents' | 'record';
 
 interface Params {
   mode: Mode;
   job?: Job;
   selectedEquipmentIndex?: number;
   documentIndexItems?: DocumentIndexItem[];
+  /** mode: 'record' only — the record being printed. Its PINNED template version is always resolved server-side (ADR-005), never the live template. */
+  record?: CalibrationRecord;
   /** When provided, the TemplateSelectorModal will filter to this scope + global templates. */
   scope?: PdfTemplateScope;
 }
 
-export function useTemplatePdfWorkflow({ mode, job, selectedEquipmentIndex, documentIndexItems, scope }: Params) {
+export function useTemplatePdfWorkflow({ mode, job, selectedEquipmentIndex, documentIndexItems, record, scope }: Params) {
   const [selectedTemplate, setSelectedTemplate] = useState<PdfTemplate | null>(null);
   const [showTemplateSelector, setShowTemplateSelector] = useState(false);
   const [showMissingDataWarning, setShowMissingDataWarning] = useState(false);
@@ -54,6 +57,11 @@ export function useTemplatePdfWorkflow({ mode, job, selectedEquipmentIndex, docu
         );
         blob = result.blob;
         resultMissing = result.missingData;
+      } else if (mode === 'record') {
+        if (!record) throw new Error('Record context missing.');
+        const result = await recordTemplatePrintService.generatePdfBlob(template, record, { continueWithNA });
+        blob = result.blob;
+        resultMissing = result.missingData;
       } else {
         if (!job) throw new Error('Job context missing.');
         const result = await pdfTemplateRenderer.renderTemplate(template, job, {
@@ -75,7 +83,7 @@ export function useTemplatePdfWorkflow({ mode, job, selectedEquipmentIndex, docu
       generatingRef.current = false;
       setIsGenerating(false);
     }
-  }, [cleanupPreviewUrl, job, mode, selectedEquipmentIndex, documentIndexItems]);
+  }, [cleanupPreviewUrl, job, mode, selectedEquipmentIndex, documentIndexItems, record]);
 
   const validateTemplate = useCallback(async (template: PdfTemplate) => {
     if (mode === 'documents') {
@@ -84,23 +92,31 @@ export function useTemplatePdfWorkflow({ mode, job, selectedEquipmentIndex, docu
         documentIndexItems ? { documentIndexItems } : undefined
       );
     }
+    if (mode === 'record') {
+      if (!record) throw new Error('Record context missing.');
+      return recordTemplatePrintService.validateTemplate(template, record);
+    }
     if (!job) throw new Error('Job context missing.');
     const prepared = await pdfTemplateRenderer.prepareJobDataForPdf(job);
     return pdfDataResolver.validateTemplate(template, prepared as any, selectedEquipmentIndex);
-  }, [job, mode, selectedEquipmentIndex, documentIndexItems]);
+  }, [job, mode, selectedEquipmentIndex, documentIndexItems, record]);
 
   const handleTemplateSelect = useCallback(async (template: PdfTemplate) => {
     setSelectedTemplate(template);
     setShowTemplateSelector(false);
     setError(null);
     setInfoMessage(null);
-    const missing = await validateTemplate(template);
-    setMissingData(missing);
-    if (missing.length > 0) {
-      setShowMissingDataWarning(true);
-      return;
+    try {
+      const missing = await validateTemplate(template);
+      setMissingData(missing);
+      if (missing.length > 0) {
+        setShowMissingDataWarning(true);
+        return;
+      }
+      await generatePreview(template, false);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to validate template.');
     }
-    await generatePreview(template, false);
   }, [generatePreview, validateTemplate]);
 
   const handleContinueWithNA = useCallback(async () => {

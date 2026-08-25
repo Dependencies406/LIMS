@@ -15,6 +15,7 @@ import type { FileAttachment } from '../types';
 import {
   uploadJobAttachment,
   deleteJobAttachment,
+  renameJobAttachment,
   formatFileSize,
   getFileCategory,
   MAX_FILE_SIZE_BYTES,
@@ -188,7 +189,40 @@ export const JobAttachmentsPanel: React.FC<JobAttachmentsPanelProps> = ({
   const [pendingUploads, setPendingUploads] = useState<PendingUpload[]>([]);
   const [dragging, setDragging] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState('');
+  const [renameSaving, setRenameSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  function startRename(att: FileAttachment) {
+    setRenamingId(att.id);
+    setRenameValue(att.name);
+  }
+
+  function cancelRename() {
+    setRenamingId(null);
+    setRenameValue('');
+  }
+
+  const commitRename = useCallback(
+    async (att: FileAttachment) => {
+      const trimmed = renameValue.trim();
+      if (!trimmed || trimmed === att.name) { cancelRename(); return; }
+      setRenameSaving(true);
+      try {
+        await renameJobAttachment(jobDocId, att.id, trimmed);
+        onAttachmentsChange(
+          attachments.map((a) => (a.id === att.id ? { ...a, name: trimmed } : a))
+        );
+        cancelRename();
+      } catch {
+        alert('Rename failed. Please try again.');
+      } finally {
+        setRenameSaving(false);
+      }
+    },
+    [renameValue, jobDocId, attachments, onAttachmentsChange]
+  );
 
   // ── Upload handler ──────────────────────────────────────────────────────────
 
@@ -349,7 +383,21 @@ export const JobAttachmentsPanel: React.FC<JobAttachmentsPanelProps> = ({
 
                 {/* Meta */}
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-800 truncate leading-tight">{att.name}</p>
+                  {renamingId === att.id ? (
+                    <input
+                      autoFocus
+                      value={renameValue}
+                      onChange={(e) => setRenameValue(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') void commitRename(att);
+                        if (e.key === 'Escape') cancelRename();
+                      }}
+                      disabled={renameSaving}
+                      className="text-sm font-medium text-gray-800 w-full border-b border-primary-400 bg-transparent focus:outline-none py-0.5 min-w-0 leading-tight"
+                    />
+                  ) : (
+                    <p className="text-sm font-medium text-gray-800 truncate leading-tight">{att.name}</p>
+                  )}
                   <p className="text-[10px] text-gray-400 mt-0.5">
                     {formatFileSize(att.size)}
                     {att.uploadedAt && <> · {formatDate(att.uploadedAt)}</>}
@@ -357,27 +405,64 @@ export const JobAttachmentsPanel: React.FC<JobAttachmentsPanelProps> = ({
                 </div>
 
                 {/* Actions */}
-                <div className="flex items-center gap-1 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <a
-                    href={att.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    title="Download"
-                    className="w-7 h-7 flex items-center justify-center rounded-md border border-gray-200 bg-white text-gray-500 hover:bg-primary-50 hover:text-primary-600 hover:border-primary-200 transition-colors"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <DownloadIcon />
-                  </a>
-                  {!isReadOnly && (
-                    <button
-                      type="button"
-                      title="Delete"
-                      disabled={isDeleting}
-                      onClick={() => handleDelete(att)}
-                      className="w-7 h-7 flex items-center justify-center rounded-md border border-gray-200 bg-white text-gray-500 hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-colors disabled:opacity-40"
-                    >
-                      {isDeleting ? <SpinnerIcon /> : <TrashIcon />}
-                    </button>
+                <div className="flex items-center gap-1 flex-shrink-0">
+                  {renamingId === att.id ? (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => void commitRename(att)}
+                        disabled={renameSaving}
+                        title="Save name"
+                        className="w-7 h-7 flex items-center justify-center rounded-md border border-gray-200 bg-white text-green-600 hover:bg-green-50 hover:border-green-200 transition-colors disabled:opacity-40"
+                      >
+                        {renameSaving
+                          ? <SpinnerIcon />
+                          : <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"/></svg>
+                        }
+                      </button>
+                      <button
+                        type="button"
+                        onClick={cancelRename}
+                        title="Cancel"
+                        className="w-7 h-7 flex items-center justify-center rounded-md border border-gray-200 bg-white text-gray-500 hover:bg-gray-100 transition-colors"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                      </button>
+                    </>
+                  ) : (
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <a
+                        href={att.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title="Download"
+                        className="w-7 h-7 flex items-center justify-center rounded-md border border-gray-200 bg-white text-gray-500 hover:bg-primary-50 hover:text-primary-600 hover:border-primary-200 transition-colors"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <DownloadIcon />
+                      </a>
+                      {!isReadOnly && (
+                        <button
+                          type="button"
+                          title="Rename"
+                          onClick={() => startRename(att)}
+                          className="w-7 h-7 flex items-center justify-center rounded-md border border-gray-200 bg-white text-gray-500 hover:bg-primary-50 hover:text-primary-600 hover:border-primary-200 transition-colors"
+                        >
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
+                        </button>
+                      )}
+                      {!isReadOnly && (
+                        <button
+                          type="button"
+                          title="Delete"
+                          disabled={isDeleting}
+                          onClick={() => handleDelete(att)}
+                          className="w-7 h-7 flex items-center justify-center rounded-md border border-gray-200 bg-white text-gray-500 hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-colors disabled:opacity-40"
+                        >
+                          {isDeleting ? <SpinnerIcon /> : <TrashIcon />}
+                        </button>
+                      )}
+                    </div>
                   )}
                 </div>
               </div>

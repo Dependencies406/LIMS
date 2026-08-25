@@ -2,7 +2,6 @@ import type { User } from '../types';
 import { firestoreToDate } from '../utils/dateUtils';
 import {
   db,
-  auth,
   collection,
   doc,
   getDoc,
@@ -14,9 +13,11 @@ import {
   serverTimestamp,
   onSnapshot,
   createUserWithEmailAndPassword,
-  signOut,
 } from './firebase';
 import { deleteUser as deleteUserAndRelatedData } from './firestoreDeletionService';
+import { initializeApp, deleteApp } from 'firebase/app';
+import { getAuth } from 'firebase/auth';
+import { firebaseConfig } from '../config/firebase';
 
 // Note: Firebase Admin SDK is required for user creation/deletion
 // For now, we'll manage Firestore user documents
@@ -254,13 +255,6 @@ export const userService = {
    * @returns Promise with user UID
    */
   async createUser(data: UserInput & { password: string }): Promise<string> {
-    // ⚠️  KNOWN LIMITATION — Client-SDK session swap:
-    // `createUserWithEmailAndPassword` immediately signs the new user in and signs out
-    // the calling admin. We capture the admin's credential before the call so we can
-    // re-sign them in afterward.  The proper fix is a Firebase Cloud Function (Admin SDK)
-    // that creates the auth account server-side without touching the client session.
-    const adminEmail = auth.currentUser?.email ?? null;
-
     try {
       // Validate required fields
       if (!data.email || !data.password || !data.firstName || !data.lastName) {
@@ -272,37 +266,56 @@ export const userService = {
         throw new Error('Password must be at least 6 characters long');
       }
 
-      // Create Firebase Authentication account.
-      // NOTE: this call changes auth.currentUser to the newly created user.
-      const userCredential = await createUserWithEmailAndPassword(
-        auth,
-        data.email,
-        data.password
-      );
-
-      const uid = userCredential.user.uid;
+      // ADR-016 Task 6 fix: create the new Auth account on a SEPARATE,
+      // throwaway Firebase App instance instead of the primary one the admin
+      // is signed into. `createUserWithEmailAndPassword` unconditionally
+      // signs the new user in on WHATEVER Auth instance it's called on — the
+      // old code called it on the primary `auth`, which silently swapped
+      // `auth.currentUser` to the brand-new user for the rest of this
+      // function. The very next write (that new user's OWN Firestore
+      // profile, via createUserProfile below) then ran under THEIR
+      // identity, not the admin's — and firestore.rules' `/users/{userId}`
+      // create rule requires the CALLER to already be an admin. A user with
+      // no profile document yet can never satisfy that, so this write was
+      // guaranteed to fail with permission-denied on every attempt, leaving
+      // an orphaned Auth account (signs in fine, no matching Firestore
+      // document, refused by every permission check — ADR-005 fails closed
+      // on a missing role doc). Using a secondary app+auth instance here,
+      // and discarding it immediately after, keeps the admin's own session
+      // — and therefore their admin role — intact for the profile write.
+      const secondaryApp = initializeApp(firebaseConfig, `user-creation-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+      const secondaryAuth = getAuth(secondaryApp);
+      let uid: string;
+      try {
+        const userCredential = await createUserWithEmailAndPassword(
+          secondaryAuth,
+          data.email,
+          data.password
+        );
+        uid = userCredential.user.uid;
+      } finally {
+        // Tear down the secondary app+session entirely; never touches auth.currentUser.
+        await deleteApp(secondaryApp).catch(() => { /* ignore */ });
+      }
 
       try {
-        // Create Firestore user profile while signed in as the new user.
+        // Create Firestore user profile under the admin's own (untouched) session.
         await this.createUserProfile(uid, data);
         return uid;
       } catch (profileError) {
         console.error('Failed to create user profile after auth account creation:', profileError);
-        throw new Error('User account created but profile setup failed. Please contact administrator.');
-      } finally {
-        // Sign the new user out so auth.currentUser is cleared.
-        // The page will redirect to /login and the admin can re-authenticate.
-        // Alternatively, if the admin password is available, re-sign them in here.
-        if (adminEmail) {
-          try { await signOut(auth); } catch { /* ignore */ }
-        }
+        throw new Error(
+          `User account created but profile setup failed (${data.email} now has an Auth account with no matching users/ document — it will be refused every permission check). Please contact administrator.`
+        );
       }
     } catch (error: any) {
       console.error('Error creating user:', error);
 
       // Provide user-friendly error messages
       if (error.code === 'auth/email-already-in-use') {
-        throw new Error('This email address is already in use');
+        throw new Error(
+          'This email address already has an authentication account. If this happened right after a failed "Add User" attempt, the account may be missing its user profile — check Firebase Console → Authentication to confirm, and remove it there before retrying if so. This cannot be repaired from this page.'
+        );
       } else if (error.code === 'auth/invalid-email') {
         throw new Error('Invalid email address');
       } else if (error.code === 'auth/weak-password') {

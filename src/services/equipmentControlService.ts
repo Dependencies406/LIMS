@@ -53,6 +53,7 @@ function mapEquipment(id: string, data: Record<string, unknown>): EquipmentRecor
     calibrationInterval: data.calibrationInterval as number | undefined,
     calibrationProcedure: data.calibrationProcedure as string | undefined,
     externalProvider: Boolean(data.externalProvider),
+    isReferenceStandard: Boolean(data.isReferenceStandard),
     capacity: data.capacity as string | undefined,
     usageRange: data.usageRange as string | undefined,
     usageCriteria: data.usageCriteria as string | undefined,
@@ -123,6 +124,8 @@ export interface EquipmentInput {
   calibrationInterval?: number;
   calibrationProcedure?: string;
   externalProvider: boolean;
+  /** Selectable as a reference standard in a record's `standard` column (ADR-014 D3). */
+  isReferenceStandard?: boolean;
   capacity?: string;
   usageRange?: string;
   usageCriteria?: string;
@@ -240,10 +243,12 @@ export const equipmentControlService = {
     id: string,
     data: Partial<Omit<EquipmentInput, 'id' | 'createdBy'>>
   ): Promise<void> {
-    await updateDoc(doc(db, 'equipmentControl', id), {
-      ...data,
-      updatedAt: serverTimestamp(),
-    });
+    // Firestore rejects undefined field values — strip them before writing
+    const payload = Object.fromEntries(
+      Object.entries({ ...data, updatedAt: serverTimestamp() })
+        .filter(([, v]) => v !== undefined)
+    );
+    await updateDoc(doc(db, 'equipmentControl', id), payload);
   },
 
   async updateStatus(id: string, status: EquipmentStatus): Promise<void> {
@@ -505,6 +510,17 @@ export const equipmentControlService = {
         console.warn('Storage delete failed (file may already be removed):', err);
       }
     }
+  },
+
+  async renameDocument(
+    equipmentId: string,
+    documentId: string,
+    newName: string
+  ): Promise<void> {
+    await updateDoc(
+      doc(db, 'equipmentControl', equipmentId, 'documents', documentId),
+      { name: newName.trim() }
+    );
   },
 
   async getDocuments(equipmentId: string): Promise<EquipmentDocument[]> {

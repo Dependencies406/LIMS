@@ -607,10 +607,10 @@ export const PdfTemplateBuilderCanvas: React.FC<PdfTemplateBuilderCanvasProps> =
           // For other element types (text, rectangle, image, equipment-table, chart)
           const displayWidth =
             element.width ??
-            (element.type === 'text' ? 150 : element.type === 'equipment-table' || element.type === 'documents-table' ? 500 : 200);
+            (element.type === 'text' ? 150 : element.type === 'equipment-table' || element.type === 'documents-table' || element.type === 'record-table' ? 500 : 200);
           const displayHeight =
             element.height ??
-            (element.type === 'text' ? 30 : element.type === 'equipment-table' || element.type === 'documents-table' ? 200 : 100);
+            (element.type === 'text' ? 30 : element.type === 'equipment-table' || element.type === 'documents-table' || element.type === 'record-table' ? 200 : 100);
           
           return (
             <div

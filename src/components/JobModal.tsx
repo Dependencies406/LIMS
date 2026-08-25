@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useLayoutEffect, useMemo, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
+import { useNavigate } from 'react-router-dom';
 import { firestoreToDate } from '../utils/dateUtils';
 import type { Job, Customer, Equipment, User, WorkAuthorization, FileAttachment } from '../types';
 import { db, doc, setDoc, updateDoc, getDoc, serverTimestamp, deleteField } from '../services/firebase';
@@ -123,6 +124,7 @@ export const JobModal: React.FC<JobModalProps> = ({
   onDeleted,
 }) => {
   const { currentUser, isAdmin } = useAuth();
+  const navigate = useNavigate();
   const { users } = useUsers();
   const { hasPermission: hasEditJobPermission, loading: loadingEditPerm } = usePermission('jobs.edit');
   const { hasPermission: hasCreateJobPermission, loading: loadingCreatePerm } = usePermission('jobs.create');
@@ -277,6 +279,8 @@ export const JobModal: React.FC<JobModalProps> = ({
   });
 
   const [equipment, setEquipment] = useState<Equipment[]>([{
+    // Stable id assigned at creation (ADR-002 Phase 2).
+    id: `${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
     name: '',
     manufacturer: '',
     model: '',
@@ -305,6 +309,7 @@ export const JobModal: React.FC<JobModalProps> = ({
   const [calibrationMethodSuggestRow, setCalibrationMethodSuggestRow] = useState<number | null>(null);
   const [generatingCertificateForRow, setGeneratingCertificateForRow] = useState<number | null>(null);
   const [excelCopiedRow, setExcelCopiedRow] = useState<number | null>(null);
+  const [itemsViewMode, setItemsViewMode] = useState<'card' | 'table'>('card');
   const [showCustomerSignatureModal, setShowCustomerSignatureModal] = useState(false);
   const [showStaffSignatureModal, setShowStaffSignatureModal] = useState(false);
   const [showTechnicalReviewerSignatureModal, setShowTechnicalReviewerSignatureModal] = useState(false);
@@ -371,6 +376,8 @@ export const JobModal: React.FC<JobModalProps> = ({
         customerRequirementsUnderstood: currentJob.workAuthorization?.preWorkChecklist?.customerRequirementsUnderstood ?? false,
       });
       const loadedEq = currentJob.equipment.length > 0 ? currentJob.equipment : [{
+        // Stable id assigned at creation (ADR-002 Phase 2).
+        id: `${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
         name: '',
         manufacturer: '',
         model: '',
@@ -439,6 +446,8 @@ export const JobModal: React.FC<JobModalProps> = ({
       
       // Reset equipment to single empty row
       setEquipment([{
+        // Stable id assigned at creation (ADR-002 Phase 2).
+        id: `${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
         name: '',
         manufacturer: '',
         model: '',
@@ -961,9 +970,40 @@ export const JobModal: React.FC<JobModalProps> = ({
   ]);
 
   const handleEquipmentChange = (index: number, field: keyof Equipment, value: string) => {
-    const newEquipment = [...equipment];
-    newEquipment[index] = { ...newEquipment[index], [field]: value };
-    setEquipment(newEquipment);
+    // Functional update — not `[...equipment]` off the closure — so this is
+    // safe to call twice in a row (e.g. handleEquipmentTypeNameChange below
+    // sets `name` synchronously, then `equipmentTypeId` once an async lookup
+    // resolves) without the second call clobbering the first with a stale
+    // snapshot of `equipment`.
+    setEquipment((prev) => {
+      const next = [...prev];
+      next[index] = { ...next[index], [field]: value };
+      return next;
+    });
+  };
+
+  /**
+   * "Equipment type (name)" is a renameable display label (`Equipment.name`);
+   * `Equipment.equipmentTypeId` is the STABLE id `createDraftRecord` actually
+   * needs to find a recorder template (ADR-012 — see `CertificateNumberConfig`'s
+   * own doc comment in types/index.ts). Nothing else in this form ever set
+   * `equipmentTypeId`, which left every item unable to record until now: this
+   * derives it from whichever Certificate Number Manager entry's `name`
+   * matches what was just picked/typed, clearing it when nothing matches (a
+   * free-text name with no corresponding config) rather than leaving a STALE
+   * id from a previous selection pointing at the wrong equipment type.
+   */
+  const handleEquipmentTypeNameChange = (index: number, value: string) => {
+    handleEquipmentChange(index, 'name', value);
+    certificateNumberConfigService.getConfigByEquipmentName(value)
+      .then((config) => {
+        handleEquipmentChange(index, 'equipmentTypeId', config?.id ?? '');
+      })
+      .catch(() => {
+        // Resolution failure isn't itself an error worth surfacing here —
+        // the field simply stays whatever it already was; the "no equipment
+        // type assigned" message at record-creation time covers the gap.
+      });
   };
 
   const handleManufacturerFieldChange = (index: number, value: string) => {
@@ -1000,6 +1040,9 @@ export const JobModal: React.FC<JobModalProps> = ({
     setEquipment([
       ...equipment,
       {
+        // Stable id assigned at creation (ADR-002 Phase 2) — required for a
+        // record to ever bind reliably to this item.
+        id: `${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
         name: '',
         manufacturer: '',
         model: '',
@@ -1027,9 +1070,12 @@ export const JobModal: React.FC<JobModalProps> = ({
 
   const duplicateEquipment = (index: number) => {
     const source = equipment[index];
-    // Do NOT copy spreadsheetData, attachments, or certificateNumber —
-    // and never set them to `undefined` (Firestore rejects undefined values).
+    // Do NOT copy spreadsheetData, attachments, certificateNumber, or id —
+    // a duplicate is a distinct item and must get its own stable id
+    // (ADR-002 Phase 2), never the source's.
+    // Never set fields to `undefined` (Firestore rejects undefined values).
     const duplicate: typeof source = {
+      id: `${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
       name: source.name,
       manufacturer: source.manufacturer,
       model: source.model,
@@ -1323,6 +1369,7 @@ export const JobModal: React.FC<JobModalProps> = ({
   const isPageLayout = layout === 'page';
   const canSave = currentJob ? hasEditJobPermission : hasCreateJobPermission;
   const formDisabled = !canSave || permLoading;
+  const tci = 'w-full min-w-0 bg-transparent px-1.5 py-0.5 text-sm text-gray-900 border border-transparent rounded hover:border-gray-200 focus:border-primary-400 focus:ring-1 focus:ring-primary-300 focus:outline-none placeholder:text-gray-400';
 
   return (
     <div
@@ -2440,9 +2487,39 @@ export const JobModal: React.FC<JobModalProps> = ({
                 </span>
                 <span className="min-w-0 break-words">Item Details <span className="text-red-500">*</span></span>
               </h3>
-              <IconButton variant="primary" title="Add Item Row" onClick={addEquipment}><PlusIcon /></IconButton>
+              <div className="flex items-center gap-2 shrink-0">
+                <div className="flex items-center rounded-lg border border-gray-200 bg-white p-0.5">
+                  <button
+                    type="button"
+                    onClick={() => setItemsViewMode('card')}
+                    className={`flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors ${itemsViewMode === 'card' ? 'bg-primary-600 text-white shadow-sm' : 'text-gray-600 hover:text-gray-900'}`}
+                    title="Card view — edit all fields"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                      <rect x="3" y="3" width="7" height="7" rx="1" strokeLinecap="round" strokeLinejoin="round"/>
+                      <rect x="14" y="3" width="7" height="7" rx="1" strokeLinecap="round" strokeLinejoin="round"/>
+                      <rect x="3" y="14" width="7" height="7" rx="1" strokeLinecap="round" strokeLinejoin="round"/>
+                      <rect x="14" y="14" width="7" height="7" rx="1" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                    Cards
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setItemsViewMode('table')}
+                    className={`flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors ${itemsViewMode === 'table' ? 'bg-primary-600 text-white shadow-sm' : 'text-gray-600 hover:text-gray-900'}`}
+                    title="Table view — review all at once"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 6h18M3 10h18M3 14h18M3 18h18"/>
+                    </svg>
+                    Table
+                  </button>
+                </div>
+                <IconButton variant="primary" title="Add Item Row" onClick={addEquipment}><PlusIcon /></IconButton>
+              </div>
             </div>
 
+            {itemsViewMode === 'card' ? (
             <div className="space-y-3">
               {equipment.map((eq, index) => {
                 const expanded = itemExpanded[index] ?? true;
@@ -2493,23 +2570,37 @@ export const JobModal: React.FC<JobModalProps> = ({
                     <button
                       type="button"
                       onClick={() => void handleCopyExcelForItem(index)}
-                      className={`shrink-0 text-sm font-medium px-2 py-1.5 rounded border ${
-                        excelCopiedRow === index
-                          ? 'border-primary-600 bg-primary-50 text-primary-700'
-                          : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
-                      }`}
                       title="Copy Job + Equipment info to paste into Excel"
+                      className={`shrink-0 p-1.5 rounded-lg border transition-colors ${
+                        excelCopiedRow === index
+                          ? 'border-primary-300 bg-primary-50 text-primary-600'
+                          : 'border-gray-200 bg-white text-gray-500 hover:bg-gray-50 hover:text-gray-700'
+                      }`}
                     >
-                      {excelCopiedRow === index ? 'Copied!' : 'Copy (Excel)'}
+                      {excelCopiedRow === index
+                        ? <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7"/></svg>
+                        : <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/></svg>
+                      }
                     </button>
+                    {currentJob?.id && eq.id ? (
+                      <button
+                        type="button"
+                        onClick={() => navigate(`/jobs/${currentJob.id}/items/${eq.id}/record`)}
+                        title="Open calibration recording sheet for this item"
+                        className="shrink-0 p-1.5 rounded-lg border border-gray-200 bg-white text-gray-500 hover:text-primary-600 hover:bg-primary-50 hover:border-primary-200 transition-colors"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M9 12h6m-6 4h6m-9 4h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                      </button>
+                    ) : null}
                     <button
                       type="button"
                       onClick={() => duplicateEquipment(index)}
-                      className="shrink-0 flex items-center gap-1 text-sm font-medium text-blue-600 hover:text-blue-800 px-2 py-1.5 rounded hover:bg-blue-50"
                       title="Duplicate this item (without certificate number)"
+                      className="shrink-0 p-1.5 rounded-lg border border-gray-200 bg-white text-gray-500 hover:text-blue-600 hover:bg-blue-50 hover:border-blue-200 transition-colors"
                     >
-                      <DuplicateIcon className="w-3.5 h-3.5" />
-                      Duplicate
+                      <DuplicateIcon className="w-4 h-4" />
                     </button>
                     {equipment.length > 1 ? (
                       <button
@@ -2519,10 +2610,10 @@ export const JobModal: React.FC<JobModalProps> = ({
                           if (!ok) return;
                           removeEquipment(index);
                         }}
-                        className="shrink-0 text-sm font-medium text-red-600 hover:text-red-800 px-2 py-1.5 rounded hover:bg-red-50"
                         title="Remove this item"
+                        className="shrink-0 p-1.5 rounded-lg border border-gray-200 bg-white text-gray-500 hover:text-red-600 hover:bg-red-50 hover:border-red-200 transition-colors"
                       >
-                        Remove
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                       </button>
                     ) : null}
                   </div>
@@ -2542,7 +2633,7 @@ export const JobModal: React.FC<JobModalProps> = ({
                         {certificateEquipmentTypeNames.length > 0 ? (
                           <select
                             value={eq.name}
-                            onChange={(e) => handleEquipmentChange(index, 'name', e.target.value)}
+                            onChange={(e) => handleEquipmentTypeNameChange(index, e.target.value)}
                             className="input text-sm w-full min-w-0"
                           >
                             <option value="">Select equipment type…</option>
@@ -2561,7 +2652,7 @@ export const JobModal: React.FC<JobModalProps> = ({
                           <input
                             type="text"
                             value={eq.name}
-                            onChange={(e) => handleEquipmentChange(index, 'name', e.target.value)}
+                            onChange={(e) => handleEquipmentTypeNameChange(index, e.target.value)}
                             className="input text-sm w-full min-w-0"
                             placeholder="Item or equipment name"
                           />
@@ -2932,6 +3023,161 @@ export const JobModal: React.FC<JobModalProps> = ({
               );
               })}
             </div>
+            ) : (
+            <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm">
+              <table className="min-w-full text-sm border-collapse">
+                <thead>
+                  <tr className="border-b border-gray-200 bg-gray-50">
+                    <th className="px-3 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide w-8 whitespace-nowrap">#</th>
+                    <th className="px-2 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" style={{minWidth: '140px'}}>Type</th>
+                    <th className="px-2 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" style={{minWidth: '120px'}}>Manufacturer</th>
+                    <th className="px-2 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" style={{minWidth: '110px'}}>Model</th>
+                    <th className="px-2 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" style={{minWidth: '110px'}}>Serial No.</th>
+                    <th className="px-2 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" style={{minWidth: '100px'}}>Asset Tag</th>
+                    <th className="px-2 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" style={{minWidth: '100px'}}>Cal. Point</th>
+                    <th className="px-2 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" style={{minWidth: '75px'}}>Res.</th>
+                    <th className="px-2 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" style={{minWidth: '65px'}}>Unit</th>
+                    <th className="px-2 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" style={{minWidth: '120px'}}>Methods</th>
+                    <th className="px-2 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" style={{minWidth: '100px'}}>Location</th>
+                    <th className="px-2 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" style={{minWidth: '130px'}}>Cal. Date</th>
+                    <th className="px-2 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" style={{minWidth: '155px'}}>Cert. No.</th>
+                    <th className="px-2 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" style={{minWidth: '110px'}}>Accessories</th>
+                    <th className="px-2 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" style={{minWidth: '110px'}}>Remark</th>
+                    <th className="px-2 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" style={{minWidth: '170px'}}>Files</th>
+                    <th className="px-2 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" style={{minWidth: '110px'}}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {equipment.map((eq, index) => (
+                    <tr key={index} className="hover:bg-blue-50/30 group">
+                      <td className="px-3 py-1.5 text-xs font-medium text-gray-400 text-center tabular-nums">{index + 1}</td>
+                      <td className="px-2 py-1.5">
+                        {certificateEquipmentTypeNames.length > 0 ? (
+                          <select value={eq.name} onChange={(e) => handleEquipmentTypeNameChange(index, e.target.value)} className={tci}>
+                            <option value="">—</option>
+                            {equipmentTypeSelectOptions(certificateEquipmentTypeNames, eq.name).map((opt) => (
+                              <option key={opt} value={opt}>{opt}{certificateEquipmentTypeNames.includes(opt) ? '' : ' (not in manager)'}</option>
+                            ))}
+                          </select>
+                        ) : (
+                          <input type="text" value={eq.name} onChange={(e) => handleEquipmentTypeNameChange(index, e.target.value)} className={tci} placeholder="Type…" />
+                        )}
+                      </td>
+                      <td className="px-2 py-1.5">
+                        <input type="text" value={eq.manufacturer} onChange={(e) => handleEquipmentChange(index, 'manufacturer', e.target.value)} className={tci} placeholder="Manufacturer" />
+                      </td>
+                      <td className="px-2 py-1.5">
+                        <input type="text" value={eq.model} onChange={(e) => handleEquipmentChange(index, 'model', e.target.value)} className={tci} placeholder="Model" />
+                      </td>
+                      <td className="px-2 py-1.5">
+                        <input type="text" value={eq.serialNumber} onChange={(e) => handleEquipmentChange(index, 'serialNumber', e.target.value)} className={tci} placeholder="S/N" />
+                      </td>
+                      <td className="px-2 py-1.5">
+                        <input type="text" value={(eq as any).assetTag ?? ''} onChange={(e) => handleEquipmentChange(index, 'assetTag' as any, e.target.value)} className={tci} placeholder="Tag" autoComplete="off" />
+                      </td>
+                      <td className="px-2 py-1.5">
+                        <input type="text" value={eq.calibrationPoint} onChange={(e) => handleEquipmentChange(index, 'calibrationPoint', e.target.value)} className={tci} placeholder="Point" />
+                      </td>
+                      <td className="px-2 py-1.5">
+                        <input type="text" value={(eq as any).resolution ?? ''} onChange={(e) => handleEquipmentChange(index, 'resolution' as any, e.target.value)} className={tci} placeholder="—" />
+                      </td>
+                      <td className="px-2 py-1.5">
+                        <input type="text" value={eq.unit ?? ''} onChange={(e) => handleEquipmentChange(index, 'unit', e.target.value)} className={tci} placeholder="—" />
+                      </td>
+                      <td className="px-2 py-1.5">
+                        <input type="text" value={eq.calibrationMethods} onChange={(e) => handleEquipmentChange(index, 'calibrationMethods', e.target.value)} className={tci} placeholder="Methods" />
+                      </td>
+                      <td className="px-2 py-1.5">
+                        <input type="text" value={eq.machineLocation} onChange={(e) => handleEquipmentChange(index, 'machineLocation', e.target.value)} className={tci} placeholder="Location" />
+                      </td>
+                      <td className="px-2 py-1.5">
+                        <input type="date" value={eq.calibrationDate ?? ''} onChange={(e) => handleEquipmentChange(index, 'calibrationDate', e.target.value)} className={tci} />
+                      </td>
+                      <td className="px-2 py-1.5">
+                        <div className="flex items-center gap-1">
+                          <input
+                            type="text"
+                            value={eq.certificateNumber ?? ''}
+                            onChange={(e) => handleEquipmentChange(index, 'certificateNumber', e.target.value)}
+                            autoComplete="off"
+                            className={`${tci} flex-1 font-mono`}
+                            placeholder="Cert. no."
+                          />
+                          <button
+                            type="button"
+                            onClick={() => void handleGenerateCertificateNumberForItem(index)}
+                            disabled={!currentJob || generatingCertificateForRow === index || Boolean(String(eq.certificateNumber ?? '').trim())}
+                            className="shrink-0 p-1 rounded border border-gray-300 bg-white text-gray-500 hover:bg-gray-50 hover:text-primary-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                            title={!currentJob ? 'Save the job first' : 'Generate certificate number'}
+                          >
+                            {generatingCertificateForRow === index
+                              ? <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/></svg>
+                              : <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                            }
+                          </button>
+                        </div>
+                      </td>
+                      <td className="px-2 py-1.5">
+                        <input type="text" value={eq.accessories} onChange={(e) => handleEquipmentChange(index, 'accessories', e.target.value)} className={tci} placeholder="Accessories" />
+                      </td>
+                      <td className="px-2 py-1.5">
+                        <input type="text" value={eq.remark} onChange={(e) => handleEquipmentChange(index, 'remark', e.target.value)} className={tci} placeholder="Remark" />
+                      </td>
+                      <td className="px-2 py-1.5 align-top" style={{minWidth: '170px'}}>
+                        {currentJob ? (
+                          <EquipmentFileUpload
+                            jobId={currentJob.id}
+                            equipmentIndex={index}
+                            equipment={eq}
+                            isReadOnly={formDisabled}
+                            onFileUploaded={() => refreshJobData(currentJob.id)}
+                            onFileDeleted={() => refreshJobData(currentJob.id)}
+                            compact
+                          />
+                        ) : (
+                          <span className="text-xs text-gray-400">Save job first</span>
+                        )}
+                      </td>
+                      <td className="px-2 py-1.5">
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => void handleCopyExcelForItem(index)}
+                            className={`shrink-0 rounded border px-1.5 py-0.5 text-xs font-medium ${excelCopiedRow === index ? 'border-primary-600 bg-primary-50 text-primary-700' : 'border-gray-300 bg-white text-gray-600 hover:bg-gray-50'}`}
+                            title="Copy to Excel"
+                          >
+                            {excelCopiedRow === index ? '✓' : 'XLS'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => duplicateEquipment(index)}
+                            className="shrink-0 rounded border border-gray-300 bg-white px-1.5 py-0.5 text-xs font-medium text-blue-600 hover:bg-blue-50"
+                            title="Duplicate item"
+                          >
+                            Dup
+                          </button>
+                          {equipment.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const ok = window.confirm(`Remove Item ${index + 1}?`);
+                                if (!ok) return;
+                                removeEquipment(index);
+                              }}
+                              className="shrink-0 rounded border border-transparent px-1.5 py-0.5 text-xs font-medium text-red-500 hover:bg-red-50 hover:border-red-200"
+                              title="Remove item"
+                            >
+                              ✕
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            )}
             <p className="text-xs text-gray-500 mt-4">
               Add another item with the + button above. Equipment type (name) comes from Certificate Number Manager so each certificate number uses the correct running sequence. Collapse rows to scan the list quickly.
             </p>

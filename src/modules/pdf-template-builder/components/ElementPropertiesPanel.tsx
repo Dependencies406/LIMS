@@ -4,25 +4,35 @@
  */
 
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import type { PdfElement, TextElement, LineElement, RectangleElement, ImageElement, CheckboxElement, ChartElement, EquipmentTableElement, EquipmentTableColumnDef, DocumentsTableElement, DocumentsTableColumnDef, TrebTableElement, TrainingTableElement, TrainingTableColumnDef, PdfPage } from '../types';
+import type { PdfElement, TextElement, LineElement, RectangleElement, ImageElement, CheckboxElement, ChartElement, EquipmentTableElement, EquipmentTableColumnDef, DocumentsTableElement, DocumentsTableColumnDef, TrebTableElement, TrainingTableElement, TrainingTableColumnDef, RecordTableElement, RecordTableOverflowMode, PdfPage } from '../types';
 import { EQUIPMENT_TABLE_DEFAULT_COLUMNS, DOCUMENTS_TABLE_DEFAULT_COLUMNS, TRAINING_TABLE_DEFAULT_COLUMNS } from '../types';
 import { DataSourceBrowser } from './DataSourceBrowser';
 import { getDataSourceDiscovery } from '../../../services/dataSourceDiscoveryService';
 import { getAvailableTemplates } from '../../../services/spreadsheetTemplateService';
+import { recorderTemplateService } from '../../../services/recorderTemplateService';
 import type { SpreadsheetTemplate } from '../../spreadsheet-templates/types';
+import type { RecorderTemplate } from '../../../types';
+import {
+  RECORD_TABLE_MIN_COLUMN_WIDTH,
+  RECORD_TABLE_DEFAULT_MAX_WRAP_LINES,
+  RECORD_TABLE_MIN_WRAP_LINES,
+  RECORD_TABLE_MAX_WRAP_LINES,
+  evaluateRecordTableOverflowFit,
+  clampRecordTableMaxWrapLines,
+} from '../../../services/pdf-renderers/renderRecordTable';
 import { useAuth } from '../../../contexts/AuthContext';
 
 /**
  * Returns the effective pagination mode for an element, matching the renderer's
- * getPaginationMode() logic. equipment-table, documents-table, and treb-table default
- * to 'dynamic'; everything else defaults to 'static'. Used by renderPaginationControls
- * so the dropdown shows the true effective value rather than always showing 'static'
- * when paginationMode is not explicitly set.
+ * getPaginationMode() logic. equipment-table, documents-table, treb-table, and
+ * record-table default to 'dynamic'; everything else defaults to 'static'. Used
+ * by renderPaginationControls so the dropdown shows the true effective value
+ * rather than always showing 'static' when paginationMode is not explicitly set.
  */
 function getEffectivePaginationMode(el: PdfElement): 'static' | 'dynamic' {
   if (el.paginationMode) return el.paginationMode;
   if ((el as any).overflowRole) return (el as any).overflowRole as 'static' | 'dynamic';
-  return (el.type === 'equipment-table' || el.type === 'documents-table' || el.type === 'treb-table')
+  return (el.type === 'equipment-table' || el.type === 'documents-table' || el.type === 'treb-table' || el.type === 'record-table')
     ? 'dynamic'
     : 'static';
 }
@@ -353,6 +363,32 @@ export const ElementPropertiesPanel: React.FC<ElementPropertiesPanelProps> = ({
       .catch(() => setSpreadsheetTemplates([]))
       .finally(() => setTemplatesLoading(false));
   }, [currentUser?.uid]);
+
+  // Recorder templates for record-table elements — used only to build the
+  // column checklist while authoring; the renderer never reads this list
+  // (it always uses the record's pinned snapshot at print time, ADR-005).
+  //
+  // Phase 29 Task 4: fetched once on mount (below) AND on-demand via
+  // `refreshRecorderTemplates`, wired to an explicit button in the panel —
+  // never polled, and never refetched on every render (this is a Firestore
+  // read, and the panel re-renders on every property change).
+  const [recorderTemplates, setRecorderTemplates] = useState<RecorderTemplate[]>([]);
+  const [recorderTemplatesLoading, setRecorderTemplatesLoading] = useState(true);
+  const [recorderTemplatesRefreshedAt, setRecorderTemplatesRefreshedAt] = useState<Date | null>(null);
+  const refreshRecorderTemplates = useCallback(() => {
+    setRecorderTemplatesLoading(true);
+    return recorderTemplateService.getAllTemplates()
+      .then((templates) => {
+        setRecorderTemplates(templates);
+        setRecorderTemplatesRefreshedAt(new Date());
+      })
+      .catch(() => setRecorderTemplates([]))
+      .finally(() => setRecorderTemplatesLoading(false));
+  }, []);
+  useEffect(() => {
+    refreshRecorderTemplates();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Get data source type for format controls
   const dataSourceType = useMemo(() => {
@@ -1421,6 +1457,417 @@ export const ElementPropertiesPanel: React.FC<ElementPropertiesPanelProps> = ({
             </>
           );
         })()}
+      </div>
+    );
+  }
+
+  if (element.type === 'record-table') {
+    const tableEl = element as RecordTableElement;
+    const selectedRecorderTemplate = recorderTemplates.find((t) => t.id === tableEl.recorderTemplateId) ?? null;
+
+    // Phase 27 Task 1, Phase 29 Task 1: `sections` filters WHICH sections
+    // appear before `columns` narrows within them. `undefined` (the field
+    // absent) means "all"; any explicit array — INCLUDING `[]` — means
+    // exactly that set, never a fallback to "all". Conflating `[]` with
+    // `undefined` was the reported bug (deselecting the last section
+    // silently re-selected every section). Mirrors `getRecordTableColumns`
+    // (renderRecordTable.ts) exactly.
+    const allSectionDefs = selectedRecorderTemplate
+      ? selectedRecorderTemplate.sections.map((s) => ({ id: s.id, label: s.label || s.id }))
+      : [];
+    const allSectionIds = allSectionDefs.map((s) => s.id);
+    const selectedSectionIds = tableEl.sections ?? allSectionIds;
+    const selectedValidSectionCount = selectedSectionIds.filter((id) => allSectionIds.includes(id)).length;
+
+    // Phase 29 Task 2: ids the element references that this LIVE template
+    // no longer has — surfaced as a warning below, never silently dropped.
+    const orphanSectionIds = (tableEl.sections ?? []).filter((id) => !allSectionIds.includes(id));
+
+    const toggleSection = (id: string) => {
+      const current = tableEl.sections ?? allSectionIds;
+      // Orphans are preserved across an ordinary toggle — only the
+      // explicit "drop" action (below) removes them. An untouched checkbox
+      // must never have a side effect on ids it has nothing to do with.
+      const orphans = current.filter((s) => !allSectionIds.includes(s));
+      const valid = current.filter((s) => allSectionIds.includes(s));
+      const nextValid = valid.includes(id) ? valid.filter((s) => s !== id) : [...valid, id];
+      const ordered = allSectionIds.filter((s) => nextValid.includes(s));
+      onUpdate({ sections: [...ordered, ...orphans] });
+    };
+    // Task 3: explicit actions, so writing the full list (not `undefined`)
+    // and `[]` respectively is exactly "the author asked for this" — and,
+    // unlike a single checkbox, a deliberate reset of the whole list is the
+    // right moment to also drop stale orphan ids the checklist can't even
+    // display a box for.
+    const selectAllSections = () => onUpdate({ sections: [...allSectionIds] });
+    const deselectAllSections = () => onUpdate({ sections: [], columns: [] }); // also empties Columns (Task 3)
+    const dropSectionOrphans = () =>
+      onUpdate({ sections: (tableEl.sections ?? []).filter((id) => allSectionIds.includes(id)) });
+
+    const allColumnDefs = selectedRecorderTemplate
+      ? selectedRecorderTemplate.sections
+          .filter((s) => selectedSectionIds.includes(s.id))
+          .flatMap((s) =>
+            s.columns.map((c) => ({ key: `${s.id}_${c.id}`, label: c.label || c.id, sectionLabel: s.label || s.id }))
+          )
+      : [];
+    const allColumnKeys = allColumnDefs.map((c) => c.key);
+    // Every column key in the WHOLE live template, unfiltered by section
+    // selection — used only to tell a true orphan (no match anywhere in
+    // the live template) apart from a key merely hidden because its
+    // section is currently unchecked (not an orphan, ordinary filtering).
+    const allLiveColumnKeys = selectedRecorderTemplate
+      ? selectedRecorderTemplate.sections.flatMap((s) => s.columns.map((c) => `${s.id}_${c.id}`))
+      : [];
+    // `undefined` = every column of the selected sections; `[]` = none (Phase 29 Task 1).
+    const selectedKeys = tableEl.columns ?? allColumnKeys;
+    const selectedValidColumnCount = selectedKeys.filter((k) => allColumnKeys.includes(k)).length;
+
+    const orphanColumnKeys = (tableEl.columns ?? []).filter((k) => !allLiveColumnKeys.includes(k));
+
+    const toggleColumn = (key: string) => {
+      const current = tableEl.columns ?? allColumnKeys;
+      const orphans = current.filter((k) => !allLiveColumnKeys.includes(k));
+      const valid = current.filter((k) => allLiveColumnKeys.includes(k));
+      const nextValid = valid.includes(key) ? valid.filter((k) => k !== key) : [...valid, key];
+      const ordered = allColumnKeys.filter((k) => nextValid.includes(k));
+      onUpdate({ columns: [...ordered, ...orphans] });
+    };
+    const selectAllColumns = () => onUpdate({ columns: [...allColumnKeys] });
+    const deselectAllColumns = () => onUpdate({ columns: [] });
+    const dropColumnOrphans = () =>
+      onUpdate({ columns: (tableEl.columns ?? []).filter((k) => allLiveColumnKeys.includes(k)) });
+
+    const effectivePagMode = getEffectivePaginationMode(tableEl);
+    const heightMissing = !tableEl.height || tableEl.height <= 0;
+
+    const overflowMode: RecordTableOverflowMode = tableEl.overflowMode ?? 'ellipsis';
+    const maxWrapLines = clampRecordTableMaxWrapLines(tableEl.maxWrapLines);
+
+    // Phase 27/28 Task 3: warn BEFORE the author generates a PDF. See
+    // `evaluateRecordTableOverflowFit`'s own doc comment for why an
+    // equal-share estimate is the right check here, and why the wrap-mode
+    // caveat is folded into this SAME evaluation rather than a second one.
+    const tableWidthForWarning = tableEl.width ?? 500;
+    const columnFit = evaluateRecordTableOverflowFit(selectedKeys.length, tableWidthForWarning, overflowMode);
+
+    return (
+      <div className="p-6 space-y-4" style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", "Roboto", sans-serif' }}>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-semibold text-sm text-gray-900">Record Table Properties</h3>
+          {renderDeleteButton()}
+        </div>
+
+        {effectivePagMode === 'dynamic' && heightMissing && (
+          <div className="bg-amber-50 border border-amber-300 rounded-md p-3 text-xs text-amber-800 flex gap-2">
+            <span className="mt-0.5 flex-shrink-0">⚠️</span>
+            <span>
+              <strong>Table Height is not set.</strong> Without a height, all rows render on one page and will overlap elements below.
+              Set <strong>Table Height</strong> (below) to the vertical space allocated for this table in your template.
+            </span>
+          </div>
+        )}
+
+        <PropertySection title="Position & Size">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">X Position</label>
+              <input
+                type="number"
+                value={tableEl.x ?? 0}
+                onChange={(e) => handleUpdate({ x: parseFloat(e.target.value) || 0 })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Y Position</label>
+              <input
+                type="number"
+                value={tableEl.y ?? 0}
+                onChange={(e) => handleUpdate({ y: parseFloat(e.target.value) || 0 })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md"
+              />
+            </div>
+          </div>
+          <LockedDimensions
+            width={tableEl.width ?? 500}
+            height={tableEl.height ?? 200}
+            locked={!!tableEl.lockAspectRatio}
+            onUpdate={handleUpdate}
+            widthLabel="Table Width (pt)"
+            heightLabel="Table Height (pt) ⚠️ Required for pagination"
+            heightNote="Must be set: rows that don't fit within this height continue on the next page. Match this to the vertical space allocated for the table on your template. Column widths are computed from this total at render time — proportional to each column's content, with a minimum width per column — so they can't be fixed per column."
+            minWidth={100}
+            minHeight={40}
+          />
+        </PropertySection>
+
+        <PropertySection title="Record Template (for column selection)">
+          <div className="flex items-center justify-between mb-1">
+            <label className="block text-sm font-medium text-gray-700">Preview columns from</label>
+            <button
+              type="button"
+              onClick={() => refreshRecorderTemplates()}
+              disabled={recorderTemplatesLoading}
+              className="text-xs text-blue-600 hover:underline disabled:opacity-50 disabled:no-underline"
+            >
+              {recorderTemplatesLoading ? 'Refreshing…' : 'Refresh list'}
+            </button>
+          </div>
+          <select
+            value={tableEl.recorderTemplateId ?? ''}
+            onChange={(e) => onUpdate({ recorderTemplateId: e.target.value || undefined, sections: undefined, columns: undefined })}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+          >
+            <option value="">— Select a recorder template —</option>
+            {recorderTemplates.map((t) => (
+              <option key={t.id} value={t.id}>{t.name}</option>
+            ))}
+          </select>
+          <p className="text-xs text-gray-500 mt-1">
+            {recorderTemplatesLoading
+              ? 'Loading templates…'
+              : recorderTemplatesRefreshedAt
+                ? `Refreshed ${recorderTemplatesRefreshedAt.toLocaleTimeString()}. Edited the recorder template in another tab? Click Refresh list.`
+                : null}
+          </p>
+          <p className="text-xs text-gray-500 mt-1">
+            This is only used to build the section/column lists below. At print time the actual record's own
+            pinned template snapshot is used, never the live template (ADR-005) — labels here may differ
+            slightly from what an older record prints if the template has since changed.
+          </p>
+        </PropertySection>
+
+        {columnFit.belowMinimum && (
+          <div className="bg-amber-50 border border-amber-300 rounded-md p-3 text-xs text-amber-800 flex gap-2">
+            <span className="mt-0.5 flex-shrink-0">⚠️</span>
+            <span>
+              <strong>{columnFit.columnCount} columns in {Math.round(tableWidthForWarning)}pt would get roughly {Math.round(columnFit.approxColumnWidth)}pt each</strong> —
+              below the {RECORD_TABLE_MIN_COLUMN_WIDTH}pt minimum column width. Text will be shrunk and{' '}
+              {overflowMode === 'wrap'
+                ? `wrapped, but at this width even ${maxWrapLines} line${maxWrapLines === 1 ? '' : 's'} likely won't be enough — long values will still be truncated with an ellipsis. Wrap mode can't rescue this.`
+                : overflowMode === 'shrink-only'
+                  ? 'may still overflow the cell visibly, since Shrink Only never truncates.'
+                  : "truncated with an ellipsis if that still isn't enough."}
+              {' '}The fix is the same regardless of overflow mode: select fewer sections/columns, or widen the table.
+            </span>
+          </div>
+        )}
+
+        {selectedRecorderTemplate && orphanSectionIds.length > 0 && (
+          <div className="bg-amber-50 border border-amber-300 rounded-md p-3 text-xs text-amber-800 flex flex-col gap-2">
+            <div className="flex gap-2">
+              <span className="mt-0.5 flex-shrink-0">⚠️</span>
+              <span>
+                <strong>
+                  {orphanSectionIds.length} selected section id{orphanSectionIds.length === 1 ? '' : 's'} not found in this template:
+                </strong>{' '}
+                {orphanSectionIds.join(', ')}. Probably renamed or removed since this element was configured.
+                This does NOT mean an already-printed certificate is broken — the renderer always prints from each
+                record's own pinned template snapshot (ADR-005), so a record created before the change still has
+                that section.
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={dropSectionOrphans}
+              className="self-start px-2 py-1 text-xs font-medium text-amber-900 bg-amber-100 hover:bg-amber-200 rounded border border-amber-300"
+            >
+              Drop {orphanSectionIds.length} unknown id{orphanSectionIds.length === 1 ? '' : 's'} from selection
+            </button>
+          </div>
+        )}
+
+        {selectedRecorderTemplate && (
+          <PropertySection title="Sections">
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-sm font-medium text-gray-700">
+                Sections to include (check to show), stacked in the order below. The Columns list below only shows
+                columns from checked sections.
+              </label>
+            </div>
+            <div className="flex items-center justify-between mb-2 text-xs">
+              <span className="text-gray-500">{selectedValidSectionCount} of {allSectionIds.length} selected</span>
+              <div className="flex gap-3">
+                <button type="button" onClick={selectAllSections} className="text-blue-600 hover:underline">Select all</button>
+                <button type="button" onClick={deselectAllSections} className="text-blue-600 hover:underline">Deselect all</button>
+              </div>
+            </div>
+            {selectedValidSectionCount === 0 && (
+              <p className="text-xs text-amber-700 mb-2">No sections selected — this table will render nothing.</p>
+            )}
+            <div className="space-y-2 max-h-48 overflow-y-auto border border-gray-200 rounded-md p-2">
+              {allSectionDefs.map((section) => (
+                <div key={section.id} className="flex items-center gap-2 border-b border-gray-100 pb-2 last:border-0">
+                  <input
+                    type="checkbox"
+                    checked={selectedSectionIds.includes(section.id)}
+                    onChange={() => toggleSection(section.id)}
+                    className="w-4 h-4"
+                  />
+                  <span className="text-sm font-medium text-gray-700">{section.label}</span>
+                </div>
+              ))}
+            </div>
+          </PropertySection>
+        )}
+
+        {selectedRecorderTemplate && orphanColumnKeys.length > 0 && (
+          <div className="bg-amber-50 border border-amber-300 rounded-md p-3 text-xs text-amber-800 flex flex-col gap-2">
+            <div className="flex gap-2">
+              <span className="mt-0.5 flex-shrink-0">⚠️</span>
+              <span>
+                <strong>
+                  {orphanColumnKeys.length} selected column id{orphanColumnKeys.length === 1 ? '' : 's'} not found in this template:
+                </strong>{' '}
+                {orphanColumnKeys.join(', ')}. Probably renamed or removed since this element was configured.
+                This does NOT mean an already-printed certificate is broken — the renderer always prints from each
+                record's own pinned template snapshot (ADR-005), so a record created before the change still has
+                that column.
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={dropColumnOrphans}
+              className="self-start px-2 py-1 text-xs font-medium text-amber-900 bg-amber-100 hover:bg-amber-200 rounded border border-amber-300"
+            >
+              Drop {orphanColumnKeys.length} unknown id{orphanColumnKeys.length === 1 ? '' : 's'} from selection
+            </button>
+          </div>
+        )}
+
+        {selectedRecorderTemplate && (
+          <PropertySection title="Columns">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Columns to include (check to show), within the sections selected above.
+            </label>
+            <div className="flex items-center justify-between mb-2 text-xs">
+              <span className="text-gray-500">{selectedValidColumnCount} of {allColumnKeys.length} selected</span>
+              <div className="flex gap-3">
+                <button type="button" onClick={selectAllColumns} className="text-blue-600 hover:underline">Select all</button>
+                <button type="button" onClick={deselectAllColumns} className="text-blue-600 hover:underline">Deselect all</button>
+              </div>
+            </div>
+            <div className="space-y-2 max-h-64 overflow-y-auto border border-gray-200 rounded-md p-2">
+              {allColumnDefs.length === 0 && (
+                <p className="text-xs text-gray-500 p-1">No sections selected above — this table will render nothing.</p>
+              )}
+              {allColumnDefs.map((col) => (
+                <div key={col.key} className="flex items-center gap-2 border-b border-gray-100 pb-2 last:border-0">
+                  <input
+                    type="checkbox"
+                    checked={selectedKeys.includes(col.key)}
+                    onChange={() => toggleColumn(col.key)}
+                    className="w-4 h-4"
+                  />
+                  <span className="text-xs text-gray-500 min-w-[80px]">{col.sectionLabel}</span>
+                  <span className="text-sm font-medium text-gray-700">{col.label}</span>
+                </div>
+              ))}
+            </div>
+          </PropertySection>
+        )}
+
+        <PropertySection title="Overflow Handling">
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            What happens to text that's still too big for its column after shrinking the font.
+          </label>
+          <div className="space-y-2">
+            {([
+              { value: 'ellipsis' as const, label: 'Ellipsis', hint: 'One line; cuts off with … if it still doesn\'t fit. (Default.)' },
+              { value: 'wrap' as const, label: 'Wrap', hint: 'Wraps onto extra lines, up to a limit you set below, then cuts off with … if there\'s more.' },
+              { value: 'shrink-only' as const, label: 'Shrink only', hint: 'Never cuts off — text may spill visibly past the column edge instead.' },
+            ]).map((opt) => (
+              <label key={opt.value} className="flex items-start gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name={`record-table-overflow-mode-${tableEl.id}`}
+                  checked={overflowMode === opt.value}
+                  onChange={() => handleUpdate({ overflowMode: opt.value })}
+                  className="w-4 h-4 mt-0.5"
+                />
+                <span>
+                  <span className="block text-sm font-medium text-gray-700">{opt.label}</span>
+                  <span className="block text-xs text-gray-500">{opt.hint}</span>
+                </span>
+              </label>
+            ))}
+          </div>
+          {overflowMode === 'wrap' && (
+            <div className="mt-3">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Max wrapped lines</label>
+              <input
+                type="number"
+                min={RECORD_TABLE_MIN_WRAP_LINES}
+                max={RECORD_TABLE_MAX_WRAP_LINES}
+                value={maxWrapLines}
+                onChange={(e) => handleUpdate({ maxWrapLines: clampRecordTableMaxWrapLines(parseInt(e.target.value, 10)) })}
+                className="w-24 px-3 py-2 border border-gray-300 rounded-md"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                {RECORD_TABLE_MIN_WRAP_LINES}–{RECORD_TABLE_MAX_WRAP_LINES} lines (default {RECORD_TABLE_DEFAULT_MAX_WRAP_LINES}). A row is only as tall as its
+                tallest cell, so a high limit here can make one long value push a whole row — and everything sharing
+                that page — much taller.
+              </p>
+            </div>
+          )}
+        </PropertySection>
+
+        <PropertySection title="Section Headers">
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={tableEl.showSectionHeaders ?? true}
+              onChange={(e) => handleUpdate({ showSectionHeaders: e.target.checked })}
+              className="w-4 h-4"
+            />
+            <label className="text-sm text-gray-700">Show section-grouping header row</label>
+          </div>
+        </PropertySection>
+
+        <PropertySection title="Style">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Border Color</label>
+              <input type="color" value={tableEl.borderColor ?? '#000000'} onChange={(e) => handleUpdate({ borderColor: e.target.value })} className="w-full h-9 border border-gray-300 rounded-md" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Border Width</label>
+              <input type="number" min={0} max={5} value={tableEl.borderWidth ?? 1} onChange={(e) => handleUpdate({ borderWidth: parseInt(e.target.value, 10) || 1 })} className="w-full px-3 py-2 border border-gray-300 rounded-md" />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Cell Font Size</label>
+              <input type="number" min={6} max={14} value={tableEl.fontSize ?? 9} onChange={(e) => handleUpdate({ fontSize: parseInt(e.target.value, 10) || 9 })} className="w-full px-3 py-2 border border-gray-300 rounded-md" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Header Font Size</label>
+              <input type="number" min={6} max={14} value={tableEl.headerFontSize ?? 10} onChange={(e) => handleUpdate({ headerFontSize: parseInt(e.target.value, 10) || 10 })} className="w-full px-3 py-2 border border-gray-300 rounded-md" />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Header Background</label>
+              <input type="color" value={tableEl.headerStyle?.backgroundColor ?? '#e5e7eb'} onChange={(e) => handleUpdate({ headerStyle: { ...tableEl.headerStyle, backgroundColor: e.target.value } })} className="w-full h-9 border border-gray-300 rounded-md" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Section Header Background</label>
+              <input type="color" value={tableEl.sectionHeaderStyle?.backgroundColor ?? '#d1d5db'} onChange={(e) => handleUpdate({ sectionHeaderStyle: { ...tableEl.sectionHeaderStyle, backgroundColor: e.target.value } })} className="w-full h-9 border border-gray-300 rounded-md" />
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={tableEl.headerStyle?.bold !== false}
+              onChange={(e) => handleUpdate({ headerStyle: { ...tableEl.headerStyle, bold: e.target.checked } })}
+              className="w-4 h-4"
+            />
+            <label className="text-sm text-gray-700">Header bold</label>
+          </div>
+        </PropertySection>
+
+        {renderPaginationControls(tableEl)}
       </div>
     );
   }

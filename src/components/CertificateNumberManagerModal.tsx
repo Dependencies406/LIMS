@@ -1,11 +1,12 @@
 /**
- * Certificate Number Manager Modal
+ * Equipment Type Manager Modal (backed by `certificate_number_configs` — that
+ * collection IS the equipment type, ADR-012).
  */
 
 import React, { useState, useEffect } from 'react';
 import { certificateNumberConfigService } from '../services/certificateNumberConfigService';
 import { useToast } from '../hooks/useToast';
-import { usePermission } from '../hooks/usePermission';
+import { useAuth } from '../contexts/AuthContext';
 import type { CertificateNumberConfig } from '../types';
 
 interface CertificateNumberManagerModalProps {
@@ -49,7 +50,10 @@ export const CertificateNumberManagerModal: React.FC<CertificateNumberManagerMod
   onClose,
 }) => {
   const { success, error: showError } = useToast();
-  const { hasPermission: canEdit } = usePermission('certificateNumbers.edit');
+  // Gates on isAdmin directly, matching firestore.rules' write rule for
+  // certificate_number_configs exactly — the UI must never offer an action
+  // the database will refuse (ADR-012 permission-mismatch resolution).
+  const { isAdmin: canEdit } = useAuth();
 
   const [configs, setConfigs]                 = useState<CertificateNumberConfig[]>([]);
   const [loading, setLoading]                 = useState(false);
@@ -105,7 +109,6 @@ export const CertificateNumberManagerModal: React.FC<CertificateNumberManagerMod
     try {
       const configData: Omit<CertificateNumberConfig, 'id' | 'createdAt' | 'updatedAt'> = {
         name: formData.name.trim(),
-        equipmentType: (formData as any).equipmentType ?? '',
         prefix: formData.prefix.trim(),
         separator: formData.separator,
         includeYear: formData.includeYear,
@@ -187,8 +190,8 @@ export const CertificateNumberManagerModal: React.FC<CertificateNumberManagerMod
               </svg>
             </div>
             <div className="min-w-0">
-              <h2 className="text-base font-semibold text-gray-900 leading-tight">Certificate Numbers</h2>
-              <p className="text-xs text-gray-400 mt-0.5">Manage running sequences per equipment type</p>
+              <h2 className="text-base font-semibold text-gray-900 leading-tight">Equipment Types</h2>
+              <p className="text-xs text-gray-400 mt-0.5">Instrument types and their certificate numbering series</p>
             </div>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
@@ -202,7 +205,7 @@ export const CertificateNumberManagerModal: React.FC<CertificateNumberManagerMod
                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                 </svg>
-                Add category
+                Add equipment type
               </button>
             )}
             <button
@@ -237,11 +240,11 @@ export const CertificateNumberManagerModal: React.FC<CertificateNumberManagerMod
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
               </div>
-              <p className="text-sm text-gray-500 mb-3">No certificate categories yet</p>
+              <p className="text-sm text-gray-500 mb-3">No equipment types yet</p>
               {canEdit && (
                 <button type="button" onClick={openCreate}
                   className="px-3 py-1.5 rounded-lg bg-primary-600 text-white text-sm font-medium hover:bg-primary-700 transition-colors">
-                  Add first category
+                  Add first equipment type
                 </button>
               )}
             </div>
@@ -334,7 +337,7 @@ export const CertificateNumberManagerModal: React.FC<CertificateNumberManagerMod
             {/* Panel header */}
             <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
               <h3 className="text-sm font-semibold text-gray-900">
-                {selectedConfig ? 'Edit category' : 'New category'}
+                {selectedConfig ? 'Edit equipment type' : 'New equipment type'}
               </h3>
               <button
                 type="button"
@@ -486,7 +489,7 @@ export const CertificateNumberManagerModal: React.FC<CertificateNumberManagerMod
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm font-medium text-gray-700">Active</p>
-                      <p className="text-xs text-gray-400">Inactive categories won't appear in job forms</p>
+                      <p className="text-xs text-gray-400">Inactive equipment types won't appear in job forms</p>
                     </div>
                     <button
                       type="button"
@@ -552,7 +555,7 @@ export const CertificateNumberManagerModal: React.FC<CertificateNumberManagerMod
                 </svg>
               </div>
               <div>
-                <p className="text-sm font-semibold text-gray-900">Delete category?</p>
+                <p className="text-sm font-semibold text-gray-900">Delete equipment type?</p>
                 <p className="text-xs text-gray-500 mt-1">
                   <span className="font-medium text-gray-700">"{deleteTarget.name}"</span> will be permanently removed. This cannot be undone.
                 </p>

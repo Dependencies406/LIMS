@@ -7,7 +7,7 @@ const DEBUG_PDF_RENDERER = false; // set true for verbose PDF rendering logs
 const debugLog = DEBUG_PDF_RENDERER ? (...a: any[]) => console.log(...a) : () => {};
 
 import jsPDF from 'jspdf';
-import type { Job, CompanyInfo, DocumentIndexItem, DocumentSource } from '../types';
+import type { Job, CompanyInfo, ConversionRule, DocumentIndexItem, DocumentSource, CalibrationRecord, RecorderTemplate } from '../types';
 import type {
   PdfTemplate,
   PdfElement,
@@ -21,11 +21,14 @@ import type {
   DocumentsTableElement,
   TrebTableElement,
   TrainingTableElement,
+  RecordTableElement,
+  RecordTableOverflowMode,
 } from '../modules/pdf-template-builder/types';
 import { assertNever } from '../modules/pdf-template-builder/types';
-import { renderEquipmentTable } from './pdf-renderers/renderEquipmentTable';
+import { renderEquipmentTable, resolveEquipmentCellText } from './pdf-renderers/renderEquipmentTable';
 import { renderDocumentsTable } from './pdf-renderers/renderDocumentsTable';
 import { renderTrainingTable } from './pdf-renderers/renderTrainingTable';
+import { renderRecordTable, getRecordTableColumns, computeSectionSpans, formatRecordValueForPdf, computeRecordTableLayout, resolveRecordTableCellLines, clampRecordTableMaxWrapLines } from './pdf-renderers/renderRecordTable';
 import type { RendererHelpers } from './pdf-renderers/rendererHelpers';
 import { documentIndexService } from './documentIndexService';
 import { pdfDataResolver, type MissingDataReport } from './pdfDataResolver';
@@ -327,7 +330,7 @@ export class PdfTemplateRenderer {
     // automatically. All other elements (text, line, rectangle, image, checkbox,
     // chart, training-table) default to static — the user must opt in via the
     // Overflow Pagination control in the properties panel.
-    return el.type === 'equipment-table' || el.type === 'documents-table' || el.type === 'treb-table'
+    return el.type === 'equipment-table' || el.type === 'documents-table' || el.type === 'treb-table' || el.type === 'record-table'
       ? 'dynamic'
       : 'static';
   }
@@ -409,6 +412,8 @@ export class PdfTemplateRenderer {
         map.set(el.id, this.planDocumentsTableElement(el as DocumentsTableElement, jobData, pageDimensions, pdf));
       } else if (el.type === 'training-table') {
         map.set(el.id, this.planTrainingTableElement(el as TrainingTableElement, jobData, pageDimensions, pdf));
+      } else if (el.type === 'record-table') {
+        map.set(el.id, this.planRecordTableElement(el as RecordTableElement, jobData, pageDimensions, pdf));
       }
     }
     return map;
@@ -437,6 +442,22 @@ export class PdfTemplateRenderer {
     pdf: jsPDF
   ): ElementSlicePlan {
     const { headerHeight, rowHeights } = this.measureDocumentsTableHeights(pdf, element, jobData);
+    const viewport = this.getTableViewportHeight(element, pageDimensions);
+    const slices = this.computeTableRowSlices(headerHeight, rowHeights, viewport);
+    return {
+      elementId: element.id,
+      slices,
+      splitCount: Math.max(1, slices.length),
+    };
+  }
+
+  private planRecordTableElement(
+    element: RecordTableElement,
+    jobData: PdfRenderJobData,
+    pageDimensions: { width: number; height: number },
+    pdf: jsPDF
+  ): ElementSlicePlan {
+    const { headerHeight, rowHeights } = this.measureRecordTableHeights(pdf, element, jobData);
     const viewport = this.getTableViewportHeight(element, pageDimensions);
     const slices = this.computeTableRowSlices(headerHeight, rowHeights, viewport);
     return {
@@ -558,6 +579,26 @@ export class PdfTemplateRenderer {
       return;
     }
 
+    if (element.type === 'record-table') {
+      const plan = plans.get(element.id);
+      if (!plan || plan.splitCount <= 1) {
+        this.renderRecordTableElement(pdf, element as RecordTableElement, jobData);
+        return;
+      }
+      if (k < plan.slices.length) {
+        const sl = plan.slices[k];
+        this.renderRecordTableElement(pdf, element as RecordTableElement, jobData, {
+          rowStart: sl.start,
+          rowEnd: sl.end,
+        });
+        return;
+      }
+      if (this.shouldRepeatOnOverflowPages(element)) {
+        this.renderRecordTableElement(pdf, element as RecordTableElement, jobData);
+      }
+      return;
+    }
+
     if (element.type === 'text') {
       const plan = plans.get(element.id);
       if (!plan || plan.splitCount <= 1) {
@@ -633,6 +674,9 @@ export class PdfTemplateRenderer {
         break;
       case 'treb-table':
         await this.renderTrebTableElement(pdf, element as TrebTableElement, jobData, options);
+        break;
+      case 'record-table':
+        this.renderRecordTableElement(pdf, element as RecordTableElement, jobData);
         break;
       default:
         // If TypeScript raises an error here, a new PdfElementType was added
@@ -1186,13 +1230,21 @@ export class PdfTemplateRenderer {
     const headerFontSize = element.headerFontSize ?? element.headerStyle?.fontSize ?? 10;
     const headerStyle = element.headerStyle || {};
     const headerSample = columns.map((c: any) => String(c.label || c.id || '')).join(' ');
-    const bodySample = equipment.map((eq: any) => columns.map((c: any) => String(eq?.[c.id] ?? '')).join(' ')).join(' ');
+    const bodySample = equipment
+      .map((eq: any, i: number) => columns.map((c: any) => resolveEquipmentCellText(eq, c, i, 0)).join(' '))
+      .join(' ');
     const lineHeight = computeSafeLineHeight({ fontSize, text: bodySample });
     const headerLineHeight = computeSafeLineHeight({ fontSize: headerFontSize, text: headerSample });
     const cellPadding = 4;
     const defaultRowHeight = 18;
 
-    const colWidths = columns.map((c: any) => c.width ?? 60);
+    // Phase 30 Task 1: must match renderEquipmentTable.ts's own default
+    // (`totalWidth / columns.length`) — a fixed 60pt default here would
+    // measure against widths that don't match what's actually drawn
+    // whenever a column has no explicit `width`.
+    const totalWidth = element.width ?? 100;
+    const equalWidth = totalWidth / columns.length;
+    const colWidths = columns.map((c: any) => c.width ?? equalWidth);
 
     this.applyContentFont(pdf, columns.map((c: any) => c.label || c.id).join(' '), undefined, headerStyle.bold ? 'bold' : 'normal', headerFontSize);
     let headerHeight = defaultRowHeight;
@@ -1205,23 +1257,135 @@ export class PdfTemplateRenderer {
       headerHeight = Math.max(headerHeight, cellHeight);
     }
 
-    const emptyLabel = '-';
+    // Phase 30 Task 1: this function measures the FULL (unsliced) equipment
+    // list — like `measureRecordTableHeights`/`record.rows` (Phase 27) —
+    // so the `no` ordinal's offset here is always 0; the DRAW pass
+    // (renderEquipmentTable.ts) adds its slice's own `rowStart` on top of
+    // the same per-row index for the same absolute row number.
     const rowHeights: number[] = [];
-    this.applyContentFont(pdf, equipment.map((eq) => columns.map((c: any) => String(eq?.[c.id] ?? '')).join(' ')).join(' '), undefined, (element.cellStyle || {}).bold ? 'bold' : 'normal', fontSize);
-    for (const eq of equipment) {
-      const cellTexts: string[][] = columns.map((col: any) => {
-        const raw = eq[col.id];
-        const val =
-          raw === undefined || raw === null || String(raw).trim() === '' ? emptyLabel : String(raw).trim();
-        return this.wrapTextForCell(val, colWidths[columns.indexOf(col)] - cellPadding * 2, fontSize, pdf);
+    this.applyContentFont(pdf, bodySample, undefined, (element.cellStyle || {}).bold ? 'bold' : 'normal', fontSize);
+    equipment.forEach((eq: any, i: number) => {
+      const cellTexts: string[][] = columns.map((col: any, idx: number) => {
+        const val = resolveEquipmentCellText(eq, col, i, 0);
+        return this.wrapTextForCell(val, colWidths[idx] - cellPadding * 2, fontSize, pdf);
       });
       let rowHeight = defaultRowHeight;
       for (const lines of cellTexts) {
         rowHeight = Math.max(rowHeight, lines.length * lineHeight + cellPadding * 2);
       }
       rowHeights.push(rowHeight);
-    }
+    });
     return { headerHeight, rowHeights };
+  }
+
+  /**
+   * Measures the record table's header (section-header band + column-header
+   * band combined into one reserved height, per slice) and each data row's
+   * height. Must mirror `renderRecordTable`'s own measure pass exactly —
+   * same column resolution (`getRecordTableColumns`), same section spans
+   * (`computeSectionSpans`), same cell text (`formatRecordValueForPdf`) — or
+   * `computeTableRowSlices` will slice against a height that doesn't match
+   * what actually gets drawn (ADR-011: measure the FORMATTED string).
+   */
+  private measureRecordTableHeights(
+    pdf: jsPDF,
+    element: RecordTableElement,
+    jobData: PdfRenderJobData
+  ): { headerHeight: number; rowHeights: number[] } {
+    const record = (jobData as any)?.record as CalibrationRecord | undefined;
+    const template = (jobData as any)?.recordTemplate as RecorderTemplate | undefined;
+    if (!record || !template) return { headerHeight: 0, rowHeights: [] };
+
+    const columns = getRecordTableColumns(element, template, record.columnUnits ?? {});
+    if (columns.length === 0) return { headerHeight: 0, rowHeights: [] };
+
+    // ADR-015 D2 — must match renderRecordTable's own read of the same
+    // jobData field exactly, or measured heights would diverge from what
+    // actually gets drawn (this function's own file-header contract).
+    const conversionRules: ConversionRule[] = (jobData as any)?.conversionRules ?? [];
+
+    const showSectionHeaders = element.showSectionHeaders ?? true;
+    const spans = showSectionHeaders ? computeSectionSpans(columns) : [];
+
+    const totalWidth = element.width ?? 400;
+
+    const fontSize = element.fontSize ?? element.cellStyle?.fontSize ?? 9;
+    const headerFontSize = element.headerFontSize ?? element.headerStyle?.fontSize ?? fontSize;
+    const sectionHeaderFontSize = element.sectionHeaderFontSize ?? element.sectionHeaderStyle?.fontSize ?? headerFontSize;
+    const cellPadding = 4;
+    const minRowHeight = 18;
+    const cellBold = !!element.cellStyle?.bold;
+    const headerBold = element.headerStyle?.bold ?? true;
+    const sectionHeaderBold = element.sectionHeaderStyle?.bold ?? true;
+    const overflowMode: RecordTableOverflowMode = element.overflowMode ?? 'ellipsis';
+    const maxWrapLines = clampRecordTableMaxWrapLines(element.maxWrapLines);
+
+    const { wrapTextForCell } = this.getRendererHelpers();
+
+    // Task 2 (Phase 27): same width/font-degradation computation
+    // `renderRecordTable` uses for drawing, run here against the FULL
+    // (unsliced) row set — this function's own doc comment requires it to
+    // mirror the draw pass exactly, or `computeTableRowSlices` slices
+    // against heights that don't match what actually gets drawn.
+    const layout = computeRecordTableLayout({
+      pdf, columns, rows: record.rows, conversionRules,
+      conversionSnapshotFor: (ri, key) => record.conversionSnapshots?.[`${ri}:${key}`],
+      totalWidth, fontSize, headerFontSize, sectionHeaderFontSize,
+      showSectionHeaders, spans, cellPadding, cellBold, headerBold, sectionHeaderBold,
+      helpers: this.getRendererHelpers(),
+    });
+    const { colWidths } = layout;
+
+    const cellLineHeight = computeSafeLineHeight({ fontSize: layout.cellFontSize, text: '' });
+    const headerLineHeight = computeSafeLineHeight({ fontSize: layout.headerFontSize, text: '' });
+    const sectionHeaderLineHeight = computeSafeLineHeight({ fontSize: layout.sectionHeaderFontSize, text: '' });
+
+    let sectionHeaderHeight = 0;
+    if (showSectionHeaders) {
+      this.applyContentFont(pdf, '', 'Helvetica', sectionHeaderBold ? 'bold' : 'normal', layout.sectionHeaderFontSize);
+      sectionHeaderHeight = minRowHeight;
+      for (const span of spans) {
+        const spanWidth = colWidths.slice(span.startIndex, span.endIndex + 1).reduce((a, b) => a + b, 0);
+        const width = Math.max(1, spanWidth - cellPadding * 2);
+        const lines = resolveRecordTableCellLines(
+          pdf, this.normalizePdfText(span.sectionLabel), width, layout.sectionHeaderFontSize,
+          overflowMode, maxWrapLines, wrapTextForCell,
+        );
+        sectionHeaderHeight = Math.max(sectionHeaderHeight, lines.length * sectionHeaderLineHeight + cellPadding * 2);
+      }
+    }
+
+    this.applyContentFont(pdf, '', 'Helvetica', headerBold ? 'bold' : 'normal', layout.headerFontSize);
+    let columnHeaderHeight = minRowHeight;
+    for (let i = 0; i < columns.length; i++) {
+      const width = Math.max(1, colWidths[i] - cellPadding * 2);
+      const lines = resolveRecordTableCellLines(
+        pdf, this.normalizePdfText(columns[i].label), width, layout.headerFontSize,
+        overflowMode, maxWrapLines, wrapTextForCell,
+      );
+      columnHeaderHeight = Math.max(columnHeaderHeight, lines.length * headerLineHeight + cellPadding * 2);
+    }
+
+    this.applyContentFont(pdf, '', 'Helvetica', cellBold ? 'bold' : 'normal', layout.cellFontSize);
+    const rowHeights: number[] = record.rows.map((row, ri) => {
+      let rh = minRowHeight;
+      for (let i = 0; i < columns.length; i++) {
+        const col = columns[i];
+        const width = Math.max(1, colWidths[i] - cellPadding * 2);
+        const raw = this.normalizePdfText(
+          formatRecordValueForPdf(row[col.key], col.column, {
+            targetUnit: col.unit,
+            rules: conversionRules,
+            snapshot: record.conversionSnapshots?.[`${ri}:${col.key}`],
+          }),
+        );
+        const lines = resolveRecordTableCellLines(pdf, raw, width, layout.cellFontSize, overflowMode, maxWrapLines, wrapTextForCell);
+        rh = Math.max(rh, lines.length * cellLineHeight + cellPadding * 2);
+      }
+      return rh;
+    });
+
+    return { headerHeight: sectionHeaderHeight + columnHeaderHeight, rowHeights };
   }
 
   /**
@@ -1235,6 +1399,19 @@ export class PdfTemplateRenderer {
     slice?: { rowStart: number; rowEnd: number }
   ): void {
     renderEquipmentTable(pdf, element, jobData, slice, this.getRendererHelpers());
+  }
+
+  /**
+   * Render record table element.
+   * Logic lives in: src/services/pdf-renderers/renderRecordTable.ts
+   */
+  private renderRecordTableElement(
+    pdf: jsPDF,
+    element: RecordTableElement,
+    jobData: any,
+    slice?: { rowStart: number; rowEnd: number }
+  ): void {
+    renderRecordTable(pdf, element, jobData, slice, this.getRendererHelpers());
   }
 
   private formatDocumentSourceForPdf(source: DocumentSource | undefined): string {
@@ -1681,8 +1858,20 @@ export class PdfTemplateRenderer {
       }
     }
 
-    // Fallback (null state): data missing or 0 rows
+    // Fallback (null state): data missing or 0 rows.
+    //
+    // Phase 30 Task 4: `jobData.trebDataRegistry` is populated ONLY by
+    // `renderTemplate` (jobs scope) — every other entry point
+    // (`renderTemplateWithContext`, used by calibrationRecords/documents/
+    // staff) never sets it at all. So the field being entirely absent is a
+    // reliable, local signal that this element cannot resolve in the
+    // template's current scope — a different, more useful fact for the
+    // author than "this specific tab has no data", which is what the
+    // message used to say unconditionally.
     if (data.length === 0 || (data[0] && data[0].length === 0)) {
+      const message = jobData.trebDataRegistry === undefined
+        ? 'N/A - Not available in this template scope'
+        : 'N/A - Data Not Found';
       if (typeof (pdf as any).saveGraphicsState === 'function') (pdf as any).saveGraphicsState();
       (pdf as any).setLineDash?.([3, 3], 0);
       pdf.setDrawColor(150, 150, 150);
@@ -1690,7 +1879,7 @@ export class PdfTemplateRenderer {
       pdf.rect(element.x, element.y, tableWidth, 50);
       pdf.setFontSize(10);
       pdf.setTextColor(150, 150, 150);
-      pdf.text('N/A - Data Not Found', element.x + tableWidth / 2, element.y + 25, { align: 'center' });
+      pdf.text(message, element.x + tableWidth / 2, element.y + 25, { align: 'center' });
       (pdf as any).setLineDash?.([]);
       if (typeof (pdf as any).restoreGraphicsState === 'function') (pdf as any).restoreGraphicsState();
       return;
@@ -3221,7 +3410,8 @@ export class PdfTemplateRenderer {
       let tpl: { trebDocument?: unknown; tabs?: { id: string; name?: string }[] } | null = null;
       try {
         tpl = await spreadsheetTemplateService.getByIdFromServer(tplId);
-      } catch {
+      } catch (e) {
+        console.warn('[PDF treb][Path 3] getByIdFromServer threw for template', tplId, '- falling through to "N/A - Data Not Found":', e);
         continue;
       }
       if (tpl?.tabs?.length) {
@@ -3229,11 +3419,24 @@ export class PdfTemplateRenderer {
         if (tab?.name?.trim()) tabName = tab.name.trim();
       }
       const doc = tpl?.trebDocument;
-      if (!doc || typeof doc !== 'object' || (doc as any).sheet_data == null) continue;
+      if (!doc || typeof doc !== 'object' || (doc as any).sheet_data == null) {
+        console.warn('[PDF treb][Path 3] template', tplId, 'has no trebDocument/sheet_data - falling through to "N/A - Data Not Found". tpl:', tpl);
+        continue;
+      }
       const sheet = this.getSheetByName(doc, tabName);
-      if (!sheet) continue;
+      if (!sheet) {
+        console.warn(
+          '[PDF treb][Path 3] no sheet matched tabName', JSON.stringify(tabName),
+          '(tabId:', tabId, ') among', this.getSheetsFromDoc(doc).map((s: any) => s?.name),
+          '- falling through to "N/A - Data Not Found".',
+        );
+        continue;
+      }
       let grid = this.trebDocTo2DArrayWithCrossRefs(doc, sheet);
-      if (grid.length === 0) continue;
+      if (grid.length === 0) {
+        console.warn('[PDF treb][Path 3] sheet', JSON.stringify(tabName), 'matched but produced an EMPTY grid - falling through to "N/A - Data Not Found".');
+        continue;
+      }
       grid = this.clampGridToSheetLayout(grid, sheet);
       const trebCellsForTab = this.extractSheetCells(sheet);
       const trebCoords = trebCellsForTab.map((c) => ({ row: c.row, column: c.column }));

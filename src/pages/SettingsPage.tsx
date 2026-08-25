@@ -14,10 +14,7 @@ import { PdfTemplateManagerModal } from '../components/PdfTemplateManagerModal';
 import { CertificateNumberManagerModal } from '../components/CertificateNumberManagerModal';
 import { MasterListsManagementModal } from '../components/MasterListsManagementModal';
 import { DriveBackupModal } from '../components/DriveBackupModal';
-import { CmcSettingsModal } from '../components/CmcSettingsModal';
-import { useCmcSettings } from '../hooks/useCmcSettings';
-import { AnalysisFormulaSetModal } from '../components/AnalysisFormulaSetModal';
-import { useAnalysisFormulaSet } from '../hooks/useAnalysisFormulaSet';
+import { UnitConversionRulesManagerModal } from '../components/UnitConversionRulesManagerModal';
 import {
   HashIcon,
   BuildingIcon,
@@ -29,7 +26,9 @@ import {
   DownloadIcon,
   WrenchIcon,
   IdCardIcon,
-  TagIcon,
+  FilterIcon,
+  DuplicateIcon,
+  TrashIcon,
 } from '../components/common';
 
 // ── Inline chevron (right) ────────────────────────────────────────────────
@@ -116,12 +115,8 @@ export const SettingsPage: React.FC = () => {
   const { settings: jobIdSettings, updateSettings, refreshSettings } = useJobIdSettings();
   const { settings: customerIdSettings, updateSettings: updateCustomerIdSettings, refreshSettings: refreshCustomerIdSettings } = useCustomerIdSettings();
   const { companyInfo, updateCompanyInfo, refreshCompanyInfo } = useCompanyInfo();
-  const { settings: cmcSettings, updateSettings: updateCmcSettings, refreshSettings: refreshCmcSettings } = useCmcSettings();
-  const { formulaSet: analysisFormulaSet, updateFormulaSet, refreshFormulaSet } = useAnalysisFormulaSet();
 
   const [showJobIdSettings, setShowJobIdSettings] = useState(false);
-  const [showCmcSettings, setShowCmcSettings] = useState(false);
-  const [showAnalysisFormulas, setShowAnalysisFormulas] = useState(false);
   const [showCustomerIdSettings, setShowCustomerIdSettings] = useState(false);
   const [showCompanyInfo, setShowCompanyInfo] = useState(false);
   const [showUsersAndRoles, setShowUsersAndRoles] = useState(false);
@@ -129,6 +124,7 @@ export const SettingsPage: React.FC = () => {
   const [showCertificateNumberManager, setShowCertificateNumberManager] = useState(false);
   const [showMasterLists, setShowMasterLists] = useState(false);
   const [showDriveBackup, setShowDriveBackup] = useState(false);
+  const [showUnitConversionRules, setShowUnitConversionRules] = useState(false);
 
   // ── Handlers ─────────────────────────────────────────────────────────────
   const handleSaveJobIdSettings = async (newSettings: typeof jobIdSettings) => {
@@ -150,27 +146,6 @@ export const SettingsPage: React.FC = () => {
       setShowCustomerIdSettings(false);
     } catch {
       showError('Failed to save customer ID settings');
-    }
-  };
-
-  const handleSaveCmcSettings = async (newSettings: typeof cmcSettings) => {
-    try {
-      await updateCmcSettings(newSettings);
-      await refreshCmcSettings();
-      showSuccess('CMC table saved');
-      setShowCmcSettings(false);
-    } catch {
-      showError('Failed to save CMC table');
-    }
-  };
-
-  const handleSaveAnalysisFormulas = async (next: typeof analysisFormulaSet) => {
-    try {
-      await updateFormulaSet(next);
-      await refreshFormulaSet();
-      showSuccess('Analysis formulas saved');
-    } catch {
-      showError('Failed to save analysis formulas');
     }
   };
 
@@ -268,12 +243,12 @@ export const SettingsPage: React.FC = () => {
               onClick={() => setShowPdfTemplateManager(true)}
             />
             <SettingsCard
-              icon={<TagIcon className="w-5 h-5" />}
-              iconBg="bg-amber-50"
-              iconColor="text-amber-600"
-              accentHover="hover:border-amber-300"
-              title="Certificate Numbers"
-              description="Define numbering categories and sequences for calibration certificates issued to customers."
+              icon={<FilterIcon className="w-5 h-5" />}
+              iconBg="bg-emerald-50"
+              iconColor="text-emerald-600"
+              accentHover="hover:border-emerald-300"
+              title="Equipment Types"
+              description="Manage instrument types and their certificate numbering series — one type, one series, one screen."
               onClick={() => setShowCertificateNumberManager(true)}
             />
           </div>
@@ -303,22 +278,33 @@ export const SettingsPage: React.FC = () => {
               linkOut
             />
             <SettingsCard
-              icon={<ShieldIcon className="w-5 h-5" />}
+              icon={<DuplicateIcon className="w-5 h-5" />}
+              iconBg="bg-indigo-50"
+              iconColor="text-indigo-600"
+              accentHover="hover:border-indigo-300"
+              title="Recorder Templates"
+              description="Author sections, columns, formulas, and summary fields for how each equipment type is recorded."
+              onClick={() => navigate('/recorder-templates')}
+              linkOut
+            />
+            <SettingsCard
+              icon={<HashIcon className="w-5 h-5" />}
+              iconBg="bg-amber-50"
+              iconColor="text-amber-600"
+              accentHover="hover:border-amber-300"
+              title="Unit Conversions"
+              description="Display-time conversion rules a recorder template column can opt into — never changes stored values."
+              onClick={() => setShowUnitConversionRules(true)}
+            />
+            <SettingsCard
+              icon={<TrashIcon className="w-5 h-5" />}
               iconBg="bg-rose-50"
               iconColor="text-rose-600"
               accentHover="hover:border-rose-300"
-              title="Force CMC Table"
-              description="Calibration and Measurement Capability scope, per ISO 7500-1 direction, used by the analysis Report-U."
-              onClick={() => setShowCmcSettings(true)}
-            />
-            <SettingsCard
-              icon={<BarChartIcon className="w-5 h-5" />}
-              iconBg="bg-cyan-50"
-              iconColor="text-cyan-600"
-              accentHover="hover:border-cyan-300"
-              title="Analysis Formulas"
-              description="Edit the Relative Error and Uncertainty Budget calculation steps, with a live preview before saving."
-              onClick={() => setShowAnalysisFormulas(true)}
+              title="Voided Records"
+              description="Calibration records voided as soft deletes (ADR-016) — review why, and restore if needed. No permanent delete."
+              onClick={() => navigate('/records/voided')}
+              linkOut
             />
           </div>
         </section>
@@ -393,17 +379,9 @@ export const SettingsPage: React.FC = () => {
         isOpen={showDriveBackup}
         onClose={() => setShowDriveBackup(false)}
       />
-      <CmcSettingsModal
-        isOpen={showCmcSettings}
-        onClose={() => setShowCmcSettings(false)}
-        currentSettings={cmcSettings}
-        onSave={handleSaveCmcSettings}
-      />
-      <AnalysisFormulaSetModal
-        isOpen={showAnalysisFormulas}
-        onClose={() => setShowAnalysisFormulas(false)}
-        currentFormulaSet={analysisFormulaSet}
-        onSave={handleSaveAnalysisFormulas}
+      <UnitConversionRulesManagerModal
+        isOpen={showUnitConversionRules}
+        onClose={() => setShowUnitConversionRules(false)}
       />
     </div>
   );

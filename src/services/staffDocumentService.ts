@@ -14,6 +14,7 @@ import {
   getDocs,
   addDoc,
   deleteDoc,
+  updateDoc,
   query,
   where,
   serverTimestamp,
@@ -131,5 +132,9 @@ export const staffDocumentService = {
     }
     // Remove Firestore metadata record
     await deleteDoc(doc(db, FS_COLLECTION, document.id));
+  },
+
+  async renameDocument(documentId: string, newName: string): Promise<void> {
+    await updateDoc(doc(db, FS_COLLECTION, documentId), { name: newName.trim() });
   },
 };

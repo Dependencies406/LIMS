@@ -63,6 +63,27 @@ export function renderDocumentsTable(
     ? allItems.slice(slice.rowStart, slice.rowEnd)
     : allItems;
 
+  const x = element.x ?? 0;
+  const y = element.y ?? 0;
+
+  // Task 3/4 (Phase 30): an honest empty state instead of a silently blank
+  // box — checked against the FULL list, not `items`: an empty slice on a
+  // later sub-page is a pagination detail, not "no data".
+  if (allItems.length === 0) {
+    const totalWidth = element.width ?? 100;
+    const emptyHeight = 18;
+    const message = 'No documents.';
+    pdf.setFillColor('#ffffff');
+    pdf.rect(x, y, totalWidth, emptyHeight, 'F');
+    pdf.setDrawColor((element as any).borderColor ?? '#d1d5db');
+    pdf.setLineWidth((element as any).borderWidth ?? 0.5);
+    pdf.rect(x, y, totalWidth, emptyHeight, 'S');
+    helpers.applyContentFont(pdf, message, 'Helvetica', 'normal', 9);
+    pdf.setFontSize(9);
+    pdf.setTextColor('#6b7280');
+    pdf.text(helpers.normalizePdfText(message), x + 4, y + 13);
+    return;
+  }
   if (items.length === 0) return;
 
   // Visible columns in display order — must match measureDocumentsTableHeights.
@@ -71,9 +92,6 @@ export function renderDocumentsTable(
     .sort((a: any, b: any) => (a.order ?? 0) - (b.order ?? 0));
 
   if (columns.length === 0) return;
-
-  const x = element.x ?? 0;
-  const y = element.y ?? 0;
 
   const fontSize = (element as any).fontSize ?? (element as any).cellStyle?.fontSize ?? 9;
   const headerFontSize = (element as any).headerFontSize ?? (element as any).headerStyle?.fontSize ?? 10;

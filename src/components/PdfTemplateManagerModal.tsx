@@ -203,38 +203,27 @@ export const PdfTemplateManagerModal: React.FC<PdfTemplateManagerModalProps> = (
                       </div>
 
                       {/* Footer with Actions */}
-                      <div className="px-4 py-3 border-t border-gray-200 flex items-center gap-2" style={{ borderTopColor: '#E5E7EB' }}>
+                      <div className="px-4 py-3 border-t border-gray-200 flex items-center justify-end gap-1" style={{ borderTopColor: '#E5E7EB' }}>
                         <button
                           onClick={() => template.id && handleEdit(template.id)}
-                          className="flex-1 px-3 py-1.5 rounded-md text-sm font-medium transition-colors"
-                          style={{ 
-                            backgroundColor: '#0055FF',
-                            color: '#FFFFFF'
-                          }}
-                          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#0044CC'}
-                          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#0055FF'}
+                          title="Edit template"
+                          className="p-1.5 rounded-lg text-gray-400 hover:text-primary-600 hover:bg-primary-50 transition-colors"
                         >
-                          Edit
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
                         </button>
                         <button
                           onClick={() => template.id && handleDuplicate(template.id)}
-                          className="px-3 py-1.5 rounded-md text-sm font-medium transition-colors"
-                          style={{ 
-                            backgroundColor: '#10B981',
-                            color: '#FFFFFF'
-                          }}
-                          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#059669'}
-                          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#10B981'}
                           title="Duplicate template"
+                          className="p-1.5 rounded-lg text-gray-400 hover:text-green-600 hover:bg-green-50 transition-colors"
                         >
-                          Duplicate
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
                         </button>
                         <button
                           onClick={() => template.id && handleDelete(template.id)}
-                          className="p-1.5 rounded-md hover:bg-gray-100 transition-colors text-gray-400 hover:text-red-600"
                           title="Delete template"
+                          className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
                         >
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                           </svg>
                         </button>

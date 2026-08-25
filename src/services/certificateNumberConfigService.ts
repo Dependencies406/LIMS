@@ -1,6 +1,8 @@
 /**
  * Certificate Number Configuration Service
- * Manages certificate number category configurations
+ * Manages equipment type configurations — `certificate_number_configs` IS the
+ * equipment type (ADR-012). Each document is one instrument type with its
+ * certificate numbering series.
  */
 
 import {
@@ -10,14 +12,14 @@ import {
   getDoc,
   getDocs,
   setDoc,
-  updateDoc,
   deleteDoc,
   query,
   orderBy,
   where,
   serverTimestamp,
   Timestamp,
-  onSnapshot
+  onSnapshot,
+  runTransaction
 } from './firebase';
 import type { CertificateNumberConfig } from '../types';
 
@@ -30,7 +32,6 @@ const documentToConfig = (docData: any, docId: string): CertificateNumberConfig 
   return {
     id: docId,
     name: docData.name || '',
-    equipmentType: docData.equipmentType || '',
     prefix: docData.prefix || '',
     separator: docData.separator || '-',
     includeYear: docData.includeYear !== false,
@@ -38,9 +39,12 @@ const documentToConfig = (docData: any, docId: string): CertificateNumberConfig 
     currentNumber: docData.currentNumber || 0,
     currentSequence: docData.currentSequence ?? docData.currentNumber ?? 0,
     currentYear: docData.currentYear ?? new Date().getFullYear(),
-    yearlyReset: docData.yearlyReset ?? (docData.resetPolicy === 'yearly'),
+    // Derived, not read from the document (Phase 1): yearlyReset is no longer
+    // its own stored field, it is always exactly resetPolicy === 'yearly'.
+    yearlyReset: docData.resetPolicy === 'yearly',
     resetPolicy: docData.resetPolicy || 'never',
     lastResetAt: docData.lastResetAt?.toDate() || undefined,
+    lastAllocatedAt: docData.lastAllocatedAt?.toDate() || undefined,
     isActive: docData.isActive !== false,
     createdAt: docData.createdAt?.toDate() || new Date(),
     updatedAt: docData.updatedAt?.toDate() || new Date(),
@@ -58,12 +62,20 @@ const configToDocument = (config: Omit<CertificateNumberConfig, 'id' | 'createdA
     includeYear: config.includeYear !== false, // Default to true
     numberPadding: config.numberPadding,
     currentNumber: config.currentNumber,
+    currentSequence: config.currentSequence ?? config.currentNumber ?? 0,
+    currentYear: config.currentYear ?? new Date().getFullYear(),
+    // yearlyReset is intentionally NOT persisted (Phase 1): it is always
+    // exactly resetPolicy === 'yearly', so it is derived on read instead
+    // (see documentToConfig) rather than stored as its own field.
     resetPolicy: config.resetPolicy,
     isActive: config.isActive,
   };
 
   if (config.lastResetAt) {
     docData.lastResetAt = Timestamp.fromDate(config.lastResetAt);
+  }
+  if (config.lastAllocatedAt) {
+    docData.lastAllocatedAt = Timestamp.fromDate(config.lastAllocatedAt);
   }
   if (config.createdAt) {
     docData.createdAt = Timestamp.fromDate(config.createdAt);
@@ -184,24 +196,44 @@ export const certificateNumberConfigService = {
         }
       }
 
-      const updateData: any = {};
-      
-      if (updates.name !== undefined) updateData.name = updates.name;
-      if (updates.prefix !== undefined) updateData.prefix = updates.prefix;
-      if (updates.separator !== undefined) updateData.separator = updates.separator;
-      if (updates.includeYear !== undefined) updateData.includeYear = updates.includeYear;
-      if (updates.numberPadding !== undefined) updateData.numberPadding = updates.numberPadding;
-      if (updates.currentNumber !== undefined) updateData.currentNumber = updates.currentNumber;
-      if (updates.resetPolicy !== undefined) updateData.resetPolicy = updates.resetPolicy;
-      if (updates.isActive !== undefined) updateData.isActive = updates.isActive;
-      if (updates.lastResetAt !== undefined) {
-        updateData.lastResetAt = updates.lastResetAt ? Timestamp.fromDate(updates.lastResetAt) : null;
-      }
-
-      updateData.updatedAt = serverTimestamp();
-
       const docRef = doc(db, COLLECTION_NAME, id);
-      await updateDoc(docRef, updateData);
+
+      // Run as a transaction: this document's counter fields (currentNumber /
+      // currentSequence / currentYear) can also be mutated concurrently by
+      // generateCertificateNumber's allocation transaction. A plain updateDoc
+      // here could race with that transaction and silently lose a counter
+      // update; wrapping in runTransaction makes the two serialize correctly.
+      await runTransaction(db, async (transaction) => {
+        const snap = await transaction.get(docRef);
+        if (!snap.exists()) {
+          throw new Error('Certificate number configuration not found');
+        }
+
+        const updateData: any = {};
+
+        if (updates.name !== undefined) updateData.name = updates.name;
+        if (updates.prefix !== undefined) updateData.prefix = updates.prefix;
+        if (updates.separator !== undefined) updateData.separator = updates.separator;
+        if (updates.includeYear !== undefined) updateData.includeYear = updates.includeYear;
+        if (updates.numberPadding !== undefined) updateData.numberPadding = updates.numberPadding;
+        if (updates.currentNumber !== undefined) updateData.currentNumber = updates.currentNumber;
+        if (updates.currentSequence !== undefined) updateData.currentSequence = updates.currentSequence;
+        if (updates.currentYear !== undefined) updateData.currentYear = updates.currentYear;
+        // yearlyReset is not a stored field (Phase 1) — no branch needed; it is
+        // always derived from resetPolicy on read.
+        if (updates.resetPolicy !== undefined) updateData.resetPolicy = updates.resetPolicy;
+        if (updates.isActive !== undefined) updateData.isActive = updates.isActive;
+        if (updates.lastResetAt !== undefined) {
+          updateData.lastResetAt = updates.lastResetAt ? Timestamp.fromDate(updates.lastResetAt) : null;
+        }
+        // lastAllocatedAt is intentionally not settable here — only the
+        // allocation transaction writes it (ADR-012), so that field stays a
+        // trustworthy "last certificate issued" timestamp.
+
+        updateData.updatedAt = serverTimestamp();
+
+        transaction.update(docRef, updateData);
+      });
     } catch (error: any) {
       console.error('Error updating certificate number config:', error);
       if (error.message) {
@@ -230,10 +262,22 @@ export const certificateNumberConfigService = {
    */
   async resetNumber(id: string): Promise<void> {
     try {
+      const docRef = doc(db, COLLECTION_NAME, id);
       const now = new Date();
-      await this.updateConfig(id, {
-        currentNumber: 0,
-        lastResetAt: now,
+
+      await runTransaction(db, async (transaction) => {
+        const snap = await transaction.get(docRef);
+        if (!snap.exists()) {
+          throw new Error('Certificate number configuration not found');
+        }
+
+        transaction.update(docRef, {
+          currentNumber: 0,
+          currentSequence: 0,
+          currentYear: now.getFullYear(),
+          lastResetAt: Timestamp.fromDate(now),
+          updatedAt: serverTimestamp(),
+        });
       });
     } catch (error) {
       console.error('Error resetting certificate number:', error);

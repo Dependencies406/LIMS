@@ -16,7 +16,8 @@ export type PdfElementType =
   | 'equipment-table'
   | 'documents-table'
   | 'training-table'
-  | 'treb-table';
+  | 'treb-table'
+  | 'record-table';
 
 /** How an element participates in template-page overflow / continuation pages. Default: tables behave as dynamic when omitted (see renderer). */
 export type PdfElementOverflowRole = 'static' | 'dynamic';
@@ -279,6 +280,130 @@ export interface TrebTableElement extends PdfElement {
 }
 
 /**
+ * How a record-table cell/header handles text that still overflows its
+ * column after proportional widths, the 36pt minimum, and font-shrink to
+ * the 6pt floor have all already been applied (Phase 27 steps 1-3, which
+ * run identically regardless of this setting — see `RecordTableElement`'s
+ * own doc comment for the full ladder). Phase 28.
+ *
+ *   - `'ellipsis'`    — one line, truncated with `…` if it still doesn't
+ *                       fit. This was Phase 27's ONLY behaviour and remains
+ *                       the default, so an element saved before this field
+ *                       existed renders unchanged.
+ *   - `'wrap'`        — wraps across up to `maxWrapLines` lines (via the
+ *                       existing, untouched word-wrap); the last line is
+ *                       ellipsis-truncated if there was more text than that.
+ *   - `'shrink-only'` — nothing further after font-shrink: the full text is
+ *                       drawn on one line at its natural width, which may
+ *                       visibly overflow the cell rather than being
+ *                       wrapped or truncated.
+ */
+export type RecordTableOverflowMode = 'ellipsis' | 'wrap' | 'shrink-only';
+
+/**
+ * Record table element (ADR-004, ADR-006, ADR-011, Phase 27, Phase 28).
+ *
+ * Renders a CalibrationRecord's rows against its pinned RecorderTemplate
+ * snapshot — the same shape as the on-screen recording grid (one row per
+ * calibration point, columns keyed `${sectionId}_${columnId}`, sections as a
+ * spanning header row above the column headers). Bound implicitly to
+ * `jobData.record` (the CalibrationRecord) and `jobData.recordTemplate` (its
+ * pinned RecorderTemplate snapshot) at render time — not via `dataSource`,
+ * the same way `equipment-table` binds implicitly to `jobData.equipment`.
+ *
+ * Column count is NOT authored: the column set varies per template (ADR-006
+ * — rounds are ordinary columns) and isn't known until the actual bound
+ * record's pinned snapshot is available at render time. Column WIDTHS are
+ * computed at render time too, by `computeRecordTableLayout`
+ * (`renderRecordTable.ts`) — the full ladder, in order, run identically for
+ * every cell regardless of `overflowMode`:
+ *
+ *   1. Proportional widths from each column's natural content width
+ *   2. A 36pt minimum column width floor, once widths don't fit `width`
+ *   3. Font-shrink toward a 6pt floor — ALWAYS, in every `overflowMode`;
+ *      shrinking often makes text fit with no loss at all, so an author's
+ *      overflow choice governs only what's left AFTER shrink, not whether
+ *      shrink happens
+ *   4. Whatever still overflows is handled per `overflowMode` (see that
+ *      type's own doc comment)
+ *   5. If a column would still fall below the 36pt floor, it renders AT
+ *      36pt anyway and the table overflows `width` rather than the column
+ *      shrinking further — flagged at authoring time in the Properties
+ *      Panel, never silently producing character-per-line output
+ *
+ * Never fixed per-column x positions or widths (ADR-004).
+ */
+export interface RecordTableElement extends PdfElement {
+  type: 'record-table';
+  width?: number;
+  height?: number;
+  /**
+   * Authoring-time only — which RecorderTemplate the Properties Panel used
+   * to build the section/column checklists below. NOT used by the renderer
+   * (which always reads sections/columns from whatever pinned snapshot is
+   * passed in via `jobData.recordTemplate`, per ADR-005) — purely so
+   * reopening the panel remembers the picker's selection instead of showing
+   * an empty checklist.
+   */
+  recorderTemplateId?: string;
+  /**
+   * Ordered list of section ids this element renders — one element per
+   * section is the common authoring pattern, stacked down the page (Phase
+   * 27). Semantics (Phase 29: `undefined` and `[]` are NOT the same value —
+   * conflating them was the reported bug where deselecting the last section
+   * silently re-selected every section):
+   *   - `undefined` (the field absent) = every section, in template order
+   *     — the only meaning for templates authored before this field
+   *     existed, and unchanged behaviour for them.
+   *   - `[]` = explicitly NO sections selected. The element renders
+   *     nothing. This is a real, intentional state, not a fallback.
+   *   - Any other array filters WHICH sections appear, in the ORDER given
+   *     here (not necessarily template order) — `columns` below then
+   *     narrows WITHIN the surviving sections.
+   *   - A section id with no match in the record's pinned snapshot is
+   *     skipped silently, not an error: a template can be revised after a
+   *     record pins it (ADR-005), and the pinned snapshot is authoritative.
+   *     (The Properties Panel separately warns about this at authoring
+   *     time against the LIVE template, since an id that's merely absent
+   *     from the live template may still be present on older pinned
+   *     records — Phase 29 Task 2.)
+   *   - If the section+column filter leaves zero columns, the element
+   *     renders nothing (no empty grid).
+   */
+  sections?: string[];
+  /**
+   * Ordered list of `${sectionId}_${columnId}` keys to include, applied
+   * AFTER the `sections` filter above. Same `undefined` (= every column
+   * from the surviving sections) vs `[]` (= explicitly none) distinction as
+   * `sections` — see that field's doc comment (Phase 29).
+   */
+  columns?: string[];
+  /** Render the section-grouping header row above the column-header row. Default true. */
+  showSectionHeaders?: boolean;
+  headerStyle?: CellStyle;
+  sectionHeaderStyle?: CellStyle;
+  cellStyle?: CellStyle;
+  borderColor?: string;
+  borderWidth?: number;
+  fontSize?: number;
+  headerFontSize?: number;
+  sectionHeaderFontSize?: number;
+  /**
+   * How text still overflowing after width/font-shrink is handled — see
+   * `RecordTableOverflowMode`'s own doc comment for the full ladder.
+   * Omitted = `'ellipsis'` (Phase 27's original, only behaviour), so an
+   * element saved before Phase 28 renders unchanged.
+   */
+  overflowMode?: RecordTableOverflowMode;
+  /**
+   * `'wrap'` mode only. Clamped to a sane range (see
+   * `clampRecordTableMaxWrapLines` in `renderRecordTable.ts`) and defaults
+   * to 3 when omitted or out of range.
+   */
+  maxWrapLines?: number;
+}
+
+/**
  * Cell style for charts (and legacy table references in saved templates)
  */
 export interface CellStyle {
@@ -312,7 +437,7 @@ export type PageOrientation = 'portrait' | 'landscape';
  * Templates in the selector are filtered to the calling module's scope.
  * 'global' means the template appears in all selectors (backward-compatible default).
  */
-export type PdfTemplateScope = 'jobs' | 'customers' | 'documents' | 'global' | 'staff' | 'equipment';
+export type PdfTemplateScope = 'jobs' | 'customers' | 'documents' | 'global' | 'staff' | 'equipment' | 'calibrationRecords';
 
 /**
  * PDF template structure

@@ -106,6 +106,8 @@ export const PendingJobsPage: React.FC = () => {
             eq.capacity && `Capacity/range: ${eq.capacity}`,
           ].filter(Boolean);
           return {
+            // Stable id assigned at creation (ADR-002 Phase 2).
+            id: `${Date.now()}_${Math.random().toString(36).slice(2, 7)}_${index}`,
             no: index + 1,
             name: eq.name,
             manufacturer: eq.manufacturer,

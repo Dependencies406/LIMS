@@ -3,11 +3,11 @@
  * All exported functions are automatically discovered by the Firebase CLI.
  */
 
-import * as admin from 'firebase-admin';
+import { getApps, initializeApp } from 'firebase-admin/app';
 
 // Initialize admin SDK once
-if (!admin.apps.length) {
-  admin.initializeApp();
+if (!getApps().length) {
+  initializeApp();
 }
 
 // Re-export all functions

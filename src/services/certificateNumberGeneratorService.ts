@@ -56,7 +56,7 @@ const formatCertificateNumber = (
 };
 
 /**
- * Generate the next certificate number for a category
+ * Generate the next certificate number for an equipment type
  * Uses Firestore transactions to ensure uniqueness and prevent race conditions
  * 
  * @param configId Certificate number configuration ID
@@ -78,7 +78,6 @@ export const generateCertificateNumber = async (configId: string): Promise<strin
       const config: CertificateNumberConfig = {
         id: configDoc.id,
         name: configData.name || '',
-        equipmentType: configData.equipmentType || '',
         prefix: configData.prefix || '',
         separator: configData.separator || '-',
         includeYear: configData.includeYear !== false,
@@ -86,9 +85,11 @@ export const generateCertificateNumber = async (configId: string): Promise<strin
         currentNumber: configData.currentNumber || 0,
         currentSequence: configData.currentSequence ?? configData.currentNumber ?? 0,
         currentYear: configData.currentYear ?? new Date().getFullYear(),
-        yearlyReset: configData.yearlyReset ?? (configData.resetPolicy === 'yearly'),
+        // Derived, not read from the document (Phase 1) — see certificateNumberConfigService.
+        yearlyReset: configData.resetPolicy === 'yearly',
         resetPolicy: configData.resetPolicy || 'never',
         lastResetAt: configData.lastResetAt?.toDate() || undefined,
+        lastAllocatedAt: configData.lastAllocatedAt?.toDate() || undefined,
         isActive: configData.isActive !== false,
         createdAt: configData.createdAt?.toDate() || new Date(),
         updatedAt: configData.updatedAt?.toDate() || new Date(),
@@ -98,26 +99,42 @@ export const generateCertificateNumber = async (configId: string): Promise<strin
         throw new Error(`Certificate number configuration "${config.name}" is not active`);
       }
 
-      // Check for yearly reset if policy is set
-      let currentNumber = config.currentNumber;
+      // Evaluate the reset policy INSIDE the transaction, using the
+      // now-persisted currentYear / lastResetAt fields, so the read-and-reset
+      // decision is atomic with the increment below (ADR-008).
       const now = new Date();
       const currentYear = now.getFullYear();
-      
+
+      let shouldReset = false;
       if (config.resetPolicy === 'yearly') {
-        // Reset if year has changed
-        if (!config.lastResetAt || config.lastResetAt.getFullYear() < currentYear) {
-          currentNumber = 0;
-        }
+        shouldReset = config.currentYear !== currentYear;
+      } else if (config.resetPolicy === 'monthly') {
+        shouldReset =
+          !config.lastResetAt ||
+          config.lastResetAt.getFullYear() !== currentYear ||
+          config.lastResetAt.getMonth() !== now.getMonth();
       }
 
-      // Increment number
-      const nextNumber = currentNumber + 1;
+      const baseNumber = shouldReset ? 0 : config.currentNumber;
 
-      // Update the configuration
-      const shouldReset = config.resetPolicy === 'yearly' && currentNumber === 0;
+      // Increment number
+      const nextNumber = baseNumber + 1;
+
+      // Update the configuration. Because this entire read-modify-write lives
+      // inside the transaction callback, a retry (triggered by Firestore on a
+      // concurrent conflicting write) re-reads the fresh document and
+      // recomputes nextNumber from scratch — it never reuses a stale value,
+      // so a retried transaction cannot allocate a second number.
+      //
+      // Deliberately does NOT touch `updatedAt` — that field means "a human
+      // last edited this equipment type" (ADR-012). Allocation instead writes
+      // its own `lastAllocatedAt`, so the two timestamps never get confused.
       transaction.update(configRef, {
         currentNumber: nextNumber,
-        updatedAt: Timestamp.now(),
+        currentSequence: nextNumber,
+        currentYear,
+        // yearlyReset is intentionally not written — it is derived on read.
+        lastAllocatedAt: Timestamp.now(),
         ...(shouldReset ? {
           lastResetAt: Timestamp.now(),
         } : {}),
@@ -166,16 +183,22 @@ export const previewCertificateNumber = async (configId: string): Promise<string
       throw new Error(`Certificate number configuration "${config.name}" is not active`);
     }
 
-    // Check for yearly reset
-    let currentNumber = config.currentNumber;
-    const currentYear = new Date().getFullYear();
+    // Mirror the reset-policy evaluation used inside generateCertificateNumber's
+    // transaction, so the preview matches what an actual allocation would do.
+    const now = new Date();
+    const currentYear = now.getFullYear();
+
+    let shouldReset = false;
     if (config.resetPolicy === 'yearly') {
-      if (!config.lastResetAt || config.lastResetAt.getFullYear() < currentYear) {
-        currentNumber = 0;
-      }
+      shouldReset = config.currentYear !== currentYear;
+    } else if (config.resetPolicy === 'monthly') {
+      shouldReset =
+        !config.lastResetAt ||
+        config.lastResetAt.getFullYear() !== currentYear ||
+        config.lastResetAt.getMonth() !== now.getMonth();
     }
 
-    const nextNumber = currentNumber + 1;
+    const nextNumber = (shouldReset ? 0 : config.currentNumber) + 1;
     
     // Get company info for abbreviation
     let companyAbbreviation: string | undefined;

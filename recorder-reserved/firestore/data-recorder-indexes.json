@@ -1,0 +1,46 @@
+{
+  "_comment": "RESERVED — rawDataSheets composite indexes removed from firestore.indexes.json when the Data Recorder module was pulled from the active app. Re-append these objects to the `indexes` array if the module is restored.",
+  "indexes": [
+    {
+      "collectionGroup": "rawDataSheets",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "jobId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "rawDataSheets",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "requestNo", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "rawDataSheets",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "kind", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "rawDataSheets",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "requestNo", "order": "ASCENDING" },
+        { "fieldPath": "kind", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "rawDataSheets",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "amends", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "ASCENDING" }
+      ]
+    }
+  ]
+}

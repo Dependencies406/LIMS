@@ -282,7 +282,7 @@ const TrainingTab: React.FC<{
                     <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{fmtDate(r.completionDate)}</td>
                     <td className="px-4 py-3">
                       {r.certificateUrl
-                        ? <a href={r.certificateUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline text-xs">🔗 View</a>
+                        ? <a href={r.certificateUrl} target="_blank" rel="noopener noreferrer" title="View certificate" className="p-1 rounded text-gray-400 hover:text-blue-600 hover:bg-blue-50 inline-flex transition-colors"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg></a>
                         : <span className="text-gray-400">—</span>}
                     </td>
                     <td className="px-4 py-3 text-gray-500 text-xs">{r.remarks || '—'}</td>
@@ -344,6 +344,9 @@ const DocumentsTab: React.FC<{
   const [showUploadPanel, setShowUploadPanel] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<StaffDocument | null>(null);
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState('');
+  const [renameSaving, setRenameSaving] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -386,6 +389,29 @@ const DocumentsTab: React.FC<{
     } catch { showError('Failed to delete document.'); }
     finally { setDeletingId(null); }
   };
+
+  function startRename(d: StaffDocument) {
+    setRenamingId(d.id);
+    setRenameValue(d.name);
+  }
+
+  function cancelRename() {
+    setRenamingId(null);
+    setRenameValue('');
+  }
+
+  async function commitRename(d: StaffDocument) {
+    const trimmed = renameValue.trim();
+    if (!trimmed || trimmed === d.name) { cancelRename(); return; }
+    setRenameSaving(true);
+    try {
+      await staffDocumentService.renameDocument(d.id, trimmed);
+      setDocuments((prev) => prev.map((doc) => (doc.id === d.id ? { ...doc, name: trimmed } : doc)));
+      cancelRename();
+      success('File renamed.');
+    } catch { showError('Rename failed. Please try again.'); }
+    finally { setRenameSaving(false); }
+  }
 
   const categoryIcon: Record<StaffDocumentCategory, string> = {
     'Code of Conduct': '📜', 'Job Description': '📄', 'Employment Contract': '🤝',
@@ -454,25 +480,62 @@ const DocumentsTab: React.FC<{
         ) : (
           <ul className="divide-y divide-gray-100">
             {documents.map((d) => (
-              <li key={d.id} className="flex items-center gap-3 px-5 py-3.5 hover:bg-gray-50">
+              <li key={d.id} className="flex items-center gap-3 px-5 py-3.5 hover:bg-gray-50 group">
                 <span className="text-2xl flex-shrink-0" title={d.category}>{categoryIcon[d.category] ?? '🔎'}</span>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-900 truncate">{d.name}</p>
+                  {renamingId === d.id ? (
+                    <input
+                      autoFocus
+                      value={renameValue}
+                      onChange={(e) => setRenameValue(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') void commitRename(d);
+                        if (e.key === 'Escape') cancelRename();
+                      }}
+                      disabled={renameSaving}
+                      className="text-sm font-medium text-gray-900 w-full border-b border-primary-400 bg-transparent focus:outline-none py-0.5 min-w-0"
+                    />
+                  ) : (
+                    <p className="text-sm font-medium text-gray-900 truncate">{d.name}</p>
+                  )}
                   <p className="text-xs text-gray-500 mt-0.5">
                     {d.category} · {formatBytes(d.size)} · Uploaded {d.uploadedAt.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })} by {d.uploadedByName}
                   </p>
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
-                  <a href={d.url} target="_blank" rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 transition-colors">
-                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
-                    View
-                  </a>
-                  {(isAdmin || canManage) && (
-                    <button type="button" onClick={() => setConfirmDelete(d)} title="Delete" disabled={deletingId === d.id}
-                      className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 disabled:opacity-40 transition-colors">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                    </button>
+                  {renamingId === d.id ? (
+                    <>
+                      <button type="button" onClick={() => void commitRename(d)} disabled={renameSaving} title="Save name"
+                        className="p-1.5 rounded-lg text-green-600 hover:bg-green-50 disabled:opacity-40 transition-colors">
+                        {renameSaving
+                          ? <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/></svg>
+                          : <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"/></svg>
+                        }
+                      </button>
+                      <button type="button" onClick={cancelRename} title="Cancel"
+                        className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 transition-colors">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <a href={d.url} target="_blank" rel="noopener noreferrer" title="View document"
+                        className="p-1.5 rounded-lg text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+                      </a>
+                      {(isAdmin || canManage) && (
+                        <button type="button" onClick={() => startRename(d)} title="Rename"
+                          className="p-1.5 rounded-lg text-gray-400 hover:text-primary-600 hover:bg-primary-50 transition-colors">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
+                        </button>
+                      )}
+                      {(isAdmin || canManage) && (
+                        <button type="button" onClick={() => setConfirmDelete(d)} title="Delete" disabled={deletingId === d.id}
+                          className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 disabled:opacity-40 transition-colors">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                        </button>
+                      )}
+                    </>
                   )}
                 </div>
               </li>
