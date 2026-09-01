@@ -28,6 +28,7 @@ Supporting documents:
 | [015](ADR-015-display-time-unit-conversion.md) | Display-time unit conversion for non-force units; shared rule library | Accepted |
 | [016](ADR-016-voiding-records.md) | Voiding records: soft delete, admin-only, releases a pinned version | Accepted |
 | [017](ADR-017-report-blocks.md) | Report blocks: tables and text with their own row axis; third evaluation context | Accepted |
+| [018](ADR-018-recorder-template-validation.md) | Two-tier validation; Calculation Trace as primary evidence; documentation-only at the template tier | Accepted |
 
 **Note:** ADR-004 was **revised** after deeper reading of `pdfTemplateRenderer.ts`
 — its original premises about the PDF type system, pagination, and element

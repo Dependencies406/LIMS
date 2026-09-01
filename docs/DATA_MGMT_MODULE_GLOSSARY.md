@@ -183,6 +183,60 @@ machinery. See ADR-004.
 
 ---
 
+## Validation (ADR-018)
+
+**Calculation Trace**
+The recursive record of how one value was produced: its formula, its substituted
+expression, its raw result, its displayed result, and — for each input — either
+that input's own trace or its provenance. Rendered one line per formula,
+expandable. The primary evidence for clause 7.11.6.
+*Not to be confused with:* the legacy `formulaVerificationService`, which builds
+the same shape for the old spreadsheet module against `SpreadsheetModel` and
+cannot be pointed at a Record.
+
+**Provenance**
+The origin tag carried by every non-computed value in a trace: `entered`,
+`reference-standard`, `template-constant`, `environment`, or `record-scalar`.
+Provenance is what makes a calculation *checkable* rather than merely visible.
+
+**Reference Case**
+One set of input values with known-correct expected outputs, used to validate a
+Recorder Template Version. Carries a `source` (`hand-calculation`,
+`legacy-workbook`, `published-example`, `pt-ilc`) and its own declared numeric
+tolerance. The software equivalent of a reference standard.
+
+**Validation Dossier**
+The retained evidence that one Recorder Template Version was validated: its
+reference cases, the traces produced, the comparison outcome, any deviations, and
+the signature. One per version, immutable once signed, stored at
+`recorderTemplateValidations/${templateId}_v${version}` and rendered to PDF.
+*Never edited.* A correction produces a new dossier that supersedes the old one.
+
+**Superseded Dossier**
+A dossier whose template has been republished past the version it validated. Marked
+automatically, displayed as a **revalidation due** badge on the template. Blocks
+nothing (ADR-018 D7/D8).
+
+**Impact Class**
+The classification of a template change produced by diffing the new snapshot
+against the validated one: **Cosmetic**, **Structural**, or **Computational**.
+Determines whether revalidation is recommended or required, and is itself retained
+as documented evidence of the change.
+
+**Platform Validation Report**
+Tier 1 evidence: the retained result of the automated test suite for one deployed
+commit — commit SHA, date, suite counts, tool versions, hosting release. Covers the
+interpreter, formatting rules, unit conversion, PDF renderer and Firestore rules,
+so that per-template dossiers need not re-prove them.
+
+**Reported Value**
+Any value that appears on the generated certificate. Compared as an **exact
+string** during validation — unlike stored values, which are compared within a
+declared tolerance. The distinction exists because a maths error and a
+formatting/truncation error are different defects (ADR-018 D5).
+
+---
+
 ## Terms deliberately avoided
 
 | Do not say | Say instead | Why |
@@ -192,3 +246,5 @@ machinery. See ADR-004.
 | "reading round" as a set of rows | Round (a column) | Settled: rounds are columns, not row groups |
 | `equipmentType` (string) | Equipment Type (entity) `equipmentTypeId` | The string field is dead code and always empty |
 | "Formula Engine" for the whole stack | Expression Interpreter (evaluates) vs Custom Function (authored unit) | Separates the runtime from the authored artifact |
+| "validation" for a syntax check | Verification (static) vs Validation (evidence of correct results) | `verifyTemplate()` proves the template parses; it proves nothing about correctness |
+| "the tool passed" | The reference case passed, within its declared tolerance | A pass is meaningless without naming the case and the tolerance |

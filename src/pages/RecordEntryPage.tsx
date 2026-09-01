@@ -32,7 +32,14 @@ import { isEnvironmentComplete } from '../services/recordEnvironment';
 import { findRecoverableDraft } from '../modules/recorder/hooks/useDraftAutosave';
 import { useDraftAutosave, mergeSaveState } from '../modules/recorder/hooks/useDraftAutosave';
 import { useLiveRecalculation } from '../modules/recorder/hooks/useLiveRecalculation';
-import { RecordingGrid, type RecordingGridHandle } from '../modules/recorder/components/RecordingGrid';
+import { RecordingGrid, type RecordingGridHandle, type SelectedTraceableCell } from '../modules/recorder/components/RecordingGrid';
+import { CalculationTraceModal } from '../modules/recorder/components/CalculationTraceModal';
+import {
+  traceRecord,
+  standardIdentityFromEquipment,
+  standardIdentityFromSnapshot,
+} from '../services/recordCalculationTrace';
+import type { ComputedTraceNode, TraceStandardIdentity } from '../modules/recorder/formula';
 import { EnvironmentBlock } from '../modules/recorder/components/EnvironmentBlock';
 import { DraftRecoveryBanner } from '../modules/recorder/components/DraftRecoveryBanner';
 import { RecordSignOffModal } from '../modules/recorder/components/RecordSignOffModal';
@@ -50,6 +57,8 @@ import {
 } from '../services/recordingGridDocument';
 import { FORCE_UNITS } from '../services/forceUnits';
 import { unitConversionRuleService } from '../services/unitConversionRuleService';
+import { formatColumnValueForDisplay } from '../services/recordingGridDocument';
+import { environmentToEnvMap } from '../services/recordEnvironment';
 import type { StandardWarning } from '../services/referenceStandardVariables';
 import type { CalibrationRecord, ConversionRule, DigitalSignature, Equipment, ForceUnit, RecorderTemplate, RoundEnvironment } from '../types';
 
@@ -277,6 +286,103 @@ export default function RecordEntryPage() {
     for (const [key, snapshot] of Object.entries(snapshots)) labels[key] = snapshot.displayName;
     return labels;
   }, [state?.record.standardSnapshots]);
+
+  // ── Phase 33: Calculation Trace ("view the working" for a computed cell) ──
+  //
+  // Reachable from any computed cell in ANY status (Phase 33 Task 3
+  // requirement 1): RecordingGrid's `onCellSelect` fires on TREB's own
+  // `selection` event, which is navigation, not editing — it now fires
+  // whether isReadOnly or not (RecordingGrid.tsx's own change). Nothing here
+  // writes anything; `traceRecord` (services/recordCalculationTrace.ts) is a
+  // pure function over data already loaded on this page.
+  const [selectedCell, setSelectedCell] = useState<SelectedTraceableCell | null>(null);
+  const [traceView, setTraceView] = useState<{ title: string; node: ComputedTraceNode } | null>(null);
+  const [traceError, setTraceError] = useState<string | null>(null);
+
+  // Identity for `reference-standard` trace nodes (Task 2's TraceStandardIdentity):
+  // a DRAFT reads it from the live `standardOptions` (equipment + equation in
+  // hand); a committed-or-later record reads it from its OWN frozen
+  // `standardSnapshots` (ADR-013 D6 / ADR-014 D6) — never from live options,
+  // the same split `standardSnapshotLabels` above already makes.
+  const standardIdentityById: Record<string, TraceStandardIdentity> = React.useMemo(() => {
+    const identities: Record<string, TraceStandardIdentity> = {};
+    if (isReadOnly) {
+      const snapshots = state?.record.standardSnapshots ?? {};
+      for (const [key, snapshot] of Object.entries(snapshots)) identities[key] = standardIdentityFromSnapshot(snapshot);
+    } else {
+      for (const option of standardOptions) identities[option.key] = standardIdentityFromEquipment(option.equipment, option.equation);
+    }
+    return identities;
+  }, [isReadOnly, state?.record.standardSnapshots, standardOptions]);
+
+  // Human column/summary-field names, and which formula columns have
+  // display-time conversion enabled (Task 4's warning below) — both read
+  // straight off the template, recomputed only when the template changes.
+  const { traceNames, conversionEnabledColumns } = React.useMemo(() => {
+    const names: Record<string, string> = {};
+    const enabled = new Set<string>();
+    if (state) {
+      for (const section of state.template.sections) {
+        for (const column of section.columns) {
+          const key = `${section.id}_${column.id}`;
+          names[key] = column.label || column.id;
+          if (column.type === 'formula' && column.conversionEnabled) enabled.add(key);
+        }
+      }
+      for (const field of state.template.summaryFields) {
+        names[`SUMMARY_${field.id}`] = field.label || field.id;
+      }
+    }
+    return { traceNames: names, conversionEnabledColumns: enabled };
+  }, [state?.template]);
+
+  /**
+   * Builds the trace for whichever cell is currently selected and opens the
+   * modal. Lazy — computed on click, not on every render/keystroke, since
+   * nothing needs a live-updating trace while the technician is still
+   * typing (Task 2's own perf measurement: ~1.7ms for a realistic record,
+   * cheap enough to run on demand but no reason to run on every render).
+   */
+  const handleViewCalculation = () => {
+    if (!state || !selectedCell) return;
+    try {
+      const trace = traceRecord({
+        template: state.template,
+        rows: liveRecalc.getLatestRows(),
+        env: environmentToEnvMap(environment, state.record.reportUnit),
+        standardsById,
+        standardIdentityById,
+        names: traceNames,
+        formatDisplay: (label, value) => {
+          if (typeof value !== 'number') return null;
+          const column = state.template.sections
+            .flatMap((s) => s.columns.map((c) => ({ key: `${s.id}_${c.id}`, column: c })))
+            .find((c) => c.key === label)?.column;
+          if (!column) return null;
+          return formatColumnValueForDisplay(value, column) || null;
+        },
+      });
+
+      if (selectedCell.kind === 'row') {
+        const node = trace.rows[selectedCell.rowIndex]?.[selectedCell.columnKey];
+        if (!node) {
+          setTraceError('No trace is available for this cell — it may not have a value yet.');
+          return;
+        }
+        setTraceView({ title: `${selectedCell.columnKey} — Row ${selectedCell.rowIndex + 1}`, node });
+      } else {
+        const node = trace.summary[selectedCell.fieldId];
+        if (!node) {
+          setTraceError('No trace is available for this summary field yet.');
+          return;
+        }
+        setTraceView({ title: `SUMMARY_${selectedCell.fieldId}`, node });
+      }
+      setTraceError(null);
+    } catch (error) {
+      setTraceError(error instanceof Error ? error.message : 'Could not build a calculation trace for this cell.');
+    }
+  };
 
   // Phase 23 Task 4: captured (previously discarded) so an explicit Save
   // Draft control can show real saved state — the owner otherwise has no
@@ -794,9 +900,40 @@ export default function RecordEntryPage() {
           // record.status already above (a draft has none; once committed it
           // never changes again for this record.id).
           conversionSnapshots={record.conversionSnapshots}
+          onCellSelect={setSelectedCell}
           className="min-h-[400px] h-[500px] w-full"
         />
       </div>
+
+      {/*
+        Phase 33 Task 3: reachable from any computed cell, in any record
+        status — enabled only once a formula/summary cell is actually
+        selected (RecordingGrid's onCellSelect, above). Read-only: this
+        button only ever opens CalculationTraceModal, which itself performs
+        no write of any kind (see that component's own file header).
+      */}
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={handleViewCalculation}
+          disabled={!selectedCell}
+          className="px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          View calculation
+        </button>
+        {!selectedCell && (
+          <span className="text-xs text-gray-400">Select a computed (formula or summary) cell first.</span>
+        )}
+      </div>
+      {traceError && <p className="text-xs text-red-700">{traceError}</p>}
+      {traceView && (
+        <CalculationTraceModal
+          title={traceView.title}
+          node={traceView.node}
+          onClose={() => setTraceView(null)}
+          isConversionEnabled={(label) => conversionEnabledColumns.has(label)}
+        />
+      )}
 
       {/*
         ADR-014 Phase 13: out-of-range / past-due warnings for whatever

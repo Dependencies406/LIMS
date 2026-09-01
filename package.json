@@ -6,7 +6,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "vitest run",
+    "test": "vitest run --reporter=default --reporter=json --outputFile.json=./test-results/vitest-report.json",
     "test:watch": "vitest",
     "report:equipment-type-names": "tsx scripts/reportEquipmentTypeNames.ts",
     "report:record-permission-rollout": "tsx scripts/reportRecordPermissionRolloutReadiness.ts",

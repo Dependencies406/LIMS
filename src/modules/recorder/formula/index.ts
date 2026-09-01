@@ -57,14 +57,45 @@ export {
 export { incompleteBeta, logGamma, studentTTwoTailedP, tinv } from './studentT';
 
 export type {
+  BlockEvaluationContext,
   CellValue,
   CustomFunctionBinding,
   EvaluationContext,
+  EvaluationEvent,
+  EvaluationProbe,
   FormulaValue,
+  ResolveSource,
   RowEvaluationContext,
   SummaryEvaluationContext,
 } from './evaluator';
-export { MAX_CALL_DEPTH, evaluate } from './evaluator';
+export { MAX_CALL_DEPTH, evaluate, evaluateWithProbe } from './evaluator';
+
+// The Calculation Trace (ADR-018 D2/D3).
+export type {
+  ColumnAggregateOrigin,
+  ComputedOrigin,
+  ComputedTraceNode,
+  CustomFunctionOrigin,
+  EnteredTraceNode,
+  EnvironmentTraceNode,
+  ExpressionOrigin,
+  RecordScalarTraceNode,
+  ReferenceOrigin,
+  ReferenceStandardTraceNode,
+  TemplateConstantTraceNode,
+  TraceError,
+  TraceNode,
+  TraceOptions,
+  TraceProvenance,
+  TraceStandardIdentity,
+  TraceValue,
+} from './trace';
+export {
+  TRACE_PROVENANCES,
+  formatTraceValue,
+  traceExpression,
+  traceNodeToLine,
+} from './trace';
 
 export type {
   ColumnFormula,

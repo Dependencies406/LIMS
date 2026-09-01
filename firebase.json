@@ -1,6 +1,11 @@
 {
   "hosting": {
     "public": "dist",
+    "predeploy": [
+      "npm test",
+      "npx tsx scripts/writePlatformValidationReport.ts",
+      "npm run build"
+    ],
     "ignore": [
       "firebase.json",
       "**/.*",

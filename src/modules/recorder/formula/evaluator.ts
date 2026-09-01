@@ -25,9 +25,10 @@
  * switch on the AST node type.
  */
 
-import type { ExpressionNode, IdentifierNode } from './ast';
+import type { ExpressionNode, IdentifierNode, Position } from './ast';
 import { callBuiltin, isBuiltin, isColumnAggregate } from './builtins';
-import { awaitingInput, invalidComputation } from './errors';
+import { FormulaEvaluationError, awaitingInput, invalidComputation } from './errors';
+import type { FormulaErrorKind } from './errors';
 import { sampleStandardDeviation } from './numeric';
 
 /** A stored cell value. `null` (or a missing key) means empty. */
@@ -155,8 +156,120 @@ function readCell(value: CellValue, name: string): FormulaValue {
   return value as FormulaValue;
 }
 
+// ── Instrumentation (ADR-018 D2) ────────────────────────────────────────────
+//
+// The Calculation Trace needs to know where each value CAME FROM, which means
+// observing this evaluation rather than re-implementing it: a trace produced by
+// a second engine would document something the system does not actually do,
+// the single largest technical risk ADR-018 names.
+//
+// The probe therefore reports only what this file already computes, at the
+// points where it computes it:
+//
+//   - which of `evaluateIdentifier`'s branches resolved a name, and to what
+//   - the row values a column aggregate consumed
+//   - entry to and exit from a custom function body
+//
+// It deliberately does NOT report every AST node. ADR-018 D3 rejects full
+// per-operation expansion, so `2 + 3 * 4` is one traced value, not four. The
+// trace's tree structure comes from values depending on other values, not from
+// the shape of one expression.
+//
+// Cost when not tracing: one `probe !== null` check per resolved name. No
+// allocation, no wrapper objects, no change to any existing code path — see
+// `report()` below, which is the only thing the untraced path touches.
+
+/**
+ * Which branch of `evaluateIdentifier` produced a value. These are the
+ * BRANCHES THEMSELVES, not a re-derivation of them — each is reported from
+ * inside the branch it names, so the two cannot drift apart.
+ */
+export type ResolveSource =
+  | 'local'
+  | 'env'
+  | 'report'
+  | 'std'
+  | 'summary'
+  | 'block-column'
+  | 'row-column';
+
+export type EvaluationEvent =
+  | { type: 'resolve'; name: string; source: ResolveSource; value: FormulaValue }
+  /**
+   * A name that did not resolve. Carries no `source`: resolution did not get
+   * far enough to establish one, and inventing it here would be a guess.
+   */
+  | { type: 'resolve-failed'; name: string; kind: FormulaErrorKind; message: string }
+  | {
+      type: 'aggregate';
+      functionName: string;
+      column: string;
+      /** Every row value consumed, in row order (ADR-018: never a summary of them). */
+      values: number[];
+      value: number;
+    }
+  | {
+      type: 'call-entered';
+      functionName: string;
+      params: string[];
+      args: FormulaValue[];
+      /** The argument expressions, so a binding can be labelled by what it came from. */
+      argNodes: ExpressionNode[];
+      body: ExpressionNode;
+      /** The call site, which identifies it uniquely within the calling expression. */
+      position: Position;
+    }
+  /** `value` is null when the body threw. `FormulaValue` is never null, so this is unambiguous. */
+  | { type: 'call-exited'; functionName: string; value: FormulaValue | null }
+  /**
+   * A subexpression that was NOT evaluated: the short-circuited side of
+   * `and`/`or`, or the untaken branch of a ternary.
+   *
+   * Reported because silence is ambiguous. Without this, a name that resolved
+   * elsewhere in the same expression would be substituted into text that never
+   * ran — `1 / X > 5` rendering as `1 / 0 > 5` implies a division that did not
+   * happen. The skipped node lets the trace leave that span written as authored.
+   */
+  | { type: 'branch-skipped'; node: ExpressionNode };
+
+export interface EvaluationProbe {
+  onEvent(event: EvaluationEvent): void;
+}
+
+/**
+ * Reports a resolved name, then returns it unchanged.
+ *
+ * The whole untraced cost of instrumentation is the null check here. Written
+ * as a pass-through so a resolution site stays a single `return` expression
+ * and the branch's own logic is untouched.
+ */
+function report(
+  probe: EvaluationProbe | null,
+  name: string,
+  source: ResolveSource,
+  value: FormulaValue,
+): FormulaValue {
+  if (probe) probe.onEvent({ type: 'resolve', name, source, value });
+  return value;
+}
+
 export function evaluate(node: ExpressionNode, context: EvaluationContext): FormulaValue {
-  return evaluateNode(node, context, null, 0);
+  return evaluateNode(node, context, null, 0, null);
+}
+
+/**
+ * `evaluate` with a probe attached — the SAME code path, the same arithmetic,
+ * the same error semantics. Nothing is recomputed for the trace's benefit.
+ *
+ * `trace.ts` is the intended caller; the value returned here is by construction
+ * the value `evaluate` returns for the same inputs.
+ */
+export function evaluateWithProbe(
+  node: ExpressionNode,
+  context: EvaluationContext,
+  probe: EvaluationProbe,
+): FormulaValue {
+  return evaluateNode(node, context, null, 0, probe);
 }
 
 function evaluateNode(
@@ -164,6 +277,7 @@ function evaluateNode(
   context: EvaluationContext,
   locals: Locals,
   depth: number,
+  probe: EvaluationProbe | null,
 ): FormulaValue {
   switch (node.type) {
     case 'NumberLiteral':
@@ -172,49 +286,79 @@ function evaluateNode(
     case 'StringLiteral':
       return node.value;
 
-    case 'Identifier':
-      return evaluateIdentifier(node, context, locals);
+    case 'Identifier': {
+      if (!probe) return evaluateIdentifier(node, context, locals, null);
+      // The one place a failed resolution is reported. Catching here rather
+      // than at each throw site inside evaluateIdentifier keeps that function's
+      // branch logic byte-for-byte unchanged — an empty cell and an unknown
+      // name both surface, without a second copy of the prefix dispatch.
+      try {
+        return evaluateIdentifier(node, context, locals, probe);
+      } catch (error) {
+        if (error instanceof FormulaEvaluationError) {
+          probe.onEvent({
+            type: 'resolve-failed',
+            name: node.name,
+            kind: error.kind,
+            message: error.message,
+          });
+        }
+        throw error;
+      }
+    }
 
     case 'UnaryMinus': {
-      const operand = evaluateNode(node.operand, context, locals, depth);
+      const operand = evaluateNode(node.operand, context, locals, depth, probe);
       return -requireNumber(operand, 'Negation');
     }
 
     case 'Not':
-      return !toBoolean(evaluateNode(node.operand, context, locals, depth));
+      return !toBoolean(evaluateNode(node.operand, context, locals, depth, probe));
 
     case 'Logical': {
       // Short-circuit, so `x != 0 and 1 / x > 5` never divides by zero.
-      const left = toBoolean(evaluateNode(node.left, context, locals, depth));
+      // The unevaluated side emits no events at all — which is exactly how the
+      // trace knows to list those names as not-evaluated rather than invent a
+      // value for them.
+      const left = toBoolean(evaluateNode(node.left, context, locals, depth, probe));
       if (node.operator === 'and') {
-        if (!left) return false;
-        return toBoolean(evaluateNode(node.right, context, locals, depth));
+        if (!left) {
+          if (probe) probe.onEvent({ type: 'branch-skipped', node: node.right });
+          return false;
+        }
+        return toBoolean(evaluateNode(node.right, context, locals, depth, probe));
       }
-      if (left) return true;
-      return toBoolean(evaluateNode(node.right, context, locals, depth));
+      if (left) {
+        if (probe) probe.onEvent({ type: 'branch-skipped', node: node.right });
+        return true;
+      }
+      return toBoolean(evaluateNode(node.right, context, locals, depth, probe));
     }
 
     case 'Binary': {
-      const left = evaluateNode(node.left, context, locals, depth);
-      const right = evaluateNode(node.right, context, locals, depth);
+      const left = evaluateNode(node.left, context, locals, depth, probe);
+      const right = evaluateNode(node.right, context, locals, depth, probe);
       return evaluateBinary(node.operator, left, right);
     }
 
     case 'Comparison': {
-      const left = evaluateNode(node.left, context, locals, depth);
-      const right = evaluateNode(node.right, context, locals, depth);
+      const left = evaluateNode(node.left, context, locals, depth, probe);
+      const right = evaluateNode(node.right, context, locals, depth, probe);
       return evaluateComparison(node.operator, left, right);
     }
 
     case 'Ternary': {
-      const condition = toBoolean(evaluateNode(node.condition, context, locals, depth));
+      const condition = toBoolean(evaluateNode(node.condition, context, locals, depth, probe));
+      if (probe) {
+        probe.onEvent({ type: 'branch-skipped', node: condition ? node.whenFalse : node.whenTrue });
+      }
       return condition
-        ? evaluateNode(node.whenTrue, context, locals, depth)
-        : evaluateNode(node.whenFalse, context, locals, depth);
+        ? evaluateNode(node.whenTrue, context, locals, depth, probe)
+        : evaluateNode(node.whenFalse, context, locals, depth, probe);
     }
 
     case 'Call':
-      return evaluateCall(node, context, locals, depth);
+      return evaluateCall(node, context, locals, depth, probe);
   }
 }
 
@@ -222,12 +366,15 @@ function evaluateIdentifier(
   node: IdentifierNode,
   context: EvaluationContext,
   locals: Locals,
+  probe: EvaluationProbe | null,
 ): FormulaValue {
   const { name } = node;
 
   // Inside a custom function body the only data inputs are its parameters (§5).
   if (locals) {
-    if (Object.prototype.hasOwnProperty.call(locals, name)) return locals[name];
+    if (Object.prototype.hasOwnProperty.call(locals, name)) {
+      return report(probe, name, 'local', locals[name]);
+    }
     throw invalidComputation(
       `'${name}' is not a parameter of this function. Custom functions may only use their own parameters.`,
     );
@@ -237,7 +384,7 @@ function evaluateIdentifier(
     if (!Object.prototype.hasOwnProperty.call(context.env, name)) {
       throw invalidComputation(`'${name}' is not a known environment value.`);
     }
-    return readCell(context.env[name], name);
+    return report(probe, name, 'env', readCell(context.env[name], name));
   }
 
   // REPORT_ is record-scoped like ENV_, so it resolves from the same map and
@@ -252,7 +399,7 @@ function evaluateIdentifier(
     if (!Object.prototype.hasOwnProperty.call(context.env, name)) {
       throw invalidComputation(`'${name}' is not a known report value.`);
     }
-    return readCell(context.env[name], name);
+    return report(probe, name, 'report', readCell(context.env[name], name));
   }
 
   // Mirrors the ENV_ branch above exactly, with one difference: STD_ is
@@ -274,7 +421,7 @@ function evaluateIdentifier(
     if (!Object.prototype.hasOwnProperty.call(context.std, name)) {
       throw invalidComputation(`'${name}' is not a known reference standard value.`);
     }
-    return readCell(context.std[name], name);
+    return report(probe, name, 'std', readCell(context.std[name], name));
   }
 
   if (name.startsWith('SUMMARY_')) {
@@ -286,7 +433,7 @@ function evaluateIdentifier(
     if (!Object.prototype.hasOwnProperty.call(context.summary, name)) {
       throw invalidComputation(`'${name}' is not a known summary field.`);
     }
-    return readCell(context.summary[name], name);
+    return report(probe, name, 'summary', readCell(context.summary[name], name));
   }
 
   // ADR-017 D4: in block context the block's OWN columns resolve for its own
@@ -294,7 +441,7 @@ function evaluateIdentifier(
   // which is what makes a cross-block reference fail rather than half-work.
   if (context.kind === 'block') {
     if (Object.prototype.hasOwnProperty.call(context.block, name)) {
-      return readCell(context.block[name], name);
+      return report(probe, name, 'block-column', readCell(context.block[name], name));
     }
     throw invalidComputation(
       `'${name}' is a measurement column, which has no single value in a report block. Use a column aggregate such as col_mean(${name}).`,
@@ -310,7 +457,7 @@ function evaluateIdentifier(
   if (!Object.prototype.hasOwnProperty.call(context.row, name)) {
     throw invalidComputation(`'${name}' is not a known column.`);
   }
-  return readCell(context.row[name], name);
+  return report(probe, name, 'row-column', readCell(context.row[name], name));
 }
 
 function evaluateBinary(
@@ -373,6 +520,7 @@ function evaluateCall(
   context: EvaluationContext,
   locals: Locals,
   depth: number,
+  probe: EvaluationProbe | null,
 ): FormulaValue {
   const { callee } = node;
 
@@ -385,12 +533,18 @@ function evaluateCall(
         'Column aggregates can only be used in summary fields and report blocks, not in column formulas.',
       );
     }
-    return evaluateColumnAggregate(callee, node.args, context);
+    return evaluateColumnAggregate(callee, node.args, context, probe);
   }
 
   if (isBuiltin(callee)) {
+    // No event: a builtin is an opaque numeric function whose arguments are
+    // themselves ordinary expressions, already reported as they evaluate. The
+    // substituted expression shows `SQRT(4)` without needing one.
     const args = node.args.map((arg, i) =>
-      requireNumber(evaluateNode(arg, context, locals, depth), `Argument ${i + 1} of ${callee}()`),
+      requireNumber(
+        evaluateNode(arg, context, locals, depth, probe),
+        `Argument ${i + 1} of ${callee}()`,
+      ),
     );
     return callBuiltin(callee, args);
   }
@@ -416,10 +570,31 @@ function evaluateCall(
   // fresh scope containing only the parameters (§5).
   const bound: Record<string, FormulaValue> = {};
   fn.params.forEach((param, i) => {
-    bound[param] = evaluateNode(node.args[i], context, locals, depth);
+    bound[param] = evaluateNode(node.args[i], context, locals, depth, probe);
   });
 
-  return evaluateNode(fn.body, context, bound, depth + 1);
+  if (!probe) return evaluateNode(fn.body, context, bound, depth + 1, null);
+
+  // Entered/exited bracket the body so the trace can nest it: every event
+  // between the two belongs to THIS call, which is what lets `f(1) + f(2)`
+  // produce two bodies with different substituted text rather than one
+  // flattened muddle.
+  probe.onEvent({
+    type: 'call-entered',
+    functionName: callee,
+    params: fn.params,
+    args: fn.params.map((param) => bound[param]),
+    argNodes: node.args,
+    body: fn.body,
+    position: node.position,
+  });
+  let result: FormulaValue | null = null;
+  try {
+    result = evaluateNode(fn.body, context, bound, depth + 1, probe);
+    return result;
+  } finally {
+    probe.onEvent({ type: 'call-exited', functionName: callee, value: result });
+  }
 }
 
 function evaluateColumnAggregate(
@@ -430,6 +605,7 @@ function evaluateColumnAggregate(
   // semantics (including ADR-010's "do NOT skip empties") are shared
   // verbatim rather than reimplemented for blocks.
   context: SummaryEvaluationContext | BlockEvaluationContext,
+  probe: EvaluationProbe | null,
 ): number {
   // The validator guarantees a single bare column reference; this re-checks
   // rather than trusting, since the evaluator is independently callable.
@@ -466,6 +642,19 @@ function evaluateColumnAggregate(
     values.push(cell);
   }
 
+  const result = applyColumnAggregate(name, values);
+
+  // ADR-018 requirement: an aggregate whose inputs are invisible defeats the
+  // purpose, so the consumed row values travel with the result.
+  if (probe) probe.onEvent({ type: 'aggregate', functionName: name, column, values, value: result });
+  return result;
+}
+
+/**
+ * The aggregate arithmetic itself, unchanged and separated only so the values
+ * it consumed can be reported alongside what it produced.
+ */
+function applyColumnAggregate(name: string, values: number[]): number {
   switch (name) {
     case 'col_mean':
       return requireFinite(values.reduce((sum, v) => sum + v, 0) / values.length, `${name}()`);

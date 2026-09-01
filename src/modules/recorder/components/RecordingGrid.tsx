@@ -96,6 +96,7 @@ import {
   type StandardLabelMap,
 } from '../../../services/recordingGridDocument';
 import { convertColumnDisplayValue } from '../../../services/columnConversion';
+import { getColumnIndex } from '../../../utils/formulaHelpers';
 import type { MockupCellResult } from '../../../services/recorderTemplateMockup';
 import type { StandardOption } from '../../../services/referenceStandardOptions';
 import type { ConversionCellSnapshot, ConversionRule, RecordRow, RecorderTemplate } from '../../../types';
@@ -155,6 +156,22 @@ const CONVERSION_FAILURE_STYLE: CellStyle = { locked: true, fill: { text: '#fef3
  */
 const SECTION_HEADER_PALETTE: string[] = ['#dbeafe', '#dcfce7', '#fce7f3', '#ffedd5', '#ede9fe'];
 const SECTION_BOUNDARY_BORDER_FILL = { text: '#4b5563' };
+
+/**
+ * Phase 33 Task 3: the currently selected FORMULA cell, reported on every
+ * TREB `selection` event (a real, documented public event — see the type's
+ * own doc comment in treb-embed/src/types.ts: "sent when the spreadsheet
+ * selection changes. Use GetSelection to get the address."). `null` when
+ * nothing traceable is selected — an input cell, a header, a multi-cell
+ * selection, or nothing at all.
+ *
+ * Selection events fire regardless of `isReadOnly` (navigation, not editing),
+ * which is what makes a trace reachable on a committed-or-later record —
+ * Phase 33 Task 3 requirement 1.
+ */
+export type SelectedTraceableCell =
+  | { kind: 'row'; sectionId: string; columnId: string; columnKey: string; rowIndex: number }
+  | { kind: 'summary'; fieldId: string };
 
 export interface RecordingGridHandle {
   /**
@@ -272,6 +289,14 @@ export interface RecordingGridProps {
    * — see `buildGridDocument`'s own doc comment.
    */
   conversionSnapshots?: Record<string, ConversionCellSnapshot>;
+  /**
+   * Phase 33 Task 3: reports the currently selected formula/summary cell (or
+   * `null`), on every selection change — draft or read-only alike. The
+   * caller uses this to enable a "view calculation" affordance; this
+   * component performs no navigation or lookup of its own beyond reporting
+   * which cell is selected.
+   */
+  onCellSelect?: (cell: SelectedTraceableCell | null) => void;
   className?: string;
 }
 
@@ -389,6 +414,52 @@ function computeColumnWidths(doc: { headerRows: [Array<string | undefined>, Arra
 function deriveFreezeColumnCount(layout: GridLayout): number {
   const standardCol = findStandardColumn(layout);
   return standardCol && standardCol.gridColumnIndex === 0 ? 1 : 0;
+}
+
+/**
+ * Phase 33 Task 3: maps the current TREB selection to a traceable cell, or
+ * `null` when nothing traceable is selected.
+ *
+ * `GetSelection(true)` (qualified) returns `"<SheetName>!<range>"` — the
+ * PUBLIC, documented way to learn which sheet the selection is on (confirmed
+ * from TREB's own source: it resolves `ref.area.start.sheet_id` via
+ * `ResolveSheetName`, there is no lighter-weight public accessor). The
+ * Summary sheet is created with the literal name `'Summary'` (this file's
+ * own mount effect), so this compares against that exact string rather than
+ * an id — the only thing GetSelection's qualified form actually exposes.
+ */
+function resolveSelectedTraceableCell(
+  sheet: EmbeddedSpreadsheet,
+  layout: GridLayout,
+  template: RecorderTemplate,
+): SelectedTraceableCell | null {
+  const qualified = sheet.GetSelection(true);
+  if (!qualified) return null;
+  const plain = sheet.GetSelection(false);
+  const match = /^([A-Z]+)(\d+)(?::|$)/.exec(plain);
+  if (!match) return null; // empty, or a malformed label
+  if (plain.includes(':')) return null; // a multi-cell selection has no single traceable value
+
+  const rowNumber = parseInt(match[2], 10) - 1; // GetSelection's row is 1-based
+
+  if (qualified.startsWith('Summary!')) {
+    const fieldIndex = rowNumber; // Summary tab: row i is template.summaryFields[i] (this file's own mount-effect seeding)
+    const field = template.summaryFields[fieldIndex];
+    return field ? { kind: 'summary', fieldId: field.id } : null;
+  }
+
+  if (rowNumber < FIRST_DATA_ROW) return null; // a header row
+  const columnIndex = getColumnIndex(match[1]);
+  const column = layout.columns.find((c) => c.gridColumnIndex === columnIndex);
+  if (!column || column.column.type !== 'formula') return null;
+
+  return {
+    kind: 'row',
+    sectionId: column.sectionId,
+    columnId: column.columnId,
+    columnKey: column.key,
+    rowIndex: rowNumber - FIRST_DATA_ROW,
+  };
 }
 
 function applyLayout(
@@ -517,7 +588,7 @@ function applyLayout(
 }
 
 export const RecordingGrid = forwardRef<RecordingGridHandle, RecordingGridProps>(
-  ({ template, rows, isReadOnly = false, onRowsChange, standardOptions = [], standardLabels, columnUnits, conversionRules, conversionSnapshots, className }, ref) => {
+  ({ template, rows, isReadOnly = false, onRowsChange, standardOptions = [], standardLabels, columnUnits, conversionRules, conversionSnapshots, onCellSelect, className }, ref) => {
     const containerRef = useRef<HTMLDivElement | null>(null);
     const sheetRef = useRef<EmbeddedSpreadsheet | null>(null);
     const layoutRef = useRef<GridLayout>(buildGridLayout(template));
@@ -560,6 +631,11 @@ export const RecordingGrid = forwardRef<RecordingGridHandle, RecordingGridProps>
     useEffect(() => {
       onRowsChangeRef.current = onRowsChange;
     }, [onRowsChange]);
+
+    const onCellSelectRef = useRef(onCellSelect);
+    useEffect(() => {
+      onCellSelectRef.current = onCellSelect;
+    }, [onCellSelect]);
 
     // Phase 19 — the write/event feedback-loop guards. See
     // docs/PHASE_19_PROMPT_FIX_GRID_FEEDBACK_LOOP.md for the full analysis;
@@ -666,37 +742,43 @@ export const RecordingGrid = forwardRef<RecordingGridHandle, RecordingGridProps>
       });
       resizeObserver.observe(container);
 
-      let token: number | null = null;
-      if (!isReadOnly) {
-        token = sheet.Subscribe((event: EmbeddedSheetEvent) => {
-          if (event.type !== 'document-change') return;
-          // Task 2a: drop any event that fires WHILE we are mid-write —
-          // catches synchronous re-entry (see the ref's own comment above).
-          if (isProgrammaticWriteRef.current) return;
-          const currentLayout = layoutRef.current;
-          const totalColumns = currentLayout.columns.length;
-          const rowCount = rowCountRef.current;
-          if (totalColumns === 0 || rowCount === 0) return;
-          // Phase 21 Task 4a: explicitly the MAIN sheet, regardless of which
-          // tab is currently active — see mainSheetIdRef's own comment.
-          const raw = sheet.GetRange({
-            start: { row: FIRST_DATA_ROW, column: 0, sheet_id: mainSheetId },
-            end: { row: FIRST_DATA_ROW + rowCount - 1, column: totalColumns - 1, sheet_id: mainSheetId },
-          });
-          const values = normalizeRangeValues(raw, rowCount, totalColumns);
-          const nextRows = extractInputRows(
-            currentLayout,
-            values as Array<Array<string | number | boolean | undefined>>,
-            standardKeyByLabelRef.current,
-          );
-          // Task 2b: drop a re-triggered event that carries the SAME input
-          // values as what we already reported — this is what actually
-          // ends the async cycle (see the ref's own comment above).
-          if (rowsEqual(nextRows, lastEmittedRowsRef.current)) return;
-          lastEmittedRowsRef.current = nextRows;
-          onRowsChangeRef.current?.(nextRows);
+      // Phase 33 Task 3: subscribed UNCONDITIONALLY now (was `!isReadOnly`
+      // only) — a `selection` event is navigation, not editing, and a trace
+      // must be reachable on a read-only (committed-or-later) record too.
+      // The document-change branch below keeps its exact prior isReadOnly
+      // gate; nothing about the write-path behavior changes.
+      const token: number = sheet.Subscribe((event: EmbeddedSheetEvent) => {
+        if (event.type === 'selection') {
+          onCellSelectRef.current?.(resolveSelectedTraceableCell(sheet, layoutRef.current, template));
+          return;
+        }
+        if (event.type !== 'document-change' || isReadOnly) return;
+        // Task 2a: drop any event that fires WHILE we are mid-write —
+        // catches synchronous re-entry (see the ref's own comment above).
+        if (isProgrammaticWriteRef.current) return;
+        const currentLayout = layoutRef.current;
+        const totalColumns = currentLayout.columns.length;
+        const rowCount = rowCountRef.current;
+        if (totalColumns === 0 || rowCount === 0) return;
+        // Phase 21 Task 4a: explicitly the MAIN sheet, regardless of which
+        // tab is currently active — see mainSheetIdRef's own comment.
+        const raw = sheet.GetRange({
+          start: { row: FIRST_DATA_ROW, column: 0, sheet_id: mainSheetId },
+          end: { row: FIRST_DATA_ROW + rowCount - 1, column: totalColumns - 1, sheet_id: mainSheetId },
         });
-      }
+        const values = normalizeRangeValues(raw, rowCount, totalColumns);
+        const nextRows = extractInputRows(
+          currentLayout,
+          values as Array<Array<string | number | boolean | undefined>>,
+          standardKeyByLabelRef.current,
+        );
+        // Task 2b: drop a re-triggered event that carries the SAME input
+        // values as what we already reported — this is what actually
+        // ends the async cycle (see the ref's own comment above).
+        if (rowsEqual(nextRows, lastEmittedRowsRef.current)) return;
+        lastEmittedRowsRef.current = nextRows;
+        onRowsChangeRef.current?.(nextRows);
+      });
 
       return () => {
         resizeObserver.disconnect();
