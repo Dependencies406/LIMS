@@ -22,7 +22,8 @@
  * local file only.
  */
 
-import * as admin from 'firebase-admin';
+import { initializeApp, getApps, applicationDefault } from 'firebase-admin/app';
+import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import {
   planEquipmentIdBackfill,
   applyBackfillPlan,
@@ -40,12 +41,12 @@ async function main() {
     ? 'Running in APPLY mode — missing ids WILL be written to Firestore.'
     : 'Running in report-only mode (pass --apply to actually write).');
 
-  if (!admin.apps.length) {
-    admin.initializeApp({
-      credential: admin.credential.applicationDefault(),
+  if (!getApps().length) {
+    initializeApp({
+      credential: applicationDefault(),
     });
   }
-  const db = admin.firestore();
+  const db = getFirestore();
 
   const jobsSnap = await db.collection('jobs').get();
   const jobs: JobLike[] = jobsSnap.docs.map((doc) => ({
@@ -74,7 +75,7 @@ async function main() {
     const nextEquipment = applyBackfillPlan(job.equipment, plan);
     await db.collection('jobs').doc(plan.jobId).update({
       equipment: nextEquipment,
-      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
     });
     console.log(`Updated ${plan.jobId}: backfilled ${plan.indicesToFill.length} id(s).`);
   }

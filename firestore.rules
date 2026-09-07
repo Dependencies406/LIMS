@@ -51,8 +51,32 @@ service cloud.firestore {
     
     // Customers collection - allow public read for autocomplete, authenticated users can write
     match /customers/{customerId} {
-      allow read: if true; // Public read for autocomplete in service request form
-      allow write: if request.auth != null;
+      function callerRole() {
+        return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+      }
+      // Fails CLOSED (ADR-005, Phase 5d): a missing role document grants
+      // NOTHING, for every role including admin. Deleting roles/{role} must
+      // revoke access, not grant it — the opposite of the client's
+      // graceful-degradation fallback in roleService.ts, which is fine for
+      // UI but wrong for the last line of defence.
+      function callerHasPermission(action) {
+        let role = callerRole();
+        return exists(/databases/$(database)/documents/roles/$(role)) &&
+          action in get(/databases/$(database)/documents/roles/$(role)).data.permissions;
+      }
+
+      // PUBLIC READ IS DELIBERATE AND MUST STAY. The unauthenticated service
+      // request form autocompletes the customer name against this collection;
+      // requiring auth here breaks that form for the customers who use it.
+      allow read: if true;
+
+      // Creating and editing a customer stays open to any authenticated user
+      // — unchanged in effect from the blanket write this replaces.
+      allow create, update: if request.auth != null;
+
+      // Deleting is destructive and now requires the permission the Roles
+      // screen already offers (Phase 36).
+      allow delete: if request.auth != null && callerHasPermission('customers.delete');
     }
     
     // Settings collection - authenticated users can read/write
@@ -479,10 +503,40 @@ service cloud.firestore {
     // Authenticated users can read/write, unauthenticated users can only create
     // Stores customer service requests before conversion to jobs
     match /serviceRequests/{requestId} {
-      // Allow anyone to create service requests (for public form)
+      function callerRole() {
+        return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+      }
+      // Fails CLOSED (ADR-005, Phase 5d): a missing role document grants
+      // NOTHING, for every role including admin. Deleting roles/{role} must
+      // revoke access, not grant it — the opposite of the client's
+      // graceful-degradation fallback in roleService.ts, which is fine for
+      // UI but wrong for the last line of defence.
+      function callerHasPermission(action) {
+        let role = callerRole();
+        return exists(/databases/$(database)/documents/roles/$(role)) &&
+          action in get(/databases/$(database)/documents/roles/$(role)).data.permissions;
+      }
+
+      // PUBLIC CREATE IS DELIBERATE AND MUST STAY — this is how a customer
+      // submits a request without an account.
       allow create: if true;
-      // Only authenticated users can read/update/delete
-      allow read, update, delete: if request.auth != null;
+
+      // Reading stays open to any authenticated user.
+      allow read: if request.auth != null;
+
+      // Cancelling a request and converting it to a job are BOTH updates to
+      // this same document, and a security rule cannot tell them apart: by the
+      // time the write arrives they differ only in field values a client
+      // controls. So the rule admits either permission, and the finer
+      // distinction — which button a given user may press — is enforced in
+      // the UI (Phase 36 Task 3, PendingJobsPage.tsx). A user holding neither
+      // permission is refused here regardless.
+      allow update: if request.auth != null && (
+        callerHasPermission('serviceRequests.convert') ||
+        callerHasPermission('serviceRequests.cancel')
+      );
+
+      allow delete: if request.auth != null && callerHasPermission('serviceRequests.delete');
     }
     
     // Roles collection - authenticated users can read, admins can write
@@ -593,10 +647,36 @@ service cloud.firestore {
     
     // Jobs subcollections - allow access to job subcollections
     match /jobs/{jobId} {
+      function callerRole() {
+        return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+      }
+      // Fails CLOSED (ADR-005, Phase 5d): a missing role document grants
+      // NOTHING, for every role including admin. Deleting roles/{role} must
+      // revoke access, not grant it — the opposite of the client's
+      // graceful-degradation fallback in roleService.ts, which is fine for
+      // UI but wrong for the last line of defence.
+      function callerHasPermission(action) {
+        let role = callerRole();
+        return exists(/databases/$(database)/documents/roles/$(role)) &&
+          action in get(/databases/$(database)/documents/roles/$(role)).data.permissions;
+      }
+
       // Job document includes serviceInformation.statementOfConformityReferencePdf (FileAttachment map:
       // id, name, size, type, url, uploadedAt, uploadedBy) for SoC reference PDFs; Storage path matches storage.rules.
-      // Allow authenticated users to read/write the job document itself
-      allow read, write: if request.auth != null;
+      // Allow authenticated users to read/create/update the job document itself.
+      // `write` is split into its three verbs ONLY so delete can be gated
+      // separately; create and update are unchanged in effect.
+      //
+      // This applies to the job DOCUMENT only. Every subcollection below
+      // (documents, spreadsheets, attachments, equipment, serviceRequests,
+      // notifications, calibrations) carries its own match block with its own
+      // allow, and rules do not cascade — so none of them is affected by this
+      // change, including their delete behaviour.
+      allow read, create, update: if request.auth != null;
+
+      // Deleting a job is destructive and now requires the permission the
+      // Roles screen already offers (Phase 36).
+      allow delete: if request.auth != null && callerHasPermission('jobs.delete');
       
       // Documents subcollection
       match /documents/{documentId} {
@@ -711,8 +791,30 @@ service cloud.firestore {
         return userDoc != null && userDoc.data != null ? userDoc.data.role : null;
       }
 
+      function callerRole() {
+        return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+      }
+      // Fails CLOSED (ADR-005, Phase 5d): a missing role document grants
+      // NOTHING, for every role including admin. Deleting roles/{role} must
+      // revoke access, not grant it — the opposite of the client's
+      // graceful-degradation fallback in roleService.ts, which is fine for
+      // UI but wrong for the last line of defence.
+      function callerHasPermission(action) {
+        let role = callerRole();
+        return exists(/databases/$(database)/documents/roles/$(role)) &&
+          action in get(/databases/$(database)/documents/roles/$(role)).data.permissions;
+      }
+
+      // Widened in Phase 36 so the `staffPerformance.view` box on the Roles
+      // screen means what it says. Before this, ticking it did nothing and a
+      // non-admin holding it still saw only their own activity.
+      //
+      // A role WITHOUT the permission is still limited to its own log, which
+      // is the behaviour this replaces — nothing was taken away.
       allow read: if request.auth != null && (
-        request.auth.uid == staffId || getUserRole() == 'admin'
+        request.auth.uid == staffId ||
+        callerRole() == 'admin' ||
+        callerHasPermission('staffPerformance.view')
       );
       allow create: if request.auth != null;
     }
@@ -768,6 +870,23 @@ service cloud.firestore {
     match /trainingRecords/{recordId} {
       allow read: if request.auth != null;
       allow create, update, delete: if request.auth != null;
+    }
+
+    // Certificate Number Allocation Ledger (ADR-019 D6) — one document per
+    // certificate number ever issued, whose document id IS the number itself.
+    //
+    // Read: any authenticated user, so a gap in the certificate register can be
+    // explained by looking up which job and which person consumed a number.
+    //
+    // Write: DENIED TO EVERY CLIENT, unconditionally. Only the
+    // allocateCertificateNumber Cloud Function writes here, and it uses the
+    // Admin SDK, which bypasses security rules entirely. Denying all client
+    // writes is what makes the ledger trustworthy: a client cannot forge,
+    // amend, or erase the record of a number it was issued, so the create-only
+    // document id remains a real uniqueness guarantee rather than a convention.
+    match /certificateNumberAllocations/{allocationId} {
+      allow read: if request.auth != null;
+      allow write: if false;
     }
 
     // Default rule: deny all other access

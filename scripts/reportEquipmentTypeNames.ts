@@ -19,7 +19,8 @@
  * local file only.
  */
 
-import * as admin from 'firebase-admin';
+import { initializeApp, getApps, applicationDefault } from 'firebase-admin/app';
+import { getFirestore } from 'firebase-admin/firestore';
 import { buildNameReport, formatNameReport, type NameSource } from '../src/utils/equipmentTypeNameReport';
 
 async function main() {
@@ -28,12 +29,12 @@ async function main() {
     ? 'Running in report-only mode (this script never writes, with or without --dry-run).'
     : 'Note: this script performs zero writes regardless of flags; pass --dry-run for clarity if you like.');
 
-  if (!admin.apps.length) {
-    admin.initializeApp({
-      credential: admin.credential.applicationDefault(),
+  if (!getApps().length) {
+    initializeApp({
+      credential: applicationDefault(),
     });
   }
-  const db = admin.firestore();
+  const db = getFirestore();
 
   const sources: NameSource[] = [];
 

@@ -12,3 +12,5 @@ if (!getApps().length) {
 
 // Re-export all functions
 export { exportJobsToGoogleDrive } from './exportToDrive';
+export { pingFunctions } from './ping';
+export { allocateCertificateNumber } from './allocateCertificateNumber';

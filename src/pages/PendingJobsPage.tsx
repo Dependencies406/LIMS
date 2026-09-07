@@ -5,12 +5,29 @@ import { serviceRequestService } from '../services/serviceRequestService';
 import { jobService } from '../services/jobService';
 import { useToast } from '../hooks/useToast';
 import { useAuth } from '../contexts/AuthContext';
+import { usePermission } from '../hooks/usePermission';
 import { ServiceRequestModal } from '../components/ServiceRequestModal';
+
+/**
+ * Shown on the Convert / Cancel controls when the signed-in user's role does
+ * not carry the matching permission (Phase 36).
+ *
+ * The control is DISABLED with an explanation rather than hidden: a button that
+ * silently vanishes leaves the user unable to tell whether the action is
+ * missing, broken, or not theirs to take.
+ */
+const CONVERT_NOT_PERMITTED_TITLE =
+  'Your role cannot convert service requests to jobs. Ask an administrator to grant "Convert service requests to jobs".';
+const CANCEL_NOT_PERMITTED_TITLE =
+  'Your role cannot cancel service requests. Ask an administrator to grant "Cancel service requests".';
 
 export const PendingJobsPage: React.FC = () => {
   const navigate = useNavigate();
   const { currentUser } = useAuth();
   const { success, error: showError } = useToast();
+  // Phase 36: these two boxes on the Roles screen now mean something.
+  const { hasPermission: canConvertRequest } = usePermission('serviceRequests.convert');
+  const { hasPermission: canCancelRequest } = usePermission('serviceRequests.cancel');
   const [loading, setLoading] = useState(true);
   const [serviceRequests, setServiceRequests] = useState<ServiceRequest[]>([]);
   const [showServiceRequestModal, setShowServiceRequestModal] = useState(false);
@@ -458,14 +475,23 @@ export const PendingJobsPage: React.FC = () => {
                 <div className="ml-6 flex flex-col space-y-2">
                   <button
                     onClick={() => handleConvertToJob(request)}
-                    disabled={convertingRequestId === request.id}
-                    className="btn btn-primary whitespace-nowrap"
+                    disabled={!canConvertRequest || convertingRequestId === request.id}
+                    className="btn btn-primary whitespace-nowrap disabled:cursor-not-allowed disabled:opacity-50"
+                    title={
+                      !canConvertRequest
+                        ? CONVERT_NOT_PERMITTED_TITLE
+                        : convertingRequestId === request.id
+                          ? 'Converting…'
+                          : 'Convert this request to a job'
+                    }
                   >
                     {convertingRequestId === request.id ? 'Converting...' : 'Convert to Job'}
                   </button>
                   <button
                     onClick={() => handleCancelRequest(request)}
-                    className="btn btn-secondary whitespace-nowrap"
+                    disabled={!canCancelRequest}
+                    className="btn btn-secondary whitespace-nowrap disabled:cursor-not-allowed disabled:opacity-50"
+                    title={canCancelRequest ? 'Cancel this request' : CANCEL_NOT_PERMITTED_TITLE}
                   >
                     Cancel Request
                   </button>

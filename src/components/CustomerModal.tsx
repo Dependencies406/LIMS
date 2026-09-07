@@ -1,6 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import type { Customer } from '../types';
 import { db, doc, setDoc, updateDoc, serverTimestamp, deleteDoc, getDoc } from '../services/firebase';
+import { usePermission } from '../hooks/usePermission';
+
+/**
+ * Shown on the Delete control when the signed-in user's role does not carry
+ * `customers.delete` (Phase 36).
+ *
+ * Disabled with an explanation rather than hidden, so the user can tell the
+ * difference between "not allowed" and "not there".
+ */
+export const CUSTOMER_DELETE_NOT_PERMITTED_TITLE =
+  'Your role cannot delete customers. Ask an administrator to grant "Delete customers".';
 
 interface CustomerModalProps {
   customer: Customer | null;
@@ -14,6 +25,10 @@ export const CustomerModal: React.FC<CustomerModalProps> = ({ customer, onClose,
   const [successMessage, setSuccessMessage] = useState('');
   const [error, setError] = useState('');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  // Phase 36: deleting a customer is destructive, and firestore.rules now
+  // refuses it without this permission. Gate the control so the app never
+  // offers an action the database will reject.
+  const { hasPermission: canDeleteCustomer } = usePermission('customers.delete');
 
   const [form, setForm] = useState({
     customerCode: '',
@@ -287,8 +302,9 @@ export const CustomerModal: React.FC<CustomerModalProps> = ({ customer, onClose,
               <button
                 type="button"
                 onClick={() => setShowDeleteConfirm(true)}
-                className="btn btn-danger"
-                disabled={loading}
+                className="btn btn-danger disabled:cursor-not-allowed disabled:opacity-50"
+                disabled={loading || !canDeleteCustomer}
+                title={canDeleteCustomer ? 'Delete this customer' : CUSTOMER_DELETE_NOT_PERMITTED_TITLE}
               >
                 Delete
               </button>

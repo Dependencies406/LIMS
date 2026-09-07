@@ -24,7 +24,7 @@ import { evaluateSpreadsheet } from '../modules/spreadsheet/services/spreadsheet
 import { shiftAllFormulaReferences } from '../modules/spreadsheet/utils/formulaShifter';
 import ExcelJS from 'exceljs';
 import { certificateNumberConfigService } from '../services/certificateNumberConfigService';
-import { generateCertificateNumber } from '../services/certificateNumberGeneratorService';
+import { generateCertificateNumberForEquipment } from '../services/certificateNumberGeneratorService';
 import type { CertificateNumberConfig } from '../types';
 import type { ColumnDefinition } from '../modules/spreadsheet/models/SpreadsheetModel';
 import { generateSpreadsheetPdf } from '../services/spreadsheetPdfService';
@@ -1077,12 +1077,19 @@ export const EquipmentSpreadsheetModal: React.FC<EquipmentSpreadsheetModalProps>
       return;
     }
 
-    const configToUse = certificateConfigs[0];
-    console.log('[EquipmentSpreadsheetModal] Using certificate config:', configToUse.id, configToUse.name);
-
     setGeneratingCertificateNumber(true);
     try {
-      const certificateNumber = await generateCertificateNumber(configToUse.id);
+      // Phase 35D: allocation happens on the server, which resolves the config
+      // by equipment NAME (ADR-019 D3). This used to pass `certificateConfigs[0]`
+      // — the first config by array position — which is not a defensible way to
+      // choose a certificate series. If the name is not a managed equipment
+      // type, the callable fails loudly with `not-found` rather than silently
+      // drawing from whichever series happened to sort first.
+      const certificateNumber = await generateCertificateNumberForEquipment(
+        String(equipment.name || '').trim(),
+        job.id,
+        equipmentIndex
+      );
       console.log('[EquipmentSpreadsheetModal] Generated certificate number:', certificateNumber);
       
       // Store certificate number on equipment model (single source of truth)

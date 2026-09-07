@@ -92,6 +92,9 @@ export const ALL_PERMISSIONS: Array<{ action: PermissionAction; category: string
   { action: 'equipmentTypes.view', category: 'Equipment Types', description: 'View equipment type reference data' },
   { action: 'equipmentTypes.edit', category: 'Equipment Types', description: 'Create, rename, and (de)activate equipment types' },
 
+  // Equipment Control permissions (equipment records and their attached documents)
+  { action: 'equipmentControl.deleteDocuments', category: 'Equipment Control', description: 'Delete documents attached to an equipment record' },
+
   // Recorder Templates permissions (admin-only per Data & Info Management domain model)
   { action: 'recorderTemplates.view', category: 'Recorder Templates', description: 'View recorder templates' },
   { action: 'recorderTemplates.edit', category: 'Recorder Templates', description: 'Create and edit recorder template drafts' },
@@ -107,6 +110,10 @@ export const ALL_PERMISSIONS: Array<{ action: PermissionAction; category: string
   { action: 'staffPerformance.view', category: 'Staff Performance', description: 'View staff performance dashboard and metrics for all staff' },
   { action: 'staffPerformance.viewOwn', category: 'Staff Performance', description: 'View own performance metrics' },
   { action: 'staffPerformance.exportLogs', category: 'Staff Performance', description: 'Export staff performance logs' },
+
+  // Staff Training permissions (LAB-FM-QP-03-005 training records)
+  { action: 'staffTraining.view', category: 'Staff Training', description: 'View staff training records and competence history' },
+  { action: 'staffTraining.manage', category: 'Staff Training', description: 'Add, edit, and remove staff training records' },
 ];
 
 /** Display name for the built-in `staff` role document (roles/staff). */
@@ -131,6 +138,37 @@ export const DEFAULT_ROLE_PERMISSIONS = {
       action === 'settings.jobIdConfig' ||
       action === 'settings.customerIdConfig' ||
       action === 'settings.companyInfo'
+    ) {
+      return false;
+    }
+    // Phase 36 — the capabilities the owner decided a technician must be
+    // genuinely prevented from using, rather than merely discouraged from.
+    // Each is now enforced in firestore.rules AND gated in the UI, so these
+    // are the first permissions in this list that are real in both places.
+    // Deleting a customer or a job is destructive and hard to undo; cancelling
+    // or converting a service request decides whether work enters the lab at
+    // all; staff performance is other people's activity.
+    // Any of them can still be granted by ticking the box in Settings ->
+    // Users & Roles -> Roles.
+    if (
+      action === 'customers.delete' ||
+      action === 'jobs.delete' ||
+      action === 'serviceRequests.cancel' ||
+      action === 'serviceRequests.convert' ||
+      action === 'staffPerformance.view'
+    ) {
+      return false;
+    }
+    // Phase 37 — three permissions the app was already consulting but that no
+    // role could grant, because they were missing from ALL_PERMISSIONS. Adding
+    // them makes the checks real; excluding them here follows the same line the
+    // owner drew in Phase 36. Deleting an equipment document is destructive,
+    // and training records are competence records the quality manager owns.
+    // Either can now be granted by ticking a box in the Roles screen.
+    if (
+      action === 'equipmentControl.deleteDocuments' ||
+      action === 'staffTraining.view' ||
+      action === 'staffTraining.manage'
     ) {
       return false;
     }

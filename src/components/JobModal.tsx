@@ -1163,7 +1163,11 @@ export const JobModal: React.FC<JobModalProps> = ({
 
     setGeneratingCertificateForRow(equipmentIndex);
     try {
-      const certificateNumber = await generateCertificateNumberForEquipment(equipmentName);
+      const certificateNumber = await generateCertificateNumberForEquipment(
+        equipmentName,
+        currentJob.id,
+        equipmentIndex
+      );
 
       const next = [...equipment];
       next[equipmentIndex] = { ...next[equipmentIndex], certificateNumber };

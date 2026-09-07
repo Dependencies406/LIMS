@@ -60,6 +60,31 @@ Equipment Type.
 
 ---
 
+**Allocate (a certificate number)**
+To consume the next number in an Equipment Type's certificate series and bind it
+to a job item. Allocation is **clerical, not an act of authority** (ADR-019 D1):
+any signed-in user may allocate. It is distinct from **configuring** a series
+(prefix, padding, reset policy), which remains admin-only. Prefer "allocate" over
+"generate" — "generate" suggests a number is computed and could be recomputed,
+when in fact it is taken from a sequence and cannot be taken twice.
+
+> **For developers:** the UI control is still labelled Generate. That is the
+> superseded wording; new code, docs and labels should say Allocate.
+
+**Burned number**
+A certificate number that was allocated and will never appear on an issued
+certificate — typically because the job was cancelled afterwards. Burned numbers
+leave a **gap** in the certificate register. Gaps are accepted (ADR-019 D6) and
+must be explainable: the system records which job consumed each number. Burned
+numbers are never recycled, following ADR-008's reasoning for record numbers.
+
+**Certificate register**
+The ordered sequence of certificate numbers issued for an Equipment Type. An
+assessor reads it for duplicates and unexplained gaps; those two failure modes are
+what ADR-019's server-side allocation exists to prevent and to explain.
+
+---
+
 ## Template structure
 
 **Section**

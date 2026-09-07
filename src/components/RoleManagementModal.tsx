@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../hooks/useToast';
 import { roleService, ALL_PERMISSIONS } from '../services/roleService';
-import { permissionDiscoveryService, type DiscoveredPermission } from '../services/permissionDiscoveryService';
 import type { Role, RoleInput, PermissionAction } from '../types';
 
 /** Set of permission actions that exist in the app (strips legacy forms/documents/masterLists). */
@@ -33,12 +32,6 @@ export const RoleManagementModal: React.FC<RoleManagementModalProps> = ({
   const [selectedRole, setSelectedRole] = useState<Role | null>(null);
   const [roleToDelete, setRoleToDelete] = useState<Role | null>(null);
   const [deleting, setDeleting] = useState(false);
-  
-  // Permission discovery state
-  const [showDiscoveryModal, setShowDiscoveryModal] = useState(false);
-  const [discoveredPermissions, setDiscoveredPermissions] = useState<DiscoveredPermission[]>([]);
-  const [scanning, setScanning] = useState(false);
-  const [selectedDiscoveries, setSelectedDiscoveries] = useState<Set<string>>(new Set());
   
   // Form state
   const [formData, setFormData] = useState<RoleInput>({
@@ -107,61 +100,6 @@ export const RoleManagementModal: React.FC<RoleManagementModalProps> = ({
       permissions: [],
     });
     setShowCreateModal(true);
-  };
-
-  const handleScanForPermissions = async () => {
-    setScanning(true);
-    try {
-      const suggested = await permissionDiscoveryService.scanForNewFeatures();
-      setDiscoveredPermissions(suggested);
-      setSelectedDiscoveries(new Set());
-      setShowDiscoveryModal(true);
-      if (suggested.length === 0) {
-        success('No new permissions found. All registered permissions are already in the system.');
-      } else {
-        success(`Found ${suggested.length} new permission(s) to review.`);
-      }
-    } catch (err: any) {
-      console.error('Error scanning for permissions:', err);
-      showError('Failed to scan for permissions. Please try again.');
-    } finally {
-      setScanning(false);
-    }
-  };
-
-  const handleAddDiscoveredPermissions = async () => {
-    if (selectedDiscoveries.size === 0) {
-      showError('Please select at least one permission to add.');
-      return;
-    }
-
-    try {
-      // Note: In a real implementation, this would update the PermissionAction type
-      // and add the permissions to ALL_PERMISSIONS in roleService.ts
-      // For now, we'll show a message that these need to be manually added
-      
-      const selected = Array.from(selectedDiscoveries);
-      const permissionsToAdd = discoveredPermissions.filter(p => selected.includes(p.action));
-      
-      // Show instructions for adding these permissions
-      const instructions = permissionsToAdd.map(p => 
-        `  { action: '${p.action}', category: '${p.category}', description: '${p.description}' },`
-      ).join('\n');
-      
-      success(
-        `${selected.length} permission(s) selected. ` +
-        `Please add these to src/services/roleService.ts in the ALL_PERMISSIONS array:\n\n${instructions}`
-      );
-      
-      // Close modal after a delay
-      setTimeout(() => {
-        setShowDiscoveryModal(false);
-        setSelectedDiscoveries(new Set());
-      }, 5000);
-    } catch (err: any) {
-      console.error('Error adding permissions:', err);
-      showError('Failed to add permissions. Please try again.');
-    }
   };
 
   const handleEditRole = (role: Role) => {
@@ -315,30 +253,6 @@ export const RoleManagementModal: React.FC<RoleManagementModalProps> = ({
                   />
                 </div>
               </div>
-
-              {/* Discovery Button */}
-              <button
-                onClick={handleScanForPermissions}
-                className="btn btn-secondary whitespace-nowrap"
-                disabled={scanning}
-              >
-                {scanning ? (
-                  <>
-                    <svg className="w-4 h-4 animate-spin inline-block mr-2" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    Scanning...
-                  </>
-                ) : (
-                  <>
-                    <svg className="w-4 h-4 inline-block mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                    </svg>
-                    Scan for New Permissions
-                  </>
-                )}
-              </button>
 
               {/* Create Role Button */}
               <button onClick={handleCreateRole} className="btn btn-primary whitespace-nowrap">
@@ -634,135 +548,6 @@ export const RoleManagementModal: React.FC<RoleManagementModalProps> = ({
         </div>
       )}
 
-      {/* Permission Discovery Modal */}
-      {showDiscoveryModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setShowDiscoveryModal(false)}>
-          <div className="bg-white rounded-xl shadow-2xl p-6 max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-            <div className="flex justify-between items-center mb-6">
-              <div>
-                <h3 className="text-xl font-bold text-gray-900">Discovered Permissions</h3>
-                <p className="text-sm text-gray-600 mt-1">
-                  {discoveredPermissions.length} new permission(s) found in the codebase
-                </p>
-              </div>
-              <button
-                onClick={() => setShowDiscoveryModal(false)}
-                className="text-gray-500 hover:text-gray-700 text-2xl"
-              >
-                ×
-              </button>
-            </div>
-
-            {discoveredPermissions.length === 0 ? (
-              <div className="text-center py-12">
-                <svg className="w-16 h-16 text-green-500 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <h4 className="text-lg font-semibold text-gray-900 mb-2">All Up to Date!</h4>
-                <p className="text-gray-600">
-                  No new permissions were discovered. All registered permissions are already in the system.
-                </p>
-              </div>
-            ) : (
-              <>
-                <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                  <div className="flex items-start">
-                    <svg className="w-5 h-5 text-blue-600 mt-0.5 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <div className="text-sm text-blue-800">
-                      <p className="font-medium mb-1">How to Add These Permissions:</p>
-                      <ol className="list-decimal ml-4 space-y-1">
-                        <li>Select the permissions you want to add</li>
-                        <li>Click "Add Selected Permissions"</li>
-                        <li>Follow the instructions to add them to <code className="bg-blue-100 px-1 rounded">src/services/roleService.ts</code></li>
-                        <li>Update the <code className="bg-blue-100 px-1 rounded">PermissionAction</code> type in <code className="bg-blue-100 px-1 rounded">src/types/index.ts</code></li>
-                      </ol>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-3 max-h-96 overflow-y-auto mb-6">
-                  {discoveredPermissions.map((perm) => (
-                    <label
-                      key={perm.action}
-                      className={`flex items-start space-x-3 p-4 border-2 rounded-lg cursor-pointer transition-all ${
-                        selectedDiscoveries.has(perm.action)
-                          ? 'border-primary-500 bg-primary-50'
-                          : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                      }`}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={selectedDiscoveries.has(perm.action)}
-                        onChange={(e) => {
-                          const newSelected = new Set(selectedDiscoveries);
-                          if (e.target.checked) {
-                            newSelected.add(perm.action);
-                          } else {
-                            newSelected.delete(perm.action);
-                          }
-                          setSelectedDiscoveries(newSelected);
-                        }}
-                        className="mt-1 w-4 h-4 text-primary-600 rounded focus:ring-primary-500"
-                      />
-                      <div className="flex-1">
-                        <div className="flex items-center justify-between mb-1">
-                          <div className="font-medium text-gray-900">{perm.action}</div>
-                          <div className="flex items-center space-x-2">
-                            <span className={`text-xs px-2 py-1 rounded ${
-                              perm.confidence === 'high' ? 'bg-green-100 text-green-800' :
-                              perm.confidence === 'medium' ? 'bg-yellow-100 text-yellow-800' :
-                              'bg-gray-100 text-gray-800'
-                            }`}>
-                              {perm.confidence} confidence
-                            </span>
-                            <span className="text-xs px-2 py-1 bg-blue-100 text-blue-800 rounded">
-                              {perm.category}
-                            </span>
-                          </div>
-                        </div>
-                        <p className="text-sm text-gray-600 mb-2">{perm.description}</p>
-                        {perm.source && (
-                          <p className="text-xs text-gray-500 font-mono">
-                            Source: {perm.source}
-                          </p>
-                        )}
-                      </div>
-                    </label>
-                  ))}
-                </div>
-
-                <div className="flex justify-between items-center pt-4 border-t border-gray-200">
-                  <div className="text-sm text-gray-600">
-                    {selectedDiscoveries.size} of {discoveredPermissions.length} selected
-                  </div>
-                  <div className="flex space-x-3">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowDiscoveryModal(false);
-                        setSelectedDiscoveries(new Set());
-                      }}
-                      className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleAddDiscoveredPermissions}
-                      disabled={selectedDiscoveries.size === 0}
-                      className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      Add Selected Permissions ({selectedDiscoveries.size})
-                    </button>
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-      )}
     </>
   );
 
